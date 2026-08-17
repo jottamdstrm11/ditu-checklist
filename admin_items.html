@@ -37,6 +37,9 @@ tr:hover td{background:#1a1e30}
 input[type=text]{background:#0f1117;border:1px solid #2e3350;border-radius:6px;color:#e8eaf0;padding:6px 9px;font-size:13px;width:100%;font-family:inherit;transition:border .15s}
 input[type=text]:focus{outline:none;border-color:#6366f1}
 input.num-input{width:70px}
+textarea.criterio-input{background:#0f1117;border:1px solid #1e2235;border-radius:6px;color:#7c82a0;padding:5px 9px;font-size:11px;width:100%;font-family:inherit;resize:vertical;min-height:40px;margin-top:5px;transition:border .15s;line-height:1.4}
+textarea.criterio-input:focus{outline:none;border-color:#6366f1;color:#e8eaf0}
+textarea.criterio-input::placeholder{color:#3a3f55}
 
 .toggle{position:relative;display:inline-flex;cursor:pointer}
 .toggle input{opacity:0;width:0;height:0;position:absolute}
@@ -236,8 +239,12 @@ function render(){
             <tr data-id="${item.id}">
               <td><input class="num-input" type="text" value="${esc(item.numero_item)}" placeholder="#"
                 oninput="updateField('${item.id}','numero_item',this.value)"></td>
-              <td><input type="text" value="${esc(item.nombre_item)}" placeholder="Nombre del ítem"
-                oninput="updateField('${item.id}','nombre_item',this.value)"></td>
+              <td>
+                <input type="text" value="${esc(item.nombre_item)}" placeholder="Nombre del ítem"
+                  oninput="updateField('${item.id}','nombre_item',this.value)">
+                <textarea class="criterio-input" placeholder="Criterio de verificación (opcional)…"
+                  oninput="updateField('${item.id}','criterio',this.value)">${esc(item.criterio||'')}</textarea>
+              </td>
               <td style="text-align:center">
                 <label class="toggle">
                   <input type="checkbox" ${item.activo?'checked':''}
@@ -307,7 +314,7 @@ async function saveAll(){
   try{
     // Inserts
     for(const item of toInsert){
-      const body={tipo:item.tipo,seccion:item.seccion,numero_item:item.numero_item,nombre_item:item.nombre_item,activo:item.activo};
+      const body={tipo:item.tipo,seccion:item.seccion,numero_item:item.numero_item,nombre_item:item.nombre_item,activo:item.activo,criterio:item.criterio||''};
       const r=await fetch(SUPA_URL+'/rest/v1/checklist_items',{method:'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(body)});
       const [created]=await r.json();
       if(created?.id){item.id=created.id;allItems.push({...item,id:created.id});}
@@ -320,7 +327,7 @@ async function saveAll(){
       const item=allItems.find(i=>i.id==id);
       if(!item)continue;
       await fetch(SUPA_URL+'/rest/v1/checklist_items?id=eq.'+id,{method:'PATCH',headers:H,
-        body:JSON.stringify({numero_item:item.numero_item,nombre_item:item.nombre_item,activo:item.activo})});
+        body:JSON.stringify({numero_item:item.numero_item,nombre_item:item.nombre_item,activo:item.activo,criterio:item.criterio||''})});
     }
     dirty.clear();
 

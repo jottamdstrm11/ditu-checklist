@@ -147,6 +147,13 @@ td.td-item{
 }
 tr.item-row:nth-child(even) td.td-item{background:#12151e}
 
+/* INFO BUTTON & CRITERIO POPOVER */
+.info-btn{background:none;border:none;cursor:pointer;font-size:12px;color:#6366f1;opacity:.55;padding:0 2px;vertical-align:middle;line-height:1;transition:.15s;margin-left:3px}
+.info-btn:hover{opacity:1;transform:scale(1.15)}
+.item-popover{position:fixed;z-index:2000;background:#1a1d27;border:1px solid #6366f1;border-radius:10px;padding:12px 14px;width:270px;font-size:12px;line-height:1.55;color:#e8eaf0;box-shadow:0 8px 28px rgba(0,0,0,.6);display:none;pointer-events:none}
+.item-popover.show{display:block}
+.item-popover-label{font-size:10px;font-weight:700;color:#6366f1;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+
 /* STATUS BUTTON */
 .s-btn{
   display:block;width:100%;height:34px;
@@ -309,7 +316,7 @@ async function loadConfig(){
     const sortedSecs=SECCION_CANONICAL.filter(s=>secs.includes(s)).concat(secs.filter(s=>!SECCION_CANONICAL.includes(s)));
     ITEMS[tipo]=sortedSecs.map(s=>({
       s,
-      items:ti.filter(i=>i.seccion===s).map(i=>({n:i.numero_item,t:i.nombre_item})).sort((a,b)=>numSort(a.n,b.n))
+      items:ti.filter(i=>i.seccion===s).map(i=>({n:i.numero_item,t:i.nombre_item,c:i.criterio||''})).sort((a,b)=>numSort(a.n,b.n))
     }));
   });
 }
@@ -359,7 +366,8 @@ function buildTable(){
       }).join('');
       const obsKey=`${si}_${ii}`;
       const obsVal=(observations[obsKey]||'').replace(/"/g,'&quot;');
-      html+=`<tr class="item-row"><td class="td-num">${item.n}</td><td class="td-item">${item.t}</td>${devCells}<td style="padding:3px 4px;vertical-align:top"><textarea class="obs-textarea" oninput="observations['${obsKey}']=this.value" placeholder="Comentario...">${obsVal}</textarea></td></tr>`;
+      const infoBtn=item.c?`<button class="info-btn" onclick="showCriterio(this,${JSON.stringify(item.c)})" title="Ver criterio de verificación">ℹ️</button>`:'';
+      html+=`<tr class="item-row"><td class="td-num">${item.n}</td><td class="td-item">${item.t}${infoBtn}</td>${devCells}<td style="padding:3px 4px;vertical-align:top"><textarea class="obs-textarea" oninput="observations['${obsKey}']=this.value" placeholder="Comentario...">${obsVal}</textarea></td></tr>`;
     });
   });
   html+='</tbody></table>';
@@ -443,8 +451,36 @@ async function enviarChecklist(){
 }
 function resetForm(){results={};observations={};document.getElementById('selOperador').value='';checkReady();show('screenSetup');}
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+
+// ── Criterio popover ────────────────────────────────────────────────
+let _popSrc=null;
+function showCriterio(btn,text){
+  const p=document.getElementById('itemPopover');
+  if(_popSrc===btn&&p.classList.contains('show')){p.classList.remove('show');_popSrc=null;return;}
+  document.getElementById('itemPopoverText').textContent=text;
+  _popSrc=btn;
+  p.classList.add('show');
+  const r=btn.getBoundingClientRect();
+  const pw=270;
+  let left=r.left;
+  if(left+pw>window.innerWidth-12)left=window.innerWidth-pw-12;
+  let top=r.bottom+6;
+  if(top+120>window.innerHeight)top=r.top-p.offsetHeight-6;
+  p.style.left=left+'px';
+  p.style.top=top+'px';
+}
+document.addEventListener('click',e=>{
+  const p=document.getElementById('itemPopover');
+  if(p&&!e.target.classList.contains('info-btn')){p.classList.remove('show');_popSrc=null;}
+},true);
+
 (async()=>{initFranjas();await loadConfig();checkReady();})();
 </script>
+
+<div class="item-popover" id="itemPopover">
+  <div class="item-popover-label">Criterio de verificación</div>
+  <div id="itemPopoverText"></div>
+</div>
 
 </body>
 </html>
