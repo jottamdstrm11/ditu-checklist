@@ -1125,7 +1125,7 @@ async function loadData() {
   try {
     const [runs, results] = await Promise.all([
       supaFetch('/rest/v1/checklist_runs?select=*&order=created_at.desc'),
-      supaFetch('/rest/v1/checklist_results?select=*')
+      supaFetch('/rest/v1/checklist_results?select=*&limit=50000')
     ]);
 
     // Build a map runId → run for quick lookup
