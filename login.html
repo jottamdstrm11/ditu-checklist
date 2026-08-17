@@ -51,7 +51,7 @@ const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
 // Si ya hay sesión activa, ir al dashboard
 (async()=>{
   const {data:{session}}=await sb.auth.getSession();
-  if(session)window.location.href='./dashboard_monitoreo_qa.html';
+  if(session)window.location.href='./checklist.html';
 })();
 
 async function doLogin(){
@@ -68,7 +68,7 @@ async function doLogin(){
     err.style.display='block';
     btn.disabled=false;btn.textContent='Ingresar';
   }else{
-    window.location.href='./dashboard_monitoreo_qa.html';
+    window.location.href='./checklist.html';
   }
 }
 </script>
