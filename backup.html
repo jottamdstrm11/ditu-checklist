@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Backup — ditu QA</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f1117;color:#e8eaf0;font-family:system-ui,-apple-system,sans-serif;min-height:100vh;padding:0}
+.sitenav{display:flex;gap:4px;padding:8px 14px;background:#0a0c12;border-bottom:1px solid #1e2235;flex-wrap:wrap;align-items:center;position:sticky;top:0;z-index:100}
+.snav-link{color:#7c82a0;font-size:12px;font-weight:600;text-decoration:none;padding:5px 11px;border-radius:7px;transition:.15s}
+.snav-link:hover{color:#e8eaf0;background:#1a1d27}
+.snav-link.active{color:#c3a0ff;background:#1a1d27}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.user-chip{font-size:11px;color:#7c82a0}
+.logout-btn{background:none;border:1px solid #2e3350;color:#7c82a0;border-radius:7px;padding:4px 10px;font-size:11px;cursor:pointer;transition:.15s}
+.logout-btn:hover{color:#f87171;border-color:#f87171}
+.content{padding:28px 24px;max-width:900px;margin:0 auto}
+h1{font-size:22px;font-weight:800;color:#c3a0ff;margin-bottom:4px}
+.subtitle{color:#7c82a0;font-size:13px;margin-bottom:28px}
+.section{background:#1a1d27;border:1px solid #2e3350;border-radius:14px;padding:22px;margin-bottom:20px}
+.section h2{font-size:14px;font-weight:700;color:#e8eaf0;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.form-row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group label{font-size:11px;color:#7c82a0;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.form-group input[type=date],.form-group select{background:#0f1117;border:1px solid #2e3350;border-radius:8px;color:#e8eaf0;padding:9px 12px;font-size:13px;font-family:inherit;color-scheme:dark;outline:none;transition:border .15s}
+.form-group input:focus,.form-group select:focus{border-color:#6366f1}
+.btn{padding:10px 20px;border-radius:9px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:.15s;display:flex;align-items:center;gap:7px}
+.btn-primary{background:#6366f1;color:#fff}
+.btn-primary:hover{background:#4f52d9}
+.btn-danger{background:#4a1a1a;color:#f87171;border:1px solid #f87171}
+.btn-danger:hover{background:#5a2020}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.runs-list{margin-top:16px}
+table{width:100%;border-collapse:collapse}
+th{padding:9px 12px;text-align:left;font-size:10px;font-weight:700;color:#7c82a0;letter-spacing:.06em;text-transform:uppercase;background:#1c1f2e;border-bottom:1px solid #2e3350}
+td{padding:9px 12px;border-bottom:1px solid #1e2235;font-size:13px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#1e2235}
+.badge{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700}
+.badge-mono{background:#1a2a3a;color:#60a5fa}
+.badge-sop{background:#2a1a3a;color:#c3a0ff}
+.stat-row{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px}
+.stat{background:#0f1117;border:1px solid #2e3350;border-radius:10px;padding:14px 18px;flex:1;min-width:120px}
+.stat-val{font-size:24px;font-weight:800;color:#c3a0ff}
+.stat-lbl{font-size:11px;color:#7c82a0;margin-top:2px}
+.warning-box{background:#3a2a0a;border:1px solid #f59e0b;border-radius:10px;padding:14px 16px;color:#f59e0b;font-size:13px;margin-top:14px;display:none}
+.spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;color:#7c82a0;padding:24px;font-size:13px}
+input[type=checkbox]{accent-color:#6366f1;width:15px;height:15px;cursor:pointer}
+</style>
+</head>
+<body>
+<nav class="sitenav">
+  <a href="./dashboard_monitoreo_qa.html" class="snav-link">📊 Dashboard</a>
+  <a href="./checklist_form.html" class="snav-link">✅ Checklist</a>
+  <a href="./admin_dispositivos.html" class="snav-link">📱 Dispositivos</a>
+  <a href="./admin_items.html" class="snav-link">📋 Ítems</a>
+  <a href="./backup.html" class="snav-link active">💾 Backup</a>
+  <div class="nav-right">
+    <span class="user-chip" id="userEmail"></span>
+    <button class="logout-btn" onclick="logout()">Cerrar sesión</button>
+  </div>
+</nav>
+
+<div class="content">
+  <h1>💾 Backup de datos</h1>
+  <p class="subtitle">Exporta resultados a Excel y libera espacio eliminando registros antiguos de Supabase.</p>
+
+  <!-- Filtros -->
+  <div class="section">
+    <h2>📅 Seleccionar rango de fechas</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Desde</label>
+        <input type="date" id="dateFrom">
+      </div>
+      <div class="form-group">
+        <label>Hasta</label>
+        <input type="date" id="dateTo">
+      </div>
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="filterTipo">
+          <option value="">Todos</option>
+          <option value="monitoreo">Monitoreo</option>
+          <option value="soporte">Soporte</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" id="loadBtn" onclick="loadRuns()">🔍 Buscar</button>
+    </div>
+  </div>
+
+  <!-- Resultados -->
+  <div class="section" id="resultsSection" style="display:none">
+    <h2>📋 Runs encontrados</h2>
+    <div class="stat-row" id="statsRow"></div>
+    <div class="runs-list">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:36px"><input type="checkbox" id="checkAll" onchange="toggleAll(this)"></th>
+            <th>Fecha</th>
+            <th>Franja</th>
+            <th>Operador</th>
+            <th>Tipo</th>
+            <th>Resultados</th>
+          </tr>
+        </thead>
+        <tbody id="runsTbody"></tbody>
+      </table>
+    </div>
+    <div class="warning-box" id="warnBox">
+      ⚠️ Selecciona al menos un run para exportar o eliminar.
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+      <button class="btn btn-primary" id="exportBtn" onclick="exportXLSX()">📥 Exportar seleccionados a Excel</button>
+      <button class="btn btn-danger" id="deleteBtn" onclick="confirmDelete()">🗑 Eliminar seleccionados de Supabase</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL='https://akpuifenfstvobwtqtcq.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcHVpZmVuZnN0dm9id3RxdGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDMxOTAsImV4cCI6MjEwMjM3OTE5MH0.5397pVE5XlyV2864iTf96Ttj--HqoffovzJ9Z9mI0ig';
+const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
+const H={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'};
+
+// Auth guard
+(async()=>{
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){window.location.href='./login.html';return;}
+  document.getElementById('userEmail').textContent=session.user.email;
+  // Default dates: last 3 months
+  const now=new Date(),past=new Date();past.setMonth(past.getMonth()-3);
+  document.getElementById('dateTo').value=now.toISOString().split('T')[0];
+  document.getElementById('dateFrom').value=past.toISOString().split('T')[0];
+})();
+
+async function logout(){await sb.auth.signOut();window.location.href='./login.html';}
+
+let runs=[], results=[];
+
+async function loadRuns(){
+  const btn=document.getElementById('loadBtn');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Buscando...';
+  try{
+    const from=document.getElementById('dateFrom').value;
+    const to=document.getElementById('dateTo').value;
+    const tipo=document.getElementById('filterTipo').value;
+    if(!from||!to){alert('Selecciona rango de fechas.');return;}
+
+    let url=`/rest/v1/checklist_runs?select=*&fecha=gte.${from}&fecha=lte.${to}&order=fecha.desc`;
+    if(tipo)url+=`&tipo=eq.${tipo}`;
+    const r=await fetch(SUPA_URL+url,{headers:H});
+    runs=await r.json();
+
+    if(!runs.length){
+      document.getElementById('runsTbody').innerHTML='<tr><td colspan="6" class="empty">No hay runs en ese rango.</td></tr>';
+      document.getElementById('resultsSection').style.display='block';
+      document.getElementById('statsRow').innerHTML='';
+      return;
+    }
+
+    // Load results for those run ids
+    const ids=runs.map(r=>r.id);
+    const r2=await fetch(SUPA_URL+`/rest/v1/checklist_results?select=*&run_id=in.(${ids.join(',')})`,{headers:H});
+    results=await r2.json();
+
+    renderRuns();
+    renderStats();
+    document.getElementById('resultsSection').style.display='block';
+  }finally{
+    btn.disabled=false;btn.textContent='🔍 Buscar';
+  }
+}
+
+function renderStats(){
+  const total=runs.length;
+  const mono=runs.filter(r=>r.tipo==='monitoreo').length;
+  const sop=runs.filter(r=>r.tipo==='soporte').length;
+  const regs=results.length;
+  const sizeKB=Math.round(JSON.stringify(results).length/1024);
+  document.getElementById('statsRow').innerHTML=`
+    <div class="stat"><div class="stat-val">${total}</div><div class="stat-lbl">Runs totales</div></div>
+    <div class="stat"><div class="stat-val">${mono}</div><div class="stat-lbl">Monitoreo</div></div>
+    <div class="stat"><div class="stat-val">${sop}</div><div class="stat-lbl">Soporte</div></div>
+    <div class="stat"><div class="stat-val">${regs.toLocaleString()}</div><div class="stat-lbl">Registros</div></div>
+    <div class="stat"><div class="stat-val">~${sizeKB} KB</div><div class="stat-lbl">Tamaño estimado</div></div>
+  `;
+}
+
+function renderRuns(){
+  const tbody=document.getElementById('runsTbody');
+  const resByRun={};
+  results.forEach(r=>{resByRun[r.run_id]=(resByRun[r.run_id]||0)+1;});
+  tbody.innerHTML=runs.map(r=>`
+    <tr>
+      <td><input type="checkbox" class="run-check" value="${r.id}"></td>
+      <td>${r.fecha}</td>
+      <td>${r.hora_franja||'—'}</td>
+      <td style="font-weight:600">${r.operador||'—'}</td>
+      <td><span class="badge ${r.tipo==='monitoreo'?'badge-mono':'badge-sop'}">${r.tipo}</span></td>
+      <td style="color:#7c82a0">${resByRun[r.id]||0} registros</td>
+    </tr>
+  `).join('');
+}
+
+function toggleAll(cb){
+  document.querySelectorAll('.run-check').forEach(c=>c.checked=cb.checked);
+}
+
+function getSelected(){
+  return [...document.querySelectorAll('.run-check:checked')].map(c=>c.value);
+}
+
+function showWarn(show){document.getElementById('warnBox').style.display=show?'block':'none';}
+
+function exportXLSX(){
+  const sel=getSelected();
+  if(!sel.length){showWarn(true);setTimeout(()=>showWarn(false),3000);return;}
+  showWarn(false);
+
+  const selRuns=runs.filter(r=>sel.includes(r.id));
+  const selResults=results.filter(r=>sel.includes(r.run_id));
+
+  const wb=XLSX.utils.book_new();
+
+  // Sheet 1: Resumen de runs
+  const resumenData=[
+    ['Fecha','Franja','Operador','Tipo','Total','PASS','FAIL','N/A','UNABLE TO TEST','% Aprobado'],
+    ...selRuns.map(run=>{
+      const res=selResults.filter(r=>r.run_id===run.id);
+      const pass=res.filter(r=>r.estado==='PASS').length;
+      const fail=res.filter(r=>r.estado==='FAIL').length;
+      const na=res.filter(r=>r.estado==='N/A').length;
+      const utt=res.filter(r=>r.estado==='UNABLE TO TEST').length;
+      const pct=res.length?Math.round(pass/res.length*100):0;
+      return[run.fecha,run.hora_franja||'',run.operador||'',run.tipo,res.length,pass,fail,na,utt,pct+'%'];
+    })
+  ];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(resumenData),'Resumen');
+
+  // Sheet 2: Detalle completo
+  const detalleData=[
+    ['Fecha','Franja','Operador','Tipo','Sección','Nº Item','Item','Dispositivo','Estado','Observación'],
+    ...selResults.map(r=>{
+      const run=selRuns.find(s=>s.id===r.run_id)||{};
+      return[run.fecha||'',run.hora_franja||'',run.operador||'',run.tipo||'',
+        r.seccion,r.numero_item,r.nombre_item,r.dispositivo,r.estado,r.observacion||''];
+    })
+  ];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(detalleData),'Detalle');
+
+  const from=document.getElementById('dateFrom').value;
+  const to=document.getElementById('dateTo').value;
+  XLSX.writeFile(wb,`ditu_qa_backup_${from}_${to}.xlsx`);
+}
+
+async function confirmDelete(){
+  const sel=getSelected();
+  if(!sel.length){showWarn(true);setTimeout(()=>showWarn(false),3000);return;}
+  showWarn(false);
+  const selRuns=runs.filter(r=>sel.includes(r.id));
+  const resByRun={};
+  results.forEach(r=>{resByRun[r.run_id]=(resByRun[r.run_id]||0)+1;});
+  const totalRegs=sel.reduce((a,id)=>a+(resByRun[id]||0),0);
+
+  if(!confirm(`¿Eliminar ${sel.length} runs y ${totalRegs} registros de Supabase?\n\nEsta acción NO se puede deshacer. Se recomienda exportar primero.`))return;
+
+  const btn=document.getElementById('deleteBtn');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Eliminando...';
+  try{
+    // Delete results first (FK constraint)
+    await fetch(SUPA_URL+`/rest/v1/checklist_results?run_id=in.(${sel.join(',')})`,{method:'DELETE',headers:H});
+    // Delete runs
+    await fetch(SUPA_URL+`/rest/v1/checklist_runs?id=in.(${sel.join(',')})`,{method:'DELETE',headers:H});
+    alert(`✅ ${sel.length} runs eliminados correctamente. Espacio liberado: ~${Math.round(JSON.stringify(results.filter(r=>sel.includes(r.run_id))).length/1024)} KB`);
+    loadRuns();
+  }catch(e){
+    alert('Error: '+e.message);
+  }finally{
+    btn.disabled=false;btn.innerHTML='🗑 Eliminar seleccionados de Supabase';
+  }
+}
+</script>
+</body>
+</html>

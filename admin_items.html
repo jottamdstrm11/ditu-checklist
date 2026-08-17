@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Admin — Items ditu</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#0f1117;color:#e8eaf0;font-family:system-ui,-apple-system,sans-serif;min-height:100vh;padding:28px 24px}
@@ -80,14 +81,23 @@ input.num-input{width:70px}
 .snav-link{color:#7c82a0;font-size:12px;font-weight:600;text-decoration:none;padding:5px 11px;border-radius:7px;transition:.15s}
 .snav-link:hover{color:#e8eaf0;background:#1a1d27}
 .snav-link.active{color:#c3a0ff;background:#1a1d27}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.user-chip{font-size:11px;color:#7c82a0}
+.logout-btn{background:none;border:1px solid #2e3350;color:#7c82a0;border-radius:7px;padding:4px 10px;font-size:11px;cursor:pointer;transition:.15s}
+.logout-btn:hover{color:#f87171;border-color:#f87171}
 </style>
 </head>
 <body>
 <nav class="sitenav">
   <a href="./dashboard_monitoreo_qa.html" class="snav-link">📊 Dashboard</a>
-  <a href="./index.html" class="snav-link">✅ Checklist</a>
+  <a href="./checklist_form.html" class="snav-link">✅ Checklist</a>
   <a href="./admin_dispositivos.html" class="snav-link">📱 Dispositivos</a>
   <a href="./admin_items.html" class="snav-link active">📋 Ítems</a>
+  <a href="./backup.html" class="snav-link">💾 Backup</a>
+  <div class="nav-right">
+    <span class="user-chip" id="userEmail"></span>
+    <button class="logout-btn" onclick="_sbLogout()">Cerrar sesión</button>
+  </div>
 </nav>
 <h1>📋 Admin — Ítems de checklist</h1>
 <p class="subtitle">Agrega, edita o desactiva ítems de verificación para Monitoreo y Soporte.</p>
@@ -147,6 +157,9 @@ input.num-input{width:70px}
 <div class="toast" id="toast"></div>
 
 <script>
+const _sbc=supabase.createClient('https://akpuifenfstvobwtqtcq.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcHVpZmVuZnN0dm9id3RxdGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDMxOTAsImV4cCI6MjEwMjM3OTE5MH0.5397pVE5XlyV2864iTf96Ttj--HqoffovzJ9Z9mI0ig');
+(async()=>{const{data:{session}}=await _sbc.auth.getSession();if(!session){window.location.href='./login.html';return;}document.getElementById('userEmail').textContent=session.user.email;})();
+async function _sbLogout(){await _sbc.auth.signOut();window.location.href='./login.html';}
 const SUPA_URL='https://akpuifenfstvobwtqtcq.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcHVpZmVuZnN0dm9id3RxdGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDMxOTAsImV4cCI6MjEwMjM3OTE5MH0.5397pVE5XlyV2864iTf96Ttj--HqoffovzJ9Z9mI0ig';
 const H={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'};
