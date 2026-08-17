@@ -366,7 +366,7 @@ function buildTable(){
       }).join('');
       const obsKey=`${si}_${ii}`;
       const obsVal=(observations[obsKey]||'').replace(/"/g,'&quot;');
-      const infoBtn=item.c?`<button class="info-btn" onclick="showCriterio(this,${JSON.stringify(item.c)})" title="Ver criterio de verificación">ℹ️</button>`:'';
+      const infoBtn=item.c?`<button class="info-btn" data-criterio="${item.c.replace(/"/g,'&quot;').replace(/\n/g,'&#10;')}" onclick="showCriterio(this)" title="Ver criterio de verificación">ℹ️</button>`:'';
       html+=`<tr class="item-row"><td class="td-num">${item.n}</td><td class="td-item">${item.t}${infoBtn}</td>${devCells}<td style="padding:3px 4px;vertical-align:top"><textarea class="obs-textarea" oninput="observations['${obsKey}']=this.value" placeholder="Comentario...">${obsVal}</textarea></td></tr>`;
     });
   });
@@ -454,7 +454,8 @@ function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.re
 
 // ── Criterio popover ────────────────────────────────────────────────
 let _popSrc=null;
-function showCriterio(btn,text){
+function showCriterio(btn){
+  const text=btn.dataset.criterio||'';
   const p=document.getElementById('itemPopover');
   if(_popSrc===btn&&p.classList.contains('show')){p.classList.remove('show');_popSrc=null;return;}
   document.getElementById('itemPopoverText').textContent=text;
