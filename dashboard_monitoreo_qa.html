@@ -959,10 +959,11 @@
 <!-- ═══════════════════════ SCRIPTS ═══════════════════════════ -->
 <script>
 // ── State ──────────────────────────────────────────────────────
-let allRows   = [];       // raw data from source
-let allRuns   = [];       // raw checklist_runs
-let runsStats = [];       // computed per-run summary
-let filtered  = [];       // after filters
+let allRows      = [];       // raw data from source
+let allRuns      = [];       // raw checklist_runs
+let runsStats    = [];       // computed per-run summary
+let filtered     = [];       // after filters
+let activeDevices = [];      // devices from checklist_devices table (active only)
 let sortCol   = 'created_at';
 let sortDir   = 'desc';
 let page      = 1;
@@ -1139,10 +1140,14 @@ async function loadData() {
   badge.className   = 'data-source-badge demo';
 
   try {
-    const [runs, results] = await Promise.all([
+    const [runs, results, devices] = await Promise.all([
       supaFetch('/rest/v1/checklist_runs?select=*&order=created_at.desc'),
-      fetchAllResults()
+      fetchAllResults(),
+      supaFetch('/rest/v1/checklist_devices?select=nombre&activo=eq.true&order=nombre.asc')
     ]);
+
+    // Keep only active devices from the DB table
+    activeDevices = (devices || []).map(d => d.nombre).filter(Boolean).sort();
 
     // Build a map runId → run for quick lookup
     const runMap = {};
@@ -1227,7 +1232,11 @@ function populateFilterDropdowns() {
   const secSelect  = document.getElementById('f-seccion');
   const opSelect   = document.getElementById('f-operador');
 
-  const dispositivosSet = [...new Set(allRows.map(r => r.dispositivo))].filter(Boolean).sort();
+  // Use active devices from checklist_devices table (not historical results)
+  // Fall back to unique values from results only if the devices table is empty
+  const dispositivosSet = activeDevices.length > 0
+    ? activeDevices
+    : [...new Set(allRows.map(r => r.dispositivo))].filter(Boolean).sort();
   const seccionesSet    = [...new Set(allRows.map(r => r.seccion))].filter(Boolean).sort();
   const operadoresSet   = [...new Set(allRows.map(r => r.operador))].filter(Boolean).sort();
 
