@@ -249,7 +249,7 @@
     }
     .filter-group select,
     .filter-group input[type="text"] {
-      background: #0f0024;
+      background: #1a0a35;
       border: 1px solid var(--brand-border);
       border-radius: var(--radius-sm);
       color: var(--text-primary);
@@ -258,12 +258,15 @@
       outline: none;
       transition: border-color 0.15s;
       min-height: 34px;
+      color-scheme: dark;
     }
     .filter-group select:focus,
     .filter-group input:focus {
       border-color: var(--brand-accent);
     }
-    .filter-group select option { background: #1a0a35; }
+    .filter-group select option { background: #1a0a35; color: #fff; }
+    select { color-scheme: dark; }
+    select option { background: #1a0a35; color: #fff; }
     .filter-group input[type="date"] {
       background: #0f0024;
       border: 1px solid var(--brand-border);
@@ -691,7 +694,7 @@
 <body>
 <nav class="sitenav">
   <a href="./dashboard_monitoreo_qa.html" class="snav-link active">📊 Dashboard</a>
-  <a href="./index.html" class="snav-link">✅ Checklist</a>
+  <a href="./checklist_form.html" class="snav-link">✅ Checklist</a>
   <a href="./admin_dispositivos.html" class="snav-link">📱 Dispositivos</a>
   <a href="./admin_items.html" class="snav-link">📋 Ítems</a>
 </nav>
@@ -734,10 +737,10 @@
   <div class="config-bar" style="flex-wrap:wrap;gap:10px">
     <span style="font-size:11px;color:var(--text-secondary)">🗄 Supabase</span>
     <span id="dataSourceBadge" class="data-source-badge demo">CARGANDO…</span>
-    <select id="f-operador" onchange="applyFilters()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-primary);padding:5px 10px;border-radius:6px;font-size:12px;outline:none">
+    <select id="f-operador" onchange="applyFilters()" style="background:#1a0a35;border:1px solid rgba(180,140,255,0.3);color:#fff;padding:5px 10px;border-radius:6px;font-size:12px;outline:none;color-scheme:dark">
       <option value="">Todos los operadores</option>
     </select>
-    <select id="f-tipo" onchange="applyFilters()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-primary);padding:5px 10px;border-radius:6px;font-size:12px;outline:none">
+    <select id="f-tipo" onchange="applyFilters()" style="background:#1a0a35;border:1px solid rgba(180,140,255,0.3);color:#fff;padding:5px 10px;border-radius:6px;font-size:12px;outline:none;color-scheme:dark">
       <option value="">Monitoreo y Soporte</option>
       <option value="monitoreo">Monitoreo</option>
       <option value="soporte">Soporte</option>
