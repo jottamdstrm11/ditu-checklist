@@ -682,9 +682,19 @@
       margin-right: 8px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+  .sitenav{display:flex;gap:4px;padding:8px 14px;background:#0a0c12;border-bottom:1px solid #1e2235;flex-wrap:wrap;position:sticky;top:0;z-index:100}
+  .snav-link{color:#7c82a0;font-size:12px;font-weight:600;text-decoration:none;padding:5px 11px;border-radius:7px;transition:.15s}
+  .snav-link:hover{color:#e8eaf0;background:#1a1d27}
+  .snav-link.active{color:#c3a0ff;background:#1a1d27}
   </style>
 </head>
 <body>
+<nav class="sitenav">
+  <a href="./dashboard_monitoreo_qa.html" class="snav-link active">📊 Dashboard</a>
+  <a href="./index.html" class="snav-link">✅ Checklist</a>
+  <a href="./admin_dispositivos.html" class="snav-link">📱 Dispositivos</a>
+  <a href="./admin_items.html" class="snav-link">📋 Ítems</a>
+</nav>
 
 <!-- ═══════════════════════ HEADER ═══════════════════════════ -->
 <header class="header">

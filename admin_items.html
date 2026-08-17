@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin — Items ditu</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f1117;color:#e8eaf0;font-family:system-ui,-apple-system,sans-serif;min-height:100vh;padding:28px 24px}
+h1{font-size:22px;font-weight:800;color:#c3a0ff;margin-bottom:4px}
+.subtitle{color:#7c82a0;font-size:13px;margin-bottom:20px}
+
+/* Tabs tipo */
+.tabs{display:flex;gap:8px;margin-bottom:20px}
+.tab{padding:9px 22px;border-radius:9px;border:1px solid #2e3350;background:#1a1d27;color:#7c82a0;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+.tab.active{background:#6366f1;border-color:#6366f1;color:#fff}
+
+/* Toolbar */
+.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.search{background:#1a1d27;border:1px solid #2e3350;border-radius:9px;color:#e8eaf0;padding:9px 14px;font-size:13px;width:220px;font-family:inherit}
+.search:focus{outline:none;border-color:#6366f1}
+.sec-filter{background:#1a1d27;border:1px solid #2e3350;border-radius:9px;color:#e8eaf0;padding:9px 14px;font-size:13px;font-family:inherit;cursor:pointer}
+.sec-filter:focus{outline:none;border-color:#6366f1}
+
+/* Section groups */
+.sec-block{margin-bottom:16px;border-radius:12px;overflow:hidden;border:1px solid #2e3350}
+.sec-header{background:#22263a;padding:10px 16px;font-size:12px;font-weight:700;color:#c3a0ff;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center}
+.sec-count{background:#2e3350;border-radius:5px;padding:2px 8px;font-size:11px;color:#7c82a0}
+
+table{width:100%;border-collapse:collapse}
+th{padding:9px 12px;text-align:left;font-size:10px;font-weight:700;color:#7c82a0;letter-spacing:.06em;text-transform:uppercase;background:#1c1f2e;border-bottom:1px solid #2e3350}
+td{padding:7px 10px;border-bottom:1px solid #1e2235;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#1a1e30}
+
+input[type=text]{background:#0f1117;border:1px solid #2e3350;border-radius:6px;color:#e8eaf0;padding:6px 9px;font-size:13px;width:100%;font-family:inherit;transition:border .15s}
+input[type=text]:focus{outline:none;border-color:#6366f1}
+input.num-input{width:70px}
+
+.toggle{position:relative;display:inline-flex;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.slider{width:34px;height:18px;background:#2e3350;border-radius:9px;position:relative;transition:.2s}
+.slider::after{content:'';position:absolute;width:12px;height:12px;background:#fff;border-radius:50%;top:3px;left:3px;transition:.2s}
+.toggle input:checked+.slider{background:#6366f1}
+.toggle input:checked+.slider::after{left:19px}
+
+.del-btn{background:none;border:none;color:#4a2020;cursor:pointer;font-size:16px;padding:2px 6px;border-radius:5px;transition:.15s}
+.del-btn:hover{color:#f87171;background:#3a1a1a}
+
+/* Add item form */
+.add-form{background:#1a1d27;border:1px solid #2e3350;border-radius:12px;padding:16px;margin-bottom:16px;display:none}
+.add-form.open{display:block}
+.add-form h3{font-size:13px;font-weight:700;color:#c3a0ff;margin-bottom:12px}
+.form-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group label{font-size:11px;color:#7c82a0;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.form-group input,.form-group select{background:#0f1117;border:1px solid #2e3350;border-radius:7px;color:#e8eaf0;padding:8px 11px;font-size:13px;font-family:inherit}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:#6366f1}
+.form-group.grow{flex:1;min-width:200px}
+.btn-confirm{background:#34d399;color:#0a1a12;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer}
+.btn-confirm:hover{background:#2ec286}
+.btn-cancel-add{background:#22263a;color:#7c82a0;border:1px solid #2e3350;border-radius:8px;padding:9px 14px;font-size:13px;cursor:pointer}
+
+/* Footer */
+.footer{display:flex;justify-content:space-between;align-items:center;margin-top:20px;flex-wrap:wrap;gap:12px}
+.btn-add{background:#22263a;color:#c3a0ff;border:1px solid #6366f1;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+.btn-add:hover{background:#2a2e45}
+.btn-save{background:#6366f1;color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;transition:.15s}
+.btn-save:hover{background:#4f52d9}
+.btn-save:disabled{opacity:.5;cursor:not-allowed}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#22263a;border:1px solid #6366f1;border-radius:10px;padding:12px 24px;font-size:13px;color:#e8eaf0;display:none;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,.4);white-space:nowrap}
+.toast.show{display:block}
+.toast.error{border-color:#f87171;color:#f87171}
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.empty{text-align:center;color:#7c82a0;padding:28px;font-size:13px}
+.sitenav{display:flex;gap:4px;padding:8px 14px;background:#0a0c12;border-bottom:1px solid #1e2235;flex-wrap:wrap;margin:-28px -24px 24px;position:sticky;top:0;z-index:100}
+.snav-link{color:#7c82a0;font-size:12px;font-weight:600;text-decoration:none;padding:5px 11px;border-radius:7px;transition:.15s}
+.snav-link:hover{color:#e8eaf0;background:#1a1d27}
+.snav-link.active{color:#c3a0ff;background:#1a1d27}
+</style>
+</head>
+<body>
+<nav class="sitenav">
+  <a href="./dashboard_monitoreo_qa.html" class="snav-link">📊 Dashboard</a>
+  <a href="./index.html" class="snav-link">✅ Checklist</a>
+  <a href="./admin_dispositivos.html" class="snav-link">📱 Dispositivos</a>
+  <a href="./admin_items.html" class="snav-link active">📋 Ítems</a>
+</nav>
+<h1>📋 Admin — Ítems de checklist</h1>
+<p class="subtitle">Agrega, edita o desactiva ítems de verificación para Monitoreo y Soporte.</p>
+
+<div class="tabs">
+  <button class="tab active" onclick="setTipo('monitoreo',this)">🔵 Monitoreo</button>
+  <button class="tab" onclick="setTipo('soporte',this)">🟣 Soporte</button>
+</div>
+
+<div class="toolbar">
+  <input class="search" id="searchBox" type="text" placeholder="Buscar ítem..." oninput="render()">
+  <select class="sec-filter" id="secFilter" onchange="render()">
+    <option value="">Todas las secciones</option>
+  </select>
+</div>
+
+<!-- Add item form -->
+<div class="add-form" id="addForm">
+  <h3>➕ Nuevo ítem</h3>
+  <div class="form-row">
+    <div class="form-group">
+      <label>Número</label>
+      <input type="text" id="newNum" placeholder="Ej: 2.5" style="width:90px">
+    </div>
+    <div class="form-group" style="min-width:180px">
+      <label>Sección</label>
+      <select id="newSec">
+        <option value="CUENTA">CUENTA</option>
+        <option value="NAVEGACION">NAVEGACION</option>
+        <option value="LIVE">LIVE</option>
+        <option value="VOD">VOD</option>
+        <option value="ADS Y PUBLICIDAD">ADS Y PUBLICIDAD</option>
+        <option value="PLATAFORMA LEGAL Y SOPORTE">PLATAFORMA LEGAL Y SOPORTE</option>
+        <option value="__nueva__">+ Nueva sección...</option>
+      </select>
+    </div>
+    <div class="form-group" id="newSecCustomWrap" style="display:none;min-width:180px">
+      <label>Nombre sección</label>
+      <input type="text" id="newSecCustom" placeholder="Nombre de sección">
+    </div>
+    <div class="form-group grow">
+      <label>Nombre del ítem</label>
+      <input type="text" id="newName" placeholder="Descripción del ítem de verificación">
+    </div>
+    <button class="btn-confirm" onclick="confirmAdd()">Agregar</button>
+    <button class="btn-cancel-add" onclick="toggleAddForm()">Cancelar</button>
+  </div>
+</div>
+
+<div id="content"></div>
+
+<div class="footer">
+  <button class="btn-add" onclick="toggleAddForm()">+ Nuevo ítem</button>
+  <button class="btn-save" id="saveBtn" onclick="saveAll()">💾 Guardar cambios</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPA_URL='https://akpuifenfstvobwtqtcq.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcHVpZmVuZnN0dm9id3RxdGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDMxOTAsImV4cCI6MjEwMjM3OTE5MH0.5397pVE5XlyV2864iTf96Ttj--HqoffovzJ9Z9mI0ig';
+const H={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'};
+const SECS=['CUENTA','NAVEGACION','LIVE','VOD','ADS Y PUBLICIDAD','PLATAFORMA LEGAL Y SOPORTE'];
+
+let allItems=[];
+let currentTipo='monitoreo';
+let dirty=new Set(); // ids with pending changes
+let toDelete=new Set();
+let toInsert=[];
+
+async function load(){
+  document.getElementById('content').innerHTML='<p class="empty">Cargando...</p>';
+  const r=await fetch(SUPA_URL+'/rest/v1/checklist_items?select=*&order=seccion,numero_item',{headers:H});
+  allItems=await r.json();
+  render();
+}
+
+function setTipo(tipo,btn){
+  currentTipo=tipo;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('searchBox').value='';
+  document.getElementById('addForm').classList.remove('open');
+  render();
+}
+
+function numSort(a,b){
+  const pa=String(a).split('.').map(Number),pb=String(b).split('.').map(Number);
+  for(let i=0;i<Math.max(pa.length,pb.length);i++){
+    const va=pa[i]!==undefined?pa[i]:-1,vb=pb[i]!==undefined?pb[i]:-1;
+    if(va!==vb)return va-vb;
+  }
+  return 0;
+}
+
+function render(){
+  const q=(document.getElementById('searchBox').value||'').toLowerCase();
+  const secF=document.getElementById('secFilter').value;
+
+  const items=allItems.filter(i=>i.tipo===currentTipo&&!toDelete.has(i.id));
+  const secs=[...new Set(items.map(i=>i.seccion))];
+  const sortedSecs=SECS.filter(s=>secs.includes(s)).concat(secs.filter(s=>!SECS.includes(s)));
+
+  // update section filter dropdown
+  const sf=document.getElementById('secFilter');
+  const prev=sf.value;
+  sf.innerHTML='<option value="">Todas las secciones</option>'+
+    sortedSecs.map(s=>`<option value="${s}"${s===prev?'selected':''}>${s}</option>`).join('');
+
+  // also include pending inserts
+  const pending=toInsert.filter(i=>i.tipo===currentTipo&&!toDelete.has(i.id));
+
+  let html='';
+  const allSecs=secF?[secF]:sortedSecs;
+
+  for(const sec of allSecs){
+    let secItems=[...items.filter(i=>i.seccion===sec),...pending.filter(i=>i.seccion===sec)]
+      .sort((a,b)=>numSort(a.numero_item,b.numero_item));
+    if(q)secItems=secItems.filter(i=>i.nombre_item.toLowerCase().includes(q)||String(i.numero_item).includes(q));
+    if(!secItems.length)continue;
+
+    html+=`<div class="sec-block">
+      <div class="sec-header">📋 ${sec} <span class="sec-count">${secItems.length} ítems</span></div>
+      <table>
+        <thead><tr>
+          <th style="width:80px">#</th>
+          <th>Nombre del ítem</th>
+          <th style="width:70px;text-align:center">Activo</th>
+          <th style="width:44px"></th>
+        </tr></thead>
+        <tbody>
+          ${secItems.map(item=>`
+            <tr data-id="${item.id}">
+              <td><input class="num-input" type="text" value="${esc(item.numero_item)}" placeholder="#"
+                oninput="updateField('${item.id}','numero_item',this.value)"></td>
+              <td><input type="text" value="${esc(item.nombre_item)}" placeholder="Nombre del ítem"
+                oninput="updateField('${item.id}','nombre_item',this.value)"></td>
+              <td style="text-align:center">
+                <label class="toggle">
+                  <input type="checkbox" ${item.activo?'checked':''}
+                    onchange="updateField('${item.id}','activo',this.checked)">
+                  <span class="slider"></span>
+                </label>
+              </td>
+              <td><button class="del-btn" onclick="deleteItem('${item.id}')" title="Eliminar">🗑</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  }
+
+  if(!html)html='<p class="empty">No hay ítems que mostrar para este filtro.</p>';
+  document.getElementById('content').innerHTML=html;
+}
+
+function esc(s){return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+
+function updateField(id,field,val){
+  // find in allItems or toInsert
+  let item=allItems.find(i=>i.id==id)||toInsert.find(i=>i.id==id);
+  if(item){item[field]=val;dirty.add(id);}
+}
+
+function deleteItem(id){
+  if(!confirm('¿Eliminar este ítem?'))return;
+  toDelete.add(id);
+  // remove from toInsert if it's new
+  toInsert=toInsert.filter(i=>i.id!=id);
+  render();
+}
+
+function toggleAddForm(){
+  const f=document.getElementById('addForm');
+  f.classList.toggle('open');
+  if(f.classList.contains('open')){
+    document.getElementById('newNum').value='';
+    document.getElementById('newName').value='';
+    document.getElementById('newSec').value='CUENTA';
+    document.getElementById('newNum').focus();
+  }
+}
+
+document.getElementById('newSec').addEventListener('change',function(){
+  document.getElementById('newSecCustomWrap').style.display=this.value==='__nueva__'?'':'none';
+});
+
+function confirmAdd(){
+  const num=document.getElementById('newNum').value.trim();
+  const name=document.getElementById('newName').value.trim();
+  let sec=document.getElementById('newSec').value;
+  if(sec==='__nueva__')sec=document.getElementById('newSecCustom').value.trim().toUpperCase();
+  if(!num||!name||!sec){alert('Completa número, sección y nombre.');return;}
+  const tmpId='new_'+Date.now();
+  toInsert.push({id:tmpId,tipo:currentTipo,seccion:sec,numero_item:num,nombre_item:name,activo:true});
+  dirty.add(tmpId);
+  toggleAddForm();
+  render();
+}
+
+async function saveAll(){
+  const btn=document.getElementById('saveBtn');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Guardando...';
+  try{
+    // Inserts
+    for(const item of toInsert){
+      const body={tipo:item.tipo,seccion:item.seccion,numero_item:item.numero_item,nombre_item:item.nombre_item,activo:item.activo};
+      const r=await fetch(SUPA_URL+'/rest/v1/checklist_items',{method:'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(body)});
+      const [created]=await r.json();
+      if(created?.id){item.id=created.id;allItems.push({...item,id:created.id});}
+    }
+    toInsert=[];
+
+    // Updates (existing items that were modified and not deleted)
+    for(const id of dirty){
+      if(toDelete.has(id)||String(id).startsWith('new_'))continue;
+      const item=allItems.find(i=>i.id==id);
+      if(!item)continue;
+      await fetch(SUPA_URL+'/rest/v1/checklist_items?id=eq.'+id,{method:'PATCH',headers:H,
+        body:JSON.stringify({numero_item:item.numero_item,nombre_item:item.nombre_item,activo:item.activo})});
+    }
+    dirty.clear();
+
+    // Deletes
+    for(const id of toDelete){
+      if(String(id).startsWith('new_'))continue;
+      await fetch(SUPA_URL+'/rest/v1/checklist_items?id=eq.'+id,{method:'DELETE',headers:H});
+    }
+    toDelete.clear();
+
+    showToast('✅ Cambios guardados');
+    await load();
+  }catch(e){
+    showToast('❌ Error: '+e.message,true);
+  }finally{
+    btn.disabled=false;btn.innerHTML='💾 Guardar cambios';
+  }
+}
+
+function showToast(msg,isError=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='toast'+(isError?' error':'')+' show';
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+load();
+</script>
+</body>
+</html>

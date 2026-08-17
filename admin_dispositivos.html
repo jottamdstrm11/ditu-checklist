@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin — Dispositivos ditu</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f1117;color:#e8eaf0;font-family:system-ui,-apple-system,sans-serif;min-height:100vh;padding:32px 24px}
+h1{font-size:22px;font-weight:800;color:#c3a0ff;margin-bottom:6px}
+.subtitle{color:#7c82a0;font-size:13px;margin-bottom:28px}
+.card{background:#1a1d27;border:1px solid #2e3350;border-radius:14px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead tr{background:#22263a}
+th{padding:12px 16px;text-align:left;font-size:11px;font-weight:700;color:#7c82a0;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid #2e3350}
+td{padding:10px 16px;border-bottom:1px solid #1e2235;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#1e2235}
+input[type=text]{background:#0f1117;border:1px solid #2e3350;border-radius:7px;color:#e8eaf0;padding:7px 10px;font-size:13px;width:100%;font-family:inherit;transition:border .15s}
+input[type=text]:focus{outline:none;border-color:#6366f1}
+.toggle{position:relative;display:inline-flex;align-items:center;cursor:pointer;gap:8px;font-size:13px;color:#7c82a0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.slider{width:36px;height:20px;background:#2e3350;border-radius:10px;position:relative;transition:.2s}
+.slider::after{content:'';position:absolute;width:14px;height:14px;background:#fff;border-radius:50%;top:3px;left:3px;transition:.2s}
+.toggle input:checked+.slider{background:#6366f1}
+.toggle input:checked+.slider::after{left:19px}
+.order-cell{display:flex;align-items:center;gap:6px}
+.arrow-btn{background:#22263a;border:1px solid #2e3350;color:#7c82a0;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;padding:0;transition:.15s}
+.arrow-btn:hover{color:#e8eaf0;border-color:#6366f1}
+.btn-save{background:#6366f1;color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;transition:.15s}
+.btn-save:hover{background:#4f52d9}
+.btn-save:disabled{opacity:.5;cursor:not-allowed}
+.btn-add{background:#22263a;color:#c3a0ff;border:1px solid #6366f1;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+.btn-add:hover{background:#2a2e45}
+.footer{display:flex;justify-content:space-between;align-items:center;margin-top:20px;flex-wrap:wrap;gap:12px}
+.sitenav{display:flex;gap:4px;padding:8px 14px;background:#0a0c12;border-bottom:1px solid #1e2235;flex-wrap:wrap;margin:-32px -24px 24px;position:sticky;top:0;z-index:100}
+.snav-link{color:#7c82a0;font-size:12px;font-weight:600;text-decoration:none;padding:5px 11px;border-radius:7px;transition:.15s}
+.snav-link:hover{color:#e8eaf0;background:#1a1d27}
+.snav-link.active{color:#c3a0ff;background:#1a1d27}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#22263a;border:1px solid #6366f1;border-radius:10px;padding:12px 24px;font-size:13px;color:#e8eaf0;display:none;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.toast.show{display:block}
+.toast.error{border-color:#f87171;color:#f87171}
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.badge{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;letter-spacing:.04em}
+.badge-active{background:#1a3a2a;color:#34d399}
+.badge-inactive{background:#3a1a1a;color:#f87171}
+</style>
+</head>
+<body>
+<nav class="sitenav">
+  <a href="./dashboard_monitoreo_qa.html" class="snav-link">📊 Dashboard</a>
+  <a href="./index.html" class="snav-link">✅ Checklist</a>
+  <a href="./admin_dispositivos.html" class="snav-link active">📱 Dispositivos</a>
+  <a href="./admin_items.html" class="snav-link">📋 Ítems</a>
+</nav>
+<h1>⚙️ Admin — Dispositivos ditu</h1>
+<p class="subtitle">Edita nombre, versión y estado de cada dispositivo. Los cambios se reflejan inmediatamente en el formulario de checklist.</p>
+
+<div class="card">
+  <table id="devTable">
+    <thead>
+      <tr>
+        <th style="width:44px">Orden</th>
+        <th style="width:160px">Nombre</th>
+        <th style="width:130px">Versión</th>
+        <th style="width:80px">Activo</th>
+        <th style="width:90px">Mover</th>
+      </tr>
+    </thead>
+    <tbody id="tbody">
+      <tr><td colspan="5" style="text-align:center;color:#7c82a0;padding:32px">Cargando...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="footer">
+  <button class="btn-add" onclick="addRow()">+ Agregar dispositivo</button>
+  <button class="btn-save" id="saveBtn" onclick="saveAll()">💾 Guardar cambios</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPA_URL='https://akpuifenfstvobwtqtcq.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcHVpZmVuZnN0dm9id3RxdGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDMxOTAsImV4cCI6MjEwMjM3OTE5MH0.5397pVE5XlyV2864iTf96Ttj--HqoffovzJ9Z9mI0ig';
+const H={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'};
+
+let devices=[];
+
+async function load(){
+  const r=await fetch(SUPA_URL+'/rest/v1/checklist_devices?order=orden&select=*',{headers:H});
+  devices=await r.json();
+  render();
+}
+
+function render(){
+  const tb=document.getElementById('tbody');
+  if(!devices.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:#7c82a0;padding:32px">Sin dispositivos</td></tr>';return;}
+  tb.innerHTML=devices.map((d,i)=>`
+    <tr data-idx="${i}">
+      <td style="color:#7c82a0;font-size:12px;font-weight:600">${d.orden??i+1}</td>
+      <td><input type="text" value="${esc(d.nombre)}" placeholder="Nombre" oninput="devices[${i}].nombre=this.value"></td>
+      <td><input type="text" value="${esc(d.version??'')}" placeholder="Versión" oninput="devices[${i}].version=this.value"></td>
+      <td>
+        <label class="toggle">
+          <input type="checkbox" ${d.activo?'checked':''} onchange="devices[${i}].activo=this.checked">
+          <span class="slider"></span>
+        </label>
+      </td>
+      <td>
+        <div class="order-cell">
+          <button class="arrow-btn" onclick="moveUp(${i})" title="Subir" ${i===0?'disabled':''}>▲</button>
+          <button class="arrow-btn" onclick="moveDown(${i})" title="Bajar" ${i===devices.length-1?'disabled':''}>▼</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function esc(s){return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+
+function moveUp(i){
+  if(i===0)return;
+  [devices[i],devices[i-1]]=[devices[i-1],devices[i]];
+  reorder();render();
+}
+function moveDown(i){
+  if(i===devices.length-1)return;
+  [devices[i],devices[i+1]]=[devices[i+1],devices[i]];
+  reorder();render();
+}
+function reorder(){devices.forEach((d,i)=>d.orden=i+1);}
+
+function addRow(){
+  devices.push({id:null,nombre:'',version:'',activo:true,orden:devices.length+1,clave:'nuevo_'+Date.now()});
+  render();
+  // focus last nombre input
+  setTimeout(()=>{const inputs=document.querySelectorAll('#tbody input[type=text]');if(inputs.length)inputs[inputs.length-2].focus();},50);
+}
+
+async function saveAll(){
+  const btn=document.getElementById('saveBtn');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Guardando...';
+  try{
+    for(const d of devices){
+      if(!d.nombre.trim())continue;
+      if(!d.clave||d.clave.startsWith('nuevo_')){
+        // generate clave from nombre
+        d.clave=d.nombre.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+      }
+      const body={nombre:d.nombre,version:d.version||'',activo:d.activo,orden:d.orden,clave:d.clave};
+      if(d.id){
+        // update
+        await fetch(SUPA_URL+'/rest/v1/checklist_devices?id=eq.'+d.id,{method:'PATCH',headers:H,body:JSON.stringify(body)});
+      }else{
+        // insert
+        const r=await fetch(SUPA_URL+'/rest/v1/checklist_devices',{method:'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(body)});
+        const [created]=await r.json();
+        if(created?.id)d.id=created.id;
+      }
+    }
+    showToast('✅ Cambios guardados correctamente');
+    await load();
+  }catch(e){
+    showToast('❌ Error: '+e.message,true);
+  }finally{
+    btn.disabled=false;btn.innerHTML='💾 Guardar cambios';
+  }
+}
+
+function showToast(msg,isError=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='toast'+(isError?' error':'')+' show';
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+load();
+</script>
+</body>
+</html>
