@@ -55,7 +55,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .cl-header .meta{font-size:11px;color:var(--dim)}
 .progress-bar{flex:0 0 3px;background:var(--border)}
 .progress-fill{height:100%;background:var(--accent);transition:width .3s}
-.table-container{flex:1 1 0;overflow:auto;min-height:0;padding-bottom:64px}
+.table-container{flex:1 1 0;overflow:auto;min-height:0;padding-bottom:90px}
 .cl-bottom{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--accent);padding:10px 16px;z-index:50;display:flex;align-items:center;gap:12px}
 .send-btn{flex:1;padding:13px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:.15s}
 .send-btn:hover:not(:disabled){background:#4f52d9}
@@ -397,12 +397,18 @@ async function enviarChecklist(){
   const btn=document.getElementById('sendBtn');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Enviando...';
   try{
-    const h={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
-    const r1=await fetch(SUPA_URL+'/rest/v1/checklist_runs',{method:'POST',headers:h,body:JSON.stringify({
+    const hRun={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+    const hRows={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=minimal'};
+
+    // 1. Crear el run
+    const r1=await fetch(SUPA_URL+'/rest/v1/checklist_runs',{method:'POST',headers:hRun,body:JSON.stringify({
       fecha:new Date().toISOString().split('T')[0],operador:op,tipo:selectedType,hora_franja:selectedFranja
     })});
+    if(!r1.ok)throw new Error('Error creando run: '+r1.status);
     const [run]=await r1.json();
     if(!run?.id)throw new Error('No se creó el run');
+
+    // 2. Armar filas
     const data=ITEMS[selectedType]||[];const rows=[];
     data.forEach((sec,si)=>sec.items.forEach((item,ii)=>DEVICES.forEach(d=>{
       const estado=results[`${si}_${ii}_${d.clave}`];
@@ -410,11 +416,30 @@ async function enviarChecklist(){
         dispositivo:d.nombre,estado:estado==='NA'?'N/A':estado==='UTT'?'UNABLE TO TEST':estado,
         observacion:observations[`${si}_${ii}`]||''});
     })));
-    if(rows.length){const r2=await fetch(SUPA_URL+'/rest/v1/checklist_results',{method:'POST',headers:h,body:JSON.stringify(rows)});if(!r2.ok)throw new Error('Error guardando resultados');}
+
+    // 3. Enviar en lotes de 100
+    if(rows.length){
+      const CHUNK=100;
+      for(let i=0;i<rows.length;i+=CHUNK){
+        const chunk=rows.slice(i,i+CHUNK);
+        const pct=Math.round((i+chunk.length)/rows.length*100);
+        btn.innerHTML=`<span class="spinner"></span> Enviando... ${pct}%`;
+        const r2=await fetch(SUPA_URL+'/rest/v1/checklist_results',{method:'POST',headers:hRows,body:JSON.stringify(chunk)});
+        if(!r2.ok){
+          // Si falla un lote, eliminar el run huérfano
+          await fetch(SUPA_URL+'/rest/v1/checklist_runs?id=eq.'+run.id,{method:'DELETE',headers:hRows});
+          throw new Error('Error guardando resultados (lote '+(i/CHUNK+1)+'): '+r2.status);
+        }
+      }
+    }
+
     const total=rows.length,pass=rows.filter(r=>r.estado==='PASS').length;
     document.getElementById('successMsg').textContent=`${total} verificaciones · ${pass} PASS (${total>0?Math.round(pass/total*100):0}%) · ${op}`;
     show('screenSuccess');
-  }catch(e){alert('Error: '+e.message);btn.disabled=false;btn.textContent='✅ Enviar Checklist';}
+  }catch(e){
+    alert('Error: '+e.message);
+    btn.disabled=false;btn.innerHTML='✅ Enviar Checklist';
+  }
 }
 function resetForm(){results={};observations={};document.getElementById('selOperador').value='';checkReady();show('screenSetup');}
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
