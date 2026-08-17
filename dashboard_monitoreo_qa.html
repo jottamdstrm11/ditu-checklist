@@ -1109,12 +1109,28 @@ const _sbc=supabase.createClient('https://akpuifenfstvobwtqtcq.supabase.co','eyJ
 async function _sbLogout(){await _sbc.auth.signOut();window.location.href='./login.html';}
 const SUPA_URL = 'https://akpuifenfstvobwtqtcq.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcHVpZmVuZnN0dm9id3RxdGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDMxOTAsImV4cCI6MjEwMjM3OTE5MH0.5397pVE5XlyV2864iTf96Ttj--HqoffovzJ9Z9mI0ig';
-async function supaFetch(path) {
+async function supaFetch(path, extraHeaders) {
   const r = await fetch(SUPA_URL + path, {
-    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+    headers: Object.assign({ 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }, extraHeaders || {})
   });
   if (!r.ok) throw new Error('Supabase HTTP ' + r.status);
   return r.json();
+}
+
+// Trae todas las filas paginando de 1000 en 1000 (límite del servidor Supabase)
+async function fetchAllResults() {
+  const PAGE = 1000;
+  let all = [], offset = 0;
+  while (true) {
+    const page = await supaFetch(
+      `/rest/v1/checklist_results?select=*&limit=${PAGE}&offset=${offset}`,
+      { 'Range-Unit': 'items', 'Range': `${offset}-${offset + PAGE - 1}` }
+    );
+    all = all.concat(page);
+    if (page.length < PAGE) break;
+    offset += PAGE;
+  }
+  return all;
 }
 
 async function loadData() {
@@ -1125,7 +1141,7 @@ async function loadData() {
   try {
     const [runs, results] = await Promise.all([
       supaFetch('/rest/v1/checklist_runs?select=*&order=created_at.desc'),
-      supaFetch('/rest/v1/checklist_results?select=*&limit=50000')
+      fetchAllResults()
     ]);
 
     // Build a map runId → run for quick lookup
