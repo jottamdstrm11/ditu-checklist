@@ -469,6 +469,7 @@
     }
     .historial-table tbody tr:hover { background: rgba(155,109,255,0.07); }
     .historial-table tbody tr.run-active { background: rgba(155,109,255,0.14); }
+    .historial-table tbody tr.run-checked { background: rgba(155,109,255,0.08); }
     .historial-table tbody td { padding: 9px 12px; vertical-align: middle; }
     .run-pct-bar {
       width: 90px;
@@ -510,6 +511,51 @@
     .run-action-btn.ver.active-run { background: var(--brand-accent); color: #fff; }
     .run-action-btn.del { background: rgba(227,73,72,0.15); color: #e34948; }
     .run-action-btn.del:hover { background: rgba(227,73,72,0.25); }
+
+    /* ─── Historial date filter ──────────────────────────────────── */
+    .hist-filter-bar {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .hist-filter-bar .chip {
+      padding: 4px 12px; border-radius: 999px; border: 1px solid var(--brand-border);
+      background: transparent; color: var(--text-secondary);
+      font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: .15s;
+    }
+    .hist-filter-bar .chip:hover { background: rgba(155,109,255,0.1); color: var(--brand-accent2); }
+    .hist-filter-bar .chip.active { background: var(--brand-accent); border-color: var(--brand-accent); color: #fff; }
+    .hist-filter-bar input[type=date] {
+      background: var(--brand-card); border: 1px solid var(--brand-border);
+      border-radius: 8px; color: var(--text-primary);
+      padding: 4px 10px; font-size: 0.78rem; outline: none;
+    }
+    .hist-filter-bar label { font-size: 0.75rem; color: var(--text-muted); }
+
+    /* ─── Checkbox col ───────────────────────────────────────────── */
+    .hist-cb { width: 16px; height: 16px; accent-color: var(--brand-accent); cursor: pointer; }
+
+    /* ─── Ver seleccionados bar ──────────────────────────────────── */
+    #selBar {
+      display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--brand-accent); color: #fff; padding: 12px 28px;
+      border-radius: 999px; font-size: 0.88rem; font-weight: 700;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 500;
+      align-items: center; gap: 14px; white-space: nowrap;
+    }
+    #selBar.visible { display: flex; }
+    #selBar button { background: rgba(255,255,255,0.2); border: none; color: #fff;
+      border-radius: 999px; padding: 4px 14px; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
+    #selBar button:hover { background: rgba(255,255,255,0.35); }
+
+    /* ─── Multi-run matrix ───────────────────────────────────────── */
+    .run-block { margin-bottom: 32px; }
+    .run-block-header {
+      background: rgba(155,109,255,0.15); border: 1px solid rgba(155,109,255,0.25);
+      border-radius: 8px; padding: 8px 16px; margin-bottom: 10px;
+      font-size: 0.82rem; font-weight: 700; color: var(--brand-accent2);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .run-block-header span { font-weight: 400; color: var(--text-secondary); }
 
     /* Delete confirm modal */
     .modal-overlay {
@@ -687,9 +733,10 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
   .sitenav{display:flex;gap:4px;padding:8px 14px;background:#0a0c12;border-bottom:1px solid #1e2235;flex-wrap:wrap;position:sticky;top:0;z-index:100}
-  .snav-link{color:#7c82a0;font-size:12px;font-weight:600;text-decoration:none;padding:5px 11px;border-radius:7px;transition:.15s}
+  .snav-link{color:#7c82a0;font-size:12px;font-weight:600;text-decoration:none;padding:5px 11px;border-radius:7px;transition:.15s;display:flex;align-items:center;gap:6px}
   .snav-link:hover{color:#e8eaf0;background:#1a1d27}
   .snav-link.active{color:#c3a0ff;background:#1a1d27}
+  .snav-link svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
   .nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}
   .user-chip{font-size:11px;color:#7c82a0}
   .logout-btn{background:none;border:1px solid rgba(180,140,255,0.2);color:#7c82a0;border-radius:7px;padding:4px 10px;font-size:11px;cursor:pointer;transition:.15s}
@@ -698,11 +745,11 @@
 </head>
 <body>
 <nav class="sitenav">
-  <a href="./dashboard.html" class="snav-link active">📊 Dashboard</a>
-  <a href="./checklist.html" class="snav-link">✅ Checklist</a>
-  <a href="./admin_dispositivos.html" class="snav-link">📱 Dispositivos</a>
-  <a href="./admin.html" class="snav-link">📋 Ítems</a>
-  <a href="./backup.html" class="snav-link">💾 Backup</a>
+  <a href="./dashboard.html" class="snav-link active"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</a>
+  <a href="./checklist.html" class="snav-link"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Checklist</a>
+  <a href="./admin_dispositivos.html" class="snav-link"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>Dispositivos</a>
+  <a href="./admin.html" class="snav-link"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><polyline points="3 6 4 7 6 5"/><polyline points="3 12 4 13 6 11"/><polyline points="3 18 4 19 6 17"/></svg>Ítems</a>
+  <a href="./backup.html" class="snav-link"><svg viewBox="0 0 24 24"><polyline points="21 15 21 21 3 21 3 15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Backup</a>
   <div class="nav-right">
     <span class="user-chip" id="userEmail"></span>
     <button class="logout-btn" onclick="_sbLogout()">Cerrar sesión</button>
@@ -761,9 +808,18 @@
   <!-- Historial de Checklists -->
   <p class="section-label">Historial de checklists</p>
   <div class="card" style="margin-bottom:28px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
       <div class="card-title" style="margin-bottom:0">Runs registrados</div>
       <span id="historial-count" style="font-size:0.72rem;color:var(--text-muted)">—</span>
+    </div>
+    <!-- Date filter chips for historial -->
+    <div class="hist-filter-bar" id="histFilterBar">
+      <label>Filtrar por fecha:</label>
+      <button class="chip active" id="hfc-todo"  onclick="setHistDate('')">Todo</button>
+      <button class="chip"        id="hfc-hoy"   onclick="setHistDate('hoy')">Hoy</button>
+      <button class="chip"        id="hfc-7d"    onclick="setHistDate('7d')">Últimos 7 días</button>
+      <button class="chip"        id="hfc-30d"   onclick="setHistDate('30d')">Últimos 30 días</button>
+      <input type="date" id="histDateInput" onchange="setHistDateCustom(this.value)" title="Fecha específica">
     </div>
     <div class="table-wrap">
       <table class="historial-table">
@@ -779,11 +835,11 @@
             <th style="text-align:right">➖ N/A</th>
             <th style="text-align:right">⚠️ UTT</th>
             <th>% Aprobado</th>
-            <th style="text-align:center">Acciones</th>
+            <th style="text-align:center">Acción</th>
           </tr>
         </thead>
         <tbody id="historialBody">
-          <tr><td colspan="10" class="state-msg"><span class="spinner"></span> Cargando…</td></tr>
+          <tr><td colspan="12" class="state-msg"><span class="spinner"></span> Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -836,102 +892,13 @@
     </div>
   </div>
 
-  <!-- Table section -->
-  <div class="card" id="detail-card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
-      <div class="card-title" style="margin-bottom:0" id="detail-title">Detalle de registros</div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <div class="view-toggle" id="viewToggle">
-          <button class="view-toggle-btn active" id="btnLista" onclick="setView('lista')">☰ Lista</button>
-          <button class="view-toggle-btn" id="btnMatriz" onclick="setView('matriz')">⊞ Matriz</button>
-        </div>
-        <span id="detail-run-badge" style="display:none;font-size:0.72rem;font-weight:600;padding:3px 12px;border-radius:999px;background:rgba(155,109,255,0.18);color:var(--brand-accent2);border:1px solid rgba(155,109,255,0.35);white-space:nowrap"></span>
-      </div>
-    </div>
-
-    <!-- Active run banner inside detail -->
-    <div id="historial-active-banner" style="margin-bottom:14px;">
-      <span>📋 Mostrando checklist: <strong id="active-run-label">—</strong></span>
-      <button class="clear-run-btn" onclick="clearRunFilter()">✕ Ver todos los registros</button>
-    </div>
-
-    <!-- Quick date chips -->
-    <div class="quick-dates">
-      <span>Período:</span>
-      <button class="chip" id="chip-hoy"    onclick="setQuick('hoy')">Hoy</button>
-      <button class="chip" id="chip-7d"     onclick="setQuick('7d')">Últimos 7 días</button>
-      <button class="chip" id="chip-30d"    onclick="setQuick('30d')">Últimos 30 días</button>
-      <button class="chip" id="chip-mesact" onclick="setQuick('mesact')">Este mes</button>
-      <button class="chip" id="chip-mesant" onclick="setQuick('mesant')">Mes anterior</button>
-      <button class="chip" id="chip-todo"   onclick="setQuick('todo')">Todo</button>
-    </div>
-
-    <!-- Filters -->
-    <div class="filters-bar">
-      <div class="filter-group">
-        <label for="f-nombre">Ítem / nombre</label>
-        <input type="text" id="f-nombre" placeholder="Buscar…" oninput="applyFilters()" />
-      </div>
-      <div class="filter-group">
-        <label for="f-estado">Estado</label>
-        <select id="f-estado" onchange="applyFilters()">
-          <option value="">Todos</option>
-          <option>PASS</option>
-          <option>FAIL</option>
-          <option>N/A</option>
-          <option>UNABLE TO TEST</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label for="f-dispositivo">Dispositivo</label>
-        <select id="f-dispositivo" onchange="applyFilters()">
-          <option value="">Todos</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label for="f-seccion">Sección</label>
-        <select id="f-seccion" onchange="applyFilters()">
-          <option value="">Todas</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label for="f-desde">Desde</label>
-        <input type="date" id="f-desde" onchange="clearChips(); applyFilters()" />
-      </div>
-      <div class="filter-group">
-        <label for="f-hasta">Hasta</label>
-        <input type="date" id="f-hasta" onchange="clearChips(); applyFilters()" />
-      </div>
-      <button class="btn btn-ghost" onclick="clearFilters()">Limpiar</button>
-    </div>
-
-    <!-- Table -->
-    <div class="table-wrap" id="mainTableWrap">
-      <table id="mainTable">
-        <thead>
-          <tr>
-            <th class="sortable" data-col="numero_item" onclick="sortBy('numero_item')">#<span class="sort-arrow">↕</span></th>
-            <th class="sortable" data-col="seccion" onclick="sortBy('seccion')">Sección<span class="sort-arrow">↕</span></th>
-            <th class="sortable" data-col="nombre_item" onclick="sortBy('nombre_item')">Ítem<span class="sort-arrow">↕</span></th>
-            <th class="sortable" data-col="estado" onclick="sortBy('estado')">Estado<span class="sort-arrow">↕</span></th>
-            <th class="sortable" data-col="dispositivo" onclick="sortBy('dispositivo')">Dispositivo<span class="sort-arrow">↕</span></th>
-            <th class="sortable" data-col="created_at" onclick="sortBy('created_at')">Fecha<span class="sort-arrow">↕</span></th>
-            <th>Observación</th>
-          </tr>
-        </thead>
-        <tbody id="tableBody">
-          <tr><td colspan="7" class="state-msg"><span class="spinner"></span> Cargando…</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Pagination -->
-    <div class="pagination" id="paginationBar">
-      <div class="pagination-info" id="pageInfo"></div>
-      <div class="pagination-btns" id="pageBtns"></div>
-    </div>
-
-    <!-- Matrix view container (hidden by default) -->
+  <!-- Matriz comparativa (se muestra al seleccionar runs con Ver) -->
+  <div id="matrizSection" style="display:none;margin-top:0">
+    <p class="section-label" style="display:flex;align-items:center;justify-content:space-between">
+      <span id="matrizSectionLabel">Vista comparativa</span>
+      <button class="btn btn-ghost" style="font-size:0.78rem;padding:4px 12px" onclick="clearRunFilter()">✕ Cerrar vista</button>
+    </p>
+    <!-- Single-run matrix table -->
     <div id="matrizContainer" style="display:none">
       <div class="matrix-wrap">
         <table class="matrix-table" id="matrixTable">
@@ -940,6 +907,13 @@
         </table>
       </div>
     </div>
+    <!-- Hidden anchors kept for JS compatibility -->
+    <div id="mainTableWrap" style="display:none"></div>
+    <div id="paginationBar" style="display:none">
+      <div id="pageInfo"></div>
+      <div id="pageBtns"></div>
+    </div>
+    <table id="mainTable" style="display:none"><tbody id="tableBody"></tbody></table>
   </div>
 
 </main>
@@ -975,6 +949,8 @@ const HIST_PAGE_SIZE = 15;
 
 // Active run filter
 let selectedRunId = null;
+let selectedRunIds = new Set();   // multi-select
+let histDateFilter = '';          // 'hoy'|'7d'|'30d'|''
 
 // Current detail view mode
 let currentView = 'lista'; // 'lista' | 'matriz'
@@ -1118,13 +1094,14 @@ async function supaFetch(path, extraHeaders) {
   return r.json();
 }
 
-// Trae todas las filas paginando de 1000 en 1000 (límite del servidor Supabase)
-async function fetchAllResults() {
-  const PAGE = 1000;
+// ── Carga ligera: solo los campos necesarios para tiles y gráficas ──
+// Mucho más rápido que traer todos los campos; los detalles se cargan on-demand
+async function fetchSummaryRows() {
+  const PAGE = 1000; // Supabase devuelve máx 1000 por request; el loop pagina correctamente
   let all = [], offset = 0;
   while (true) {
     const page = await supaFetch(
-      `/rest/v1/checklist_results?select=*&limit=${PAGE}&offset=${offset}`,
+      `/rest/v1/checklist_results?select=run_id,estado,dispositivo&limit=${PAGE}&offset=${offset}`,
       { 'Range-Unit': 'items', 'Range': `${offset}-${offset + PAGE - 1}` }
     );
     all = all.concat(page);
@@ -1134,58 +1111,139 @@ async function fetchAllResults() {
   return all;
 }
 
+// ── Caché de detalles por run_id (se llena on-demand al hacer clic en Ver) ──
+const runDetailsCache = {};
+
+async function fetchRunDetails(runId) {
+  if (runDetailsCache[runId]) return runDetailsCache[runId];
+  const rows = await supaFetch(
+    `/rest/v1/checklist_results?run_id=eq.${encodeURIComponent(runId)}&select=*`
+  );
+  runDetailsCache[runId] = rows || [];
+  return runDetailsCache[runId];
+}
+
 async function loadData() {
   const badge = document.getElementById('dataSourceBadge');
   badge.textContent = 'CARGANDO…';
   badge.className   = 'data-source-badge demo';
 
+  // Reset UI state immediately
+  const fDesde = document.getElementById('f-desde');
+  const fHasta = document.getElementById('f-hasta');
+  if (fDesde) fDesde.value = '';
+  if (fHasta) fHasta.value = '';
+  selectedRunId = null;
+  clearRunBanner();
+  try { clearChips(); } catch(_) {}
+  const chipTodo = document.getElementById('chip-todo');
+  if (chipTodo) chipTodo.classList.add('active');
+  Object.keys(runDetailsCache).forEach(k => delete runDetailsCache[k]);
+
   try {
-    const [runs, results, devices] = await Promise.all([
+    // ── FASE 1: rápida — solo runs + dispositivos ──────────────
+    // Muestra el historial inmediatamente sin esperar las estadísticas
+    const [runs, devices] = await Promise.all([
       supaFetch('/rest/v1/checklist_runs?select=*&order=created_at.desc'),
-      fetchAllResults(),
-      supaFetch('/rest/v1/checklist_devices?select=nombre&activo=eq.true&order=nombre.asc')
+      supaFetch('/rest/v1/checklist_devices?select=nombre&activo=eq.true&order=orden')
     ]);
 
-    // Keep only active devices from the DB table
-    activeDevices = (devices || []).map(d => d.nombre).filter(Boolean).sort();
+    activeDevices = (devices || []).map(d => d.nombre).filter(Boolean);
+    allRuns = runs || [];
+    allRows = []; // se llena en fase 2
 
-    // Build a map runId → run for quick lookup
+    // runsStats con _statsLoaded:false → historial muestra "…" en columnas de stats
+    const runStatsMap = {};
+    allRuns.forEach(r => {
+      runStatsMap[r.id] = {
+        id:          r.id,
+        fecha:       r.fecha       ?? '',
+        hora_franja: r.hora_franja ?? '',
+        operador:    r.operador    ?? '',
+        tipo:        r.tipo        ?? '',
+        total: 0, PASS: 0, FAIL: 0, 'N/A': 0, 'UNABLE TO TEST': 0,
+        _statsLoaded: false
+      };
+    });
+    runsStats = Object.values(runStatsMap)
+      .sort((a, b) => (b.fecha || b.id).localeCompare(a.fecha || a.id));
+
+    histPage = 1;
+    renderHistorial();
+    populateFilterDropdowns();
+    applyFilters();
+    document.getElementById('last-updated').textContent = new Date().toLocaleString('es-CL');
+
+    badge.textContent = 'Cargando estadísticas…';
+    badge.className   = 'data-source-badge demo';
+
+    // ── FASE 2: en segundo plano — estadísticas y allRows ──────
+    loadStatsInBackground(allRuns);
+
+  } catch (e) {
+    console.error('Error Supabase:', e);
+    const demoFull = buildRealisticDemo();
+    allRows = demoFull;
+    Object.keys(runDetailsCache).forEach(k => delete runDetailsCache[k]);
+    demoFull.forEach(r => {
+      if (!runDetailsCache[r.run_id]) runDetailsCache[r.run_id] = [];
+      runDetailsCache[r.run_id].push(r);
+    });
+    const demoRuns = {};
+    allRows.forEach(r => {
+      if (!demoRuns[r.run_id]) demoRuns[r.run_id] = { id: r.run_id, fecha: r.created_at, hora_franja: '', operador: r.operador||'Demo', tipo: r.tipo||'monitoreo', total:0, PASS:0,FAIL:0,'N/A':0,'UNABLE TO TEST':0, _statsLoaded:true };
+      demoRuns[r.run_id].total++;
+      if (demoRuns[r.run_id][r.estado] !== undefined) demoRuns[r.run_id][r.estado]++;
+    });
+    runsStats = Object.values(demoRuns).sort((a,b) => b.fecha.localeCompare(a.fecha));
+    badge.textContent = 'DEMO (sin conexión)';
+    badge.className   = 'data-source-badge demo';
+
+    histPage = 1;
+    renderHistorial();
+    populateFilterDropdowns();
+    applyFilters();
+    document.getElementById('last-updated').textContent = new Date().toLocaleString('es-CL');
+  }
+}
+
+// ── Carga estadísticas en segundo plano ───────────────────────
+async function loadStatsInBackground(runs) {
+  const badge = document.getElementById('dataSourceBadge');
+  try {
+    const summaryResults = await fetchSummaryRows();
+
     const runMap = {};
     runs.forEach(r => { runMap[r.id] = r; });
 
-    // Flatten: each result row gets operador, tipo, fecha from its run
-    allRows = results.map(r => {
+    // Reconstruir allRows con datos reales
+    allRows = summaryResults.map(r => {
       const run = runMap[r.run_id] || {};
       return {
-        run_id:       r.run_id        ?? '',
-        numero_item:  r.numero_item   ?? '',
-        nombre_item:  r.nombre_item   ?? '',
-        seccion:      r.seccion       ?? '',
-        estado:       r.estado        ?? '',
-        dispositivo:  r.dispositivo   ?? '',
-        observacion:  (r.observacion === 'EMPTY' || !r.observacion) ? '' : r.observacion,
-        created_at:   run.fecha       ?? (r.created_at ?? '').slice(0, 10),
-        operador:     run.operador    ?? '',
-        tipo:         run.tipo        ?? '',
-        hora_franja:  run.hora_franja ?? '',
+        run_id:      r.run_id       ?? '',
+        estado:      r.estado       ?? '',
+        dispositivo: r.dispositivo  ?? '',
+        created_at:  run.fecha      ?? '',
+        operador:    run.operador   ?? '',
+        tipo:        run.tipo       ?? '',
+        hora_franja: run.hora_franja?? '',
       };
     });
 
-    // ── Compute per-run stats ──────────────────────────────────
-    allRuns = runs;
+    // Actualizar runsStats con conteos reales
     const runStatsMap = {};
     runs.forEach(r => {
       runStatsMap[r.id] = {
-        id:         r.id,
-        fecha:      r.fecha      ?? '',
-        hora_franja:r.hora_franja?? '',
-        operador:   r.operador   ?? '',
-        tipo:       r.tipo       ?? '',
-        total: 0,
-        PASS: 0, FAIL: 0, 'N/A': 0, 'UNABLE TO TEST': 0
+        id:          r.id,
+        fecha:       r.fecha       ?? '',
+        hora_franja: r.hora_franja ?? '',
+        operador:    r.operador    ?? '',
+        tipo:        r.tipo        ?? '',
+        total: 0, PASS: 0, FAIL: 0, 'N/A': 0, 'UNABLE TO TEST': 0,
+        _statsLoaded: true
       };
     });
-    results.forEach(r => {
+    summaryResults.forEach(r => {
       const s = runStatsMap[r.run_id];
       if (!s) return;
       s.total++;
@@ -1194,36 +1252,18 @@ async function loadData() {
     runsStats = Object.values(runStatsMap)
       .sort((a, b) => (b.fecha || b.id).localeCompare(a.fecha || a.id));
 
-    badge.textContent = `EN VIVO · ${allRows.length.toLocaleString('es-CL')} registros`;
+    badge.textContent = `EN VIVO · ${summaryResults.length.toLocaleString('es-CL')} registros`;
     badge.className   = 'data-source-badge live';
+
+    // Re-renderizar con datos completos
+    renderHistorial();
+    populateFilterDropdowns();
+    applyFilters();
   } catch (e) {
-    console.error('Error Supabase:', e);
-    allRows = buildRealisticDemo();
-    // Build synthetic runsStats from demo data
-    const demoRuns = {};
-    allRows.forEach(r => {
-      if (!demoRuns[r.run_id]) demoRuns[r.run_id] = { id: r.run_id, fecha: r.created_at, hora_franja: '', operador: r.operador||'Demo', tipo: r.tipo||'monitoreo', total:0, PASS:0,FAIL:0,'N/A':0,'UNABLE TO TEST':0 };
-      demoRuns[r.run_id].total++;
-      if (demoRuns[r.run_id][r.estado] !== undefined) demoRuns[r.run_id][r.estado]++;
-    });
-    runsStats = Object.values(demoRuns).sort((a,b) => b.fecha.localeCompare(a.fecha));
-    badge.textContent = 'DEMO (sin conexión)';
+    console.error('Error cargando estadísticas:', e);
+    badge.textContent = 'Error al cargar estadísticas';
     badge.className   = 'data-source-badge demo';
   }
-
-  // Reset date filters on every fresh load
-  document.getElementById('f-desde').value = '';
-  document.getElementById('f-hasta').value = '';
-  selectedRunId = null;
-  clearRunBanner();
-  clearChips();
-  document.getElementById('chip-todo').classList.add('active');
-
-  histPage = 1;
-  renderHistorial();
-  populateFilterDropdowns();
-  applyFilters();
-  document.getElementById('last-updated').textContent = new Date().toLocaleString('es-CL');
 }
 
 // ── Populate filter dropdowns ──────────────────────────────────
@@ -1240,9 +1280,9 @@ function populateFilterDropdowns() {
   const seccionesSet    = [...new Set(allRows.map(r => r.seccion))].filter(Boolean).sort();
   const operadoresSet   = [...new Set(allRows.map(r => r.operador))].filter(Boolean).sort();
 
-  dispSelect.innerHTML = '<option value="">Todos</option>' +
+  if (dispSelect) dispSelect.innerHTML = '<option value="">Todos</option>' +
     dispositivosSet.map(d => `<option>${d}</option>`).join('');
-  secSelect.innerHTML  = '<option value="">Todas</option>' +
+  if (secSelect) secSelect.innerHTML  = '<option value="">Todas</option>' +
     seccionesSet.map(s => `<option>${s}</option>`).join('');
   if (opSelect) opSelect.innerHTML = '<option value="">Todos los operadores</option>' +
     operadoresSet.map(o => `<option>${o}</option>`).join('');
@@ -1250,16 +1290,14 @@ function populateFilterDropdowns() {
 
 // ── Apply filters ──────────────────────────────────────────────
 function applyFilters() {
-  const nombre     = document.getElementById('f-nombre').value.toLowerCase();
-  const estado     = document.getElementById('f-estado').value;
-  const disp       = document.getElementById('f-dispositivo').value;
-  const seccion    = document.getElementById('f-seccion').value;
-
-  const desde = document.getElementById('f-desde').value;  // 'YYYY-MM-DD' or ''
-  const hasta = document.getElementById('f-hasta').value;
-
-  const operador = (document.getElementById('f-operador')?.value || '');
-  const tipo     = (document.getElementById('f-tipo')?.value || '');
+  const nombre     = (document.getElementById('f-nombre')?.value || '').toLowerCase();
+  const estado     = document.getElementById('f-estado')?.value || '';
+  const disp       = document.getElementById('f-dispositivo')?.value || '';
+  const seccion    = document.getElementById('f-seccion')?.value || '';
+  const desde      = document.getElementById('f-desde')?.value || '';
+  const hasta      = document.getElementById('f-hasta')?.value || '';
+  const operador   = document.getElementById('f-operador')?.value || '';
+  const tipo       = document.getElementById('f-tipo')?.value || '';
 
   filtered = allRows.filter(r => {
     if (selectedRunId && r.run_id !== selectedRunId) return false;
@@ -1277,26 +1315,23 @@ function applyFilters() {
   });
 
   page = 1;
+  histPage = 1;
   sortRows();
   updateStats();
   updateCharts();
   renderTable();
+  renderHistorial();
 }
 
 function clearFilters() {
-  document.getElementById('f-nombre').value      = '';
-  document.getElementById('f-estado').value      = '';
-  document.getElementById('f-dispositivo').value = '';
-  document.getElementById('f-seccion').value     = '';
-  document.getElementById('f-desde').value       = '';
-  document.getElementById('f-hasta').value       = '';
-  const fOp = document.getElementById('f-operador'); if(fOp) fOp.value = '';
-  const fTp = document.getElementById('f-tipo');     if(fTp) fTp.value = '';
+  ['f-nombre','f-estado','f-dispositivo','f-seccion','f-desde','f-hasta','f-operador','f-tipo'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
   selectedRunId = null;
   clearRunBanner();
   renderHistorial();
-  clearChips();
-  document.getElementById('chip-todo').classList.add('active');
+  try { clearChips(); } catch(_) {}
+  document.getElementById('chip-todo')?.classList.add('active');
   applyFilters();
 }
 
@@ -1312,24 +1347,26 @@ function setQuick(preset) {
   const fDesde = document.getElementById('f-desde');
   const fHasta = document.getElementById('f-hasta');
 
-  if (preset === 'todo') {
-    fDesde.value = ''; fHasta.value = '';
-  } else if (preset === 'hoy') {
-    fDesde.value = toIso(today); fHasta.value = toIso(today);
-  } else if (preset === '7d') {
-    const d = new Date(today); d.setDate(d.getDate() - 6);
-    fDesde.value = toIso(d); fHasta.value = toIso(today);
-  } else if (preset === '30d') {
-    const d = new Date(today); d.setDate(d.getDate() - 29);
-    fDesde.value = toIso(d); fHasta.value = toIso(today);
-  } else if (preset === 'mesact') {
-    const d = new Date(today.getFullYear(), today.getMonth(), 1);
-    const h = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    fDesde.value = toIso(d); fHasta.value = toIso(h);
-  } else if (preset === 'mesant') {
-    const d = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const h = new Date(today.getFullYear(), today.getMonth(), 0);
-    fDesde.value = toIso(d); fHasta.value = toIso(h);
+  if (fDesde && fHasta) {
+    if (preset === 'todo') {
+      fDesde.value = ''; fHasta.value = '';
+    } else if (preset === 'hoy') {
+      fDesde.value = toIso(today); fHasta.value = toIso(today);
+    } else if (preset === '7d') {
+      const d = new Date(today); d.setDate(d.getDate() - 6);
+      fDesde.value = toIso(d); fHasta.value = toIso(today);
+    } else if (preset === '30d') {
+      const d = new Date(today); d.setDate(d.getDate() - 29);
+      fDesde.value = toIso(d); fHasta.value = toIso(today);
+    } else if (preset === 'mesact') {
+      const d = new Date(today.getFullYear(), today.getMonth(), 1);
+      const h = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      fDesde.value = toIso(d); fHasta.value = toIso(h);
+    } else if (preset === 'mesant') {
+      const d = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const h = new Date(today.getFullYear(), today.getMonth(), 0);
+      fDesde.value = toIso(d); fHasta.value = toIso(h);
+    }
   }
   applyFilters();
 }
@@ -1384,7 +1421,11 @@ function updateStats() {
 // ── Charts ─────────────────────────────────────────────────────
 function updateCharts() {
   // Aggregate by dispositivo × estado (from filtered data)
-  const dispositivos = [...new Set(filtered.map(r => r.dispositivo))].sort();
+  // Use activeDevices as canonical list when available so unknown/test devices (e.g. DITU) are excluded
+  const dispositivosFromData = [...new Set(filtered.map(r => r.dispositivo))].filter(Boolean).sort();
+  const dispositivos = activeDevices.length > 0
+    ? activeDevices.filter(d => dispositivosFromData.includes(d))
+    : dispositivosFromData;
   const ESTADOS = ['PASS','FAIL','N/A','UNABLE TO TEST'];
 
   const byDisp = {};
@@ -1504,12 +1545,13 @@ function renderTable() {
   const tbody    = document.getElementById('tableBody');
   const pageInfo = document.getElementById('pageInfo');
   const pageBtns = document.getElementById('pageBtns');
+  if (!tbody) return;
   const total    = filtered.length;
 
   if (total === 0) {
-    tbody.innerHTML    = `<tr><td colspan="7" class="state-msg">Sin resultados para los filtros seleccionados.</td></tr>`;
-    pageInfo.textContent = '';
-    pageBtns.innerHTML = '';
+    tbody.innerHTML    = `<tr><td colspan="7" class="state-msg">Sin resultados.</td></tr>`;
+    if (pageInfo) pageInfo.textContent = '';
+    if (pageBtns) pageBtns.innerHTML = '';
     return;
   }
 
@@ -1530,9 +1572,10 @@ function renderTable() {
     </tr>
   `).join('');
 
-  pageInfo.textContent = `${start + 1}–${Math.min(start + PAGE_SIZE, total)} de ${total.toLocaleString('es-CL')} registros`;
+  if (pageInfo) pageInfo.textContent = `${start + 1}–${Math.min(start + PAGE_SIZE, total)} de ${total.toLocaleString('es-CL')} registros`;
 
   // Pagination buttons
+  if (!pageBtns) return;
   const maxBtns = 7;
   let buttons = '';
   buttons += `<button class="page-btn" onclick="goPage(${page-1})" ${page===1?'disabled':''}>‹</button>`;
@@ -1545,7 +1588,7 @@ function renderTable() {
     buttons += `<button class="page-btn ${p===page?'active':''}" onclick="goPage(${p})">${p}</button>`;
   }
   buttons += `<button class="page-btn" onclick="goPage(${page+1})" ${page===totalPages?'disabled':''}>›</button>`;
-  pageBtns.innerHTML = buttons;
+  if (pageBtns) pageBtns.innerHTML = buttons;
 }
 
 function goPage(p) {
@@ -1554,6 +1597,56 @@ function goPage(p) {
   document.querySelector('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// ── Historial date filter helpers ──────────────────────────────
+function setHistDate(val) {
+  histDateFilter = val;
+  document.getElementById('histDateInput').value = '';
+  ['todo','hoy','7d','30d'].forEach(k => {
+    document.getElementById('hfc-'+k)?.classList.toggle('active', k === (val||'todo'));
+  });
+  histPage = 1;
+  renderHistorial();
+}
+function setHistDateCustom(val) {
+  histDateFilter = val ? 'custom:'+val : '';
+  ['todo','hoy','7d','30d'].forEach(k => {
+    document.getElementById('hfc-'+k)?.classList.remove('active');
+  });
+  histPage = 1;
+  renderHistorial();
+}
+function getHistFiltered() {
+  const operador = document.getElementById('f-operador')?.value || '';
+  const tipo     = document.getElementById('f-tipo')?.value     || '';
+
+  let base = runsStats;
+
+  // Aplicar filtros globales de operador y tipo al historial
+  if (operador) base = base.filter(s => s.operador === operador);
+  if (tipo)     base = base.filter(s => (s.tipo || '') === tipo);
+
+  // Aplicar filtro de fecha
+  if (!histDateFilter) return base;
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0,10);
+  if (histDateFilter === 'hoy') return base.filter(s => (s.fecha||'').startsWith(todayStr));
+  if (histDateFilter === '7d') {
+    const d = new Date(now); d.setDate(d.getDate()-7);
+    return base.filter(s => s.fecha >= d.toISOString().slice(0,10));
+  }
+  if (histDateFilter === '30d') {
+    const d = new Date(now); d.setDate(d.getDate()-30);
+    return base.filter(s => s.fecha >= d.toISOString().slice(0,10));
+  }
+  if (histDateFilter.startsWith('custom:')) {
+    const dt = histDateFilter.slice(7);
+    return base.filter(s => (s.fecha||'').startsWith(dt));
+  }
+  return base;
+}
+
+// (multi-select now handled via selectRun toggle)
+
 // ── Historial de Checklists ────────────────────────────────────
 function renderHistorial() {
   const tbody    = document.getElementById('historialBody');
@@ -1561,54 +1654,60 @@ function renderHistorial() {
   const pageBtns = document.getElementById('histPageBtns');
   const countEl  = document.getElementById('historial-count');
 
-  if (!runsStats.length) {
-    tbody.innerHTML = `<tr><td colspan="10" class="state-msg">Sin runs registrados.</td></tr>`;
+  const filtered = getHistFiltered();
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="12" class="state-msg">Sin runs registrados para este período.</td></tr>`;
     if (pageInfo) pageInfo.textContent = '';
     if (pageBtns) pageBtns.innerHTML = '';
     if (countEl)  countEl.textContent = '0 runs';
     return;
   }
 
-  const total      = runsStats.length;
+  const total      = filtered.length;
   const totalPages = Math.ceil(total / HIST_PAGE_SIZE);
   histPage = Math.min(Math.max(1, histPage), totalPages);
   const start = (histPage - 1) * HIST_PAGE_SIZE;
-  const slice = runsStats.slice(start, start + HIST_PAGE_SIZE);
+  const slice = filtered.slice(start, start + HIST_PAGE_SIZE);
 
   if (countEl) countEl.textContent = `${total} run${total !== 1 ? 's' : ''}`;
 
   tbody.innerHTML = slice.map(s => {
-    const passCount  = s['PASS']          || 0;
-    const failCount  = s['FAIL']          || 0;
-    const naCount    = s['N/A']           || 0;
-    const uttCount   = s['UNABLE TO TEST']|| 0;
-    const tot        = s.total            || 0;
-    const pct        = tot ? Math.round((passCount / tot) * 100) : 0;
-    const pctColor   = pct >= 90 ? '#1baf7a' : pct >= 70 ? '#eda100' : '#e34948';
-    const isActive   = selectedRunId === s.id;
+    const loaded     = s._statsLoaded !== false;
+    const passCount  = loaded ? (s['PASS']           || 0) : null;
+    const failCount  = loaded ? (s['FAIL']           || 0) : null;
+    const naCount    = loaded ? (s['N/A']            || 0) : null;
+    const uttCount   = loaded ? (s['UNABLE TO TEST'] || 0) : null;
+    const tot        = loaded ? (s.total             || 0) : null;
+    const pct        = (loaded && tot) ? Math.round((passCount / tot) * 100) : (loaded ? 0 : null);
+    const pctColor   = pct !== null ? (pct >= 90 ? '#1baf7a' : pct >= 70 ? '#eda100' : '#e34948') : 'var(--text-muted)';
+    const isActive   = selectedRunIds.has(s.id);
     const tipoLabel  = s.tipo ? (s.tipo.charAt(0).toUpperCase() + s.tipo.slice(1)) : '—';
     const safeId     = escHtml(s.id);
     const safeLabel  = escHtml(`${s.fecha} ${s.hora_franja} – ${s.operador}`);
     const verLabel   = isActive ? '✓ Viendo' : '👁 Ver';
+    const dotdotdot  = '<span style="color:var(--text-muted);font-size:11px">…</span>';
     return `
       <tr class="${isActive ? 'run-active' : ''}">
         <td style="white-space:nowrap;font-variant-numeric:tabular-nums">${escHtml(s.fecha || '—')}</td>
         <td style="color:var(--text-secondary);white-space:nowrap">${escHtml(s.hora_franja || '—')}</td>
         <td style="font-weight:600">${escHtml(s.operador || '—')}</td>
         <td style="color:var(--text-secondary)">${escHtml(tipoLabel)}</td>
-        <td style="text-align:right;color:var(--text-muted);font-variant-numeric:tabular-nums">${tot.toLocaleString('es-CL')}</td>
-        <td style="text-align:right" class="run-stat pass">${passCount.toLocaleString('es-CL')}</td>
-        <td style="text-align:right" class="run-stat fail">${failCount ? failCount.toLocaleString('es-CL') : '<span style="color:var(--text-muted)">0</span>'}</td>
-        <td style="text-align:right" class="run-stat na">${naCount ? naCount.toLocaleString('es-CL') : '<span style="color:var(--text-muted)">0</span>'}</td>
-        <td style="text-align:right" class="run-stat unable">${uttCount ? uttCount.toLocaleString('es-CL') : '<span style="color:var(--text-muted)">0</span>'}</td>
+        <td style="text-align:right;color:var(--text-muted);font-variant-numeric:tabular-nums">${tot !== null ? tot.toLocaleString('es-CL') : dotdotdot}</td>
+        <td style="text-align:right" class="run-stat pass">${passCount !== null ? passCount.toLocaleString('es-CL') : dotdotdot}</td>
+        <td style="text-align:right" class="run-stat fail">${failCount !== null ? (failCount ? failCount.toLocaleString('es-CL') : '<span style="color:var(--text-muted)">0</span>') : dotdotdot}</td>
+        <td style="text-align:right" class="run-stat na">${naCount !== null ? (naCount ? naCount.toLocaleString('es-CL') : '<span style="color:var(--text-muted)">0</span>') : dotdotdot}</td>
+        <td style="text-align:right" class="run-stat unable">${uttCount !== null ? (uttCount ? uttCount.toLocaleString('es-CL') : '<span style="color:var(--text-muted)">0</span>') : dotdotdot}</td>
         <td>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <div class="run-pct-bar"><div class="run-pct-fill" style="width:${pct}%;background:${pctColor}"></div></div>
-            <span class="run-pct-text" style="color:${pctColor}">${pct}%</span>
-          </div>
+          ${pct !== null
+            ? `<div style="display:flex;align-items:center;gap:6px;">
+                <div class="run-pct-bar"><div class="run-pct-fill" style="width:${pct}%;background:${pctColor}"></div></div>
+                <span class="run-pct-text" style="color:${pctColor}">${pct}%</span>
+               </div>`
+            : dotdotdot}
         </td>
         <td style="text-align:center;white-space:nowrap">
-          <button class="run-action-btn ver ${isActive ? 'active-run' : ''}"
+          <button class="run-action-btn ver ${isActive ? 'active-run' : ''}" style="${isActive?'background:var(--brand-accent);color:#fff;':''}"
             onclick="selectRun('${safeId}','${safeLabel}')">${verLabel}</button>
           <button class="run-action-btn del" style="margin-left:6px"
             onclick="openDeleteModal('${safeId}','${safeLabel}')">🗑</button>
@@ -1617,7 +1716,7 @@ function renderHistorial() {
     `;
   }).join('');
 
-  // Pagination
+    // Pagination
   if (pageInfo) pageInfo.textContent = `${start + 1}–${Math.min(start + HIST_PAGE_SIZE, total)} de ${total} runs`;
 
   if (pageBtns) {
@@ -1639,191 +1738,262 @@ function histGoPage(p) {
   renderHistorial();
 }
 
+// Toggle a run in/out of selectedRunIds (multi-select via Ver button)
 function selectRun(runId, label) {
-  if (selectedRunId === runId) {
-    clearRunFilter();
+  if (selectedRunIds.has(runId)) {
+    selectedRunIds.delete(runId);
+  } else {
+    selectedRunIds.add(runId);
+  }
+  renderHistorial();
+  showMatrizSection();
+}
+
+function showMatrizSection() {
+  const sec = document.getElementById('matrizSection');
+  if (!sec) return;
+  if (selectedRunIds.size === 0) {
+    sec.style.display = 'none';
+    const bd = document.getElementById('multiRunBlocks');
+    if (bd) bd.style.display = 'none';
     return;
   }
-  selectedRunId = runId;
-  // Show banner inside detail card
-  const banner = document.getElementById('historial-active-banner');
-  const labelEl = document.getElementById('active-run-label');
-  if (banner) banner.classList.add('visible');
-  if (labelEl) labelEl.textContent = label;
-  // Show badge in card header
-  const badge = document.getElementById('detail-run-badge');
-  if (badge) { badge.textContent = '📋 ' + label; badge.style.display = 'inline-block'; }
-  // Show view toggle
-  document.getElementById('viewToggle')?.classList.add('visible');
-  // Re-render historial to show active highlight
-  renderHistorial();
-  // Apply filters first
-  applyFilters();
-  // Auto-switch to matrix view and scroll
+
+  // Update section label with run identity
+  const labelEl = document.getElementById('matrizSectionLabel');
+  if (labelEl) {
+    if (selectedRunIds.size === 1) {
+      const rid = [...selectedRunIds][0];
+      const runStat = runsStats.find(s => s.id === rid);
+      if (runStat) {
+        const parts = [runStat.fecha, runStat.hora_franja, runStat.operador].filter(Boolean);
+        labelEl.textContent = parts.join(' — ');
+      } else {
+        labelEl.textContent = 'Vista comparativa';
+      }
+    } else {
+      labelEl.textContent = `${selectedRunIds.size} checklists seleccionados`;
+    }
+  }
+
+  sec.style.display = 'block';
+  renderMatrix().catch(e => console.error('renderMatrix error:', e));
   setTimeout(() => {
-    setView('matriz');
-    const card = document.getElementById('detail-card');
-    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, 80);
 }
 
 function clearRunFilter() {
+  selectedRunIds.clear();
   selectedRunId = null;
-  clearRunBanner();
-  document.getElementById('viewToggle')?.classList.remove('visible');
-  setView('lista');
+  const sec = document.getElementById('matrizSection');
+  if (sec) sec.style.display = 'none';
+  const bd = document.getElementById('multiRunBlocks');
+  if (bd) bd.style.display = 'none';
   renderHistorial();
-  applyFilters();
 }
 
-function clearRunBanner() {
-  const banner = document.getElementById('historial-active-banner');
-  if (banner) banner.classList.remove('visible');
-  const badge = document.getElementById('detail-run-badge');
-  if (badge) badge.style.display = 'none';
-}
+function clearAllSelections() { clearRunFilter(); }
+function clearRunBanner() {}   // kept for compatibility
 
-// ── View toggle ────────────────────────────────────────────────
-function setView(mode) {
-  currentView = mode;
-  document.getElementById('btnLista').classList.toggle('active', mode === 'lista');
-  document.getElementById('btnMatriz').classList.toggle('active', mode === 'matriz');
+// setView kept for compatibility (matrix always shows in matrizSection now)
+function setView(mode) { currentView = mode; }
 
-  const listWrap   = document.getElementById('mainTableWrap');
-  const pagination = document.getElementById('paginationBar');
+async function renderMatrix() {
+  // Determine which runs to show
+  const runIdsToShow = selectedRunIds.size > 0
+    ? selectedRunIds
+    : selectedRunId
+      ? new Set([selectedRunId])
+      : null;
+
+  if (!runIdsToShow || runIdsToShow.size === 0) return;
+
   const matrizCont = document.getElementById('matrizContainer');
-  const filtersBar = document.querySelector('.filters-bar');
-  const quickDates = document.querySelector('.quick-dates');
 
-  if (mode === 'matriz') {
-    if (listWrap)   listWrap.style.display   = 'none';
-    if (pagination) pagination.style.display = 'none';
-    if (matrizCont) matrizCont.style.display = 'block';
-    if (filtersBar) filtersBar.style.display = 'none';
-    if (quickDates) quickDates.style.display = 'none';
-    renderMatrix();
-  } else {
-    if (listWrap)   listWrap.style.display   = '';
-    if (pagination) pagination.style.display = '';
-    if (matrizCont) matrizCont.style.display = 'none';
-    if (filtersBar) filtersBar.style.display = '';
-    if (quickDates) quickDates.style.display = '';
-  }
-}
+  // Mostrar spinner mientras carga
+  document.getElementById('matrixHead').innerHTML = '';
+  document.getElementById('matrixBody').innerHTML =
+    `<tr><td colspan="99" class="state-msg"><span class="spinner"></span> Cargando detalles…</td></tr>`;
+  if (matrizCont) matrizCont.style.display = 'block';
 
-function renderMatrix() {
-  const rows = selectedRunId
-    ? allRows.filter(r => r.run_id === selectedRunId)
-    : filtered;
-
-  if (!rows.length) {
-    document.getElementById('matrixBody').innerHTML =
-      `<tr><td colspan="99" class="state-msg">Sin datos para mostrar en vista matriz.</td></tr>`;
-    document.getElementById('matrixHead').innerHTML = '';
-    return;
-  }
-
-  // Extract unique devices (preserve order of appearance)
-  const devicesSet = [];
-  rows.forEach(r => { if (r.dispositivo && !devicesSet.includes(r.dispositivo)) devicesSet.push(r.dispositivo); });
-  devicesSet.sort();
-
-  // Build lookup: seccion → [{numero, nombre, devices:{dev→{estado,obs}}]
-  const sectionsMap = {};   // seccion → Map<numero_item+nombre → {n, t, devs}>
-  const sectionOrder = [];
-
-  // Canonical section order for monitoreo
+  // Canonical section order
   const SECCION_CANONICAL = [
     'CUENTA','NAVEGACION','LIVE','VOD',
     'ADS Y PUBLICIDAD','PLATAFORMA LEGAL Y SOPORTE'
   ];
 
-  rows.forEach(r => {
-    const sec = r.seccion || '—';
-    if (!sectionsMap[sec]) { sectionsMap[sec] = new Map(); sectionOrder.push(sec); }
-    const key = (r.numero_item ?? '') + '|' + (r.nombre_item ?? '');
-    if (!sectionsMap[sec].has(key)) {
-      sectionsMap[sec].set(key, { n: r.numero_item ?? '', t: r.nombre_item ?? '', devs: {} });
-    }
-    const item = sectionsMap[sec].get(key);
-    const dev = r.dispositivo;
-    if (dev) {
-      if (!item.devs[dev]) item.devs[dev] = { estado: r.estado, obs: r.observacion || '' };
-      // If FAIL, prefer showing FAIL over PASS
-      else if (r.estado === 'FAIL') item.devs[dev] = { estado: r.estado, obs: r.observacion || '' };
-    }
-  });
-
-  // ── Header ──
-  const thead = document.getElementById('matrixHead');
-  thead.innerHTML = `<tr>
-    <th style="text-align:right;width:40px">#</th>
-    <th class="item-col">Ítem de verificación</th>
-    ${devicesSet.map(d => `<th title="${d}">${d.length > 9 ? d.slice(0,9)+'…' : d}</th>`).join('')}
-    <th class="obs-col">Observaciones</th>
-  </tr>`;
-
-  // ── Body ──
-  const tbody = document.getElementById('matrixBody');
-  let html = '';
-
-  // Keep track of unique sections
-  const seen = new Set();
-  // Sort sections by canonical order before rendering
-  sectionOrder.sort((a, b) => {
-    const ai = SECCION_CANONICAL.indexOf(a), bi = SECCION_CANONICAL.indexOf(b);
-    if (ai === -1 && bi === -1) return a.localeCompare(b);
-    if (ai === -1) return 1;
-    if (bi === -1) return -1;
-    return ai - bi;
-  });
-
-  sectionOrder.forEach(sec => {
-    if (seen.has(sec)) return;
-    seen.add(sec);
-
-    // Section header row
-    html += `<tr class="matrix-section-row"><td colspan="${2 + devicesSet.length + 1}">${escHtml(sec)}</td></tr>`;
-
-    // Sort items by numero_item numerically (e.g. 1 < 1.1 < 1.2 < 1.10)
-    const items = [...sectionsMap[sec].values()].sort((a, b) => {
-      const pa = String(a.n).split('.').map(Number);
-      const pb = String(b.n).split('.').map(Number);
-      for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-        const va = pa[i] !== undefined ? pa[i] : -1;
-        const vb = pb[i] !== undefined ? pb[i] : -1;
-        if (va !== vb) return va - vb;
+  // Helper: build single run matrix data from a set of rows
+  function buildRunMatrix(runRows) {
+    const devicesInRun = [...new Set(runRows.map(r => r.dispositivo).filter(Boolean))];
+    // Usar el orden canónico de activeDevices (columna `orden` de checklist_devices)
+    // para que coincida con el orden del formulario de checklist
+    const devicesSet = activeDevices.length > 0
+      ? activeDevices.filter(d => devicesInRun.includes(d))
+      : devicesInRun.sort();
+    const sectionsMap = {};
+    const sectionOrder = [];
+    runRows.forEach(r => {
+      const sec = r.seccion || '—';
+      if (!sectionsMap[sec]) { sectionsMap[sec] = new Map(); sectionOrder.push(sec); }
+      const key = (r.numero_item ?? '') + '|' + (r.nombre_item ?? '');
+      if (!sectionsMap[sec].has(key)) sectionsMap[sec].set(key, { n: r.numero_item ?? '', t: r.nombre_item ?? '', devs: {} });
+      const item = sectionsMap[sec].get(key);
+      const dev = r.dispositivo;
+      if (dev) {
+        if (!item.devs[dev]) item.devs[dev] = { estado: r.estado, obs: r.observacion || '' };
+        else if (r.estado === 'FAIL') item.devs[dev] = { estado: r.estado, obs: r.observacion || '' };
       }
-      return 0;
     });
+    sectionOrder.sort((a, b) => {
+      const ai = SECCION_CANONICAL.indexOf(a), bi = SECCION_CANONICAL.indexOf(b);
+      if (ai === -1 && bi === -1) return a.localeCompare(b);
+      if (ai === -1) return 1; if (bi === -1) return -1; return ai - bi;
+    });
+    return { devicesSet, sectionsMap, sectionOrder };
+  }
 
-    items.forEach(item => {
-      // Collect all observations for this item
-      const allObs = devicesSet
-        .map(d => item.devs[d]?.obs || '')
-        .filter(Boolean)
-        .filter((v, i, arr) => arr.indexOf(v) === i)  // unique
-        .join(' | ');
+  function buildTableRows(devicesSet, sectionsMap, sectionOrder) {
+    let html = '';
+    const seen = new Set();
+    sectionOrder.forEach(sec => {
+      if (seen.has(sec)) return; seen.add(sec);
+      html += `<tr class="matrix-section-row"><td colspan="${2 + devicesSet.length + 1}">${escHtml(sec)}</td></tr>`;
+      const items = [...sectionsMap[sec].values()].sort((a, b) => {
+        const pa = String(a.n).split('.').map(Number), pb = String(b.n).split('.').map(Number);
+        for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+          const va = pa[i] !== undefined ? pa[i] : -1, vb = pb[i] !== undefined ? pb[i] : -1;
+          if (va !== vb) return va - vb;
+        }
+        return 0;
+      });
+      items.forEach(item => {
+        const allObs = devicesSet.map(d => item.devs[d]?.obs || '').filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(' | ');
+        html += `<tr>
+          <td class="num-col">${escHtml(String(item.n))}</td>
+          <td class="item-col">${escHtml(item.t)}</td>
+          ${devicesSet.map(d => {
+            const cell = item.devs[d];
+            if (!cell) return `<td><span class="m-badge empty">—</span></td>`;
+            const cls = cell.estado === 'PASS' ? 'pass' : cell.estado === 'FAIL' ? 'fail' : cell.estado === 'N/A' ? 'na' : 'unable';
+            const lbl = cell.estado === 'UNABLE TO TEST' ? 'UTT' : cell.estado;
+            return `<td><span class="m-badge ${cls}">${lbl}</span></td>`;
+          }).join('')}
+          <td class="obs-col">${escHtml(allObs)}</td>
+        </tr>`;
+      });
+    });
+    return html;
+  }
 
-      html += `<tr>
-        <td class="num-col">${escHtml(String(item.n))}</td>
-        <td class="item-col">${escHtml(item.t)}</td>
-        ${devicesSet.map(d => {
-          const cell = item.devs[d];
-          if (!cell) return `<td><span class="m-badge empty">—</span></td>`;
-          const cls = cell.estado === 'PASS' ? 'pass'
-                    : cell.estado === 'FAIL' ? 'fail'
-                    : cell.estado === 'N/A'  ? 'na'
-                    : cell.estado === 'UNABLE TO TEST' ? 'unable' : 'na';
-          const label = cell.estado === 'UNABLE TO TEST' ? 'UTT' : cell.estado;
-          return `<td><span class="m-badge ${cls}">${label}</span></td>`;
-        }).join('')}
-        <td class="obs-col">${escHtml(allObs)}</td>
+  // Cargar detalles de todos los runs seleccionados (usa caché)
+  const runIds = [...runIdsToShow];
+  let allDetailRows = [];
+  try {
+    const detailArrays = await Promise.all(runIds.map(rid => fetchRunDetails(rid)));
+    allDetailRows = detailArrays.flat();
+  } catch(e) {
+    document.getElementById('matrixBody').innerHTML =
+      `<tr><td colspan="99" class="state-msg">Error al cargar detalles: ${escHtml(String(e))}</td></tr>`;
+    return;
+  }
+
+  if (!allDetailRows.length) {
+    document.getElementById('matrixBody').innerHTML =
+      `<tr><td colspan="99" class="state-msg">Sin datos para mostrar en vista matriz.</td></tr>`;
+    document.getElementById('matrixHead').innerHTML = '';
+    const bd = document.getElementById('multiRunBlocks');
+    if (bd) bd.style.display = 'none';
+    return;
+  }
+
+  // Determine: single-run or multi-run
+  const multiMode = runIdsToShow.size > 1;
+
+  if (!multiMode) {
+    // ── Single-run rendering ──
+    const bd = document.getElementById('multiRunBlocks');
+    if (bd) bd.style.display = 'none';
+
+    if (allDetailRows.length === 0) {
+      document.getElementById('matrixHead').innerHTML = '';
+      document.getElementById('matrixBody').innerHTML =
+        `<tr><td colspan="99" class="state-msg" style="color:var(--text-muted)">Este run no tiene resultados guardados en la base de datos.</td></tr>`;
+      matrizCont.style.display = 'block';
+    } else {
+      const { devicesSet, sectionsMap, sectionOrder } = buildRunMatrix(allDetailRows);
+      document.getElementById('matrixHead').innerHTML = `<tr>
+        <th style="text-align:right;width:40px">#</th>
+        <th class="item-col">Ítem de verificación</th>
+        ${devicesSet.map(d => `<th title="${d}">${d.length > 9 ? d.slice(0,9)+'…' : d}</th>`).join('')}
+        <th class="obs-col">Observaciones</th>
       </tr>`;
-    });
-  });
+      document.getElementById('matrixBody').innerHTML = buildTableRows(devicesSet, sectionsMap, sectionOrder);
+      matrizCont.style.display = 'block';
+    }
+  } else {
+    // ── Multi-run stacked rendering ──
+    document.getElementById('matrixHead').innerHTML = '';
+    document.getElementById('matrixBody').innerHTML = '';
+    matrizCont.style.display = 'none';
 
-  tbody.innerHTML = html;
+    let blocksDiv = document.getElementById('multiRunBlocks');
+    if (!blocksDiv) {
+      blocksDiv = document.createElement('div');
+      blocksDiv.id = 'multiRunBlocks';
+      const sec = document.getElementById('matrizSection') || matrizCont.parentNode;
+      sec.appendChild(blocksDiv);
+    }
+    blocksDiv.style.display = 'block';
+
+    let blocksHtml = '';
+    runIds.forEach(rid => {
+      const runRows = allDetailRows.filter(r => r.run_id === rid);
+      const runStat = runsStats.find(s => s.id === rid);
+      const label = runStat ? `${runStat.fecha} — ${runStat.hora_franja} — ${runStat.operador}` : rid;
+
+      // Calcular % desde los datos reales cargados (más preciso que el resumen)
+      const tot = runRows.length;
+      const passCount = runRows.filter(r => r.estado === 'PASS').length;
+      const pct = tot ? Math.round((passCount / tot) * 100) : 0;
+      const pctColor = pct >= 90 ? '#1baf7a' : pct >= 70 ? '#eda100' : '#e34948';
+
+      // Run sin resultados: mostrar aviso en lugar de tabla vacía
+      if (tot === 0) {
+        blocksHtml += `<div class="run-block">
+          <div class="run-block-header">
+            📋 ${escHtml(label)}
+            <span style="margin-left:10px;font-size:0.78rem;color:var(--text-muted)">Sin resultados guardados</span>
+          </div>
+          <p style="padding:16px 12px;color:var(--text-muted);font-size:0.82rem">
+            Este run no tiene resultados registrados en la base de datos.
+          </p>
+        </div>`;
+        return;
+      }
+
+      const { devicesSet, sectionsMap, sectionOrder } = buildRunMatrix(runRows);
+      const tbodyHtml = buildTableRows(devicesSet, sectionsMap, sectionOrder);
+      blocksHtml += `<div class="run-block">
+        <div class="run-block-header">
+          📋 ${escHtml(label)}
+          <span style="margin-left:10px;font-size:0.78rem;color:${pctColor}">${pct}% aprobado</span>
+        </div>
+        <div class="table-wrap">
+          <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+            <thead><tr>
+              <th style="text-align:right;width:40px;background:var(--surface2);padding:7px 8px;border-bottom:2px solid var(--brand-accent)">#</th>
+              <th style="text-align:left;min-width:160px;background:var(--surface2);padding:7px 8px;border-bottom:2px solid var(--brand-accent)">Ítem de verificación</th>
+              ${devicesSet.map(d => `<th style="text-align:center;background:var(--surface2);padding:7px 8px;border-bottom:2px solid var(--brand-accent);white-space:nowrap" title="${escHtml(d)}">${d.length>9?d.slice(0,9)+'…':escHtml(d)}</th>`).join('')}
+              <th style="background:var(--surface2);padding:7px 8px;border-bottom:2px solid var(--brand-accent)">Observaciones</th>
+            </tr></thead>
+            <tbody>${tbodyHtml}</tbody>
+          </table>
+        </div>
+      </div>`;
+    });
+    blocksDiv.innerHTML = blocksHtml;
+  }
 }
 
 // ── Delete run ─────────────────────────────────────────────────
@@ -1864,7 +2034,7 @@ async function doDeleteRun() {
 
     closeDeleteModal();
     // If the deleted run was selected, clear filter
-    if (selectedRunId === pendingDeleteId) clearRunFilter();
+    if (selectedRunIds.has(pendingDeleteId)) { selectedRunIds.delete(pendingDeleteId); showMatrizSection(); }
     // Reload data
     await loadData();
   } catch (e) {

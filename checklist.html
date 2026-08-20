@@ -92,14 +92,15 @@ thead th:last-child{border-right:none}
 
 /* Columnas izquierda sticky en thead */
 thead th.th-num{
-  width:38px;min-width:38px;
+  width:44px;min-width:44px;
+  padding:0 6px;
   position:sticky;left:0;z-index:5;
   background:var(--surface2);
 }
 thead th.th-item{
-  width:210px;min-width:180px;
-  text-align:left;padding-left:10px;
-  position:sticky;left:38px;z-index:5;
+  width:180px;min-width:150px;
+  text-align:left;padding-left:16px;
+  position:sticky;left:44px;z-index:5;
   background:var(--surface2);
   border-right:2px solid var(--border);
 }
@@ -132,7 +133,7 @@ tr.item-row:nth-child(even) td{background:rgba(255,255,255,.025)}
 
 /* STICKY BODY CELLS — solo horizontal */
 td.td-num{
-  text-align:center;color:var(--dim);font-size:11px;font-weight:600;padding:4px;
+  text-align:center;color:var(--dim);font-size:11px;font-weight:600;padding:4px 6px;
   position:sticky;left:0;z-index:5;
   background:var(--bg);
   border-right:1px solid var(--border);
@@ -140,19 +141,23 @@ td.td-num{
 tr.item-row:nth-child(even) td.td-num{background:#12151e}
 
 td.td-item{
-  padding:6px 10px;font-size:12px;line-height:1.35;
-  position:sticky;left:38px;z-index:5;
+  padding:6px 16px 6px 16px;font-size:12px;line-height:1.4;
+  position:sticky;left:44px;z-index:5;
   background:var(--bg);
   border-right:2px solid var(--border);
+  max-width:200px;word-break:break-word;
 }
 tr.item-row:nth-child(even) td.td-item{background:#12151e}
 
-/* INFO BUTTON & CRITERIO POPOVER */
-.info-btn{background:none;border:none;cursor:pointer;font-size:12px;color:#6366f1;opacity:.55;padding:0 2px;vertical-align:middle;line-height:1;transition:.15s;margin-left:3px}
-.info-btn:hover{opacity:1;transform:scale(1.15)}
-.item-popover{position:fixed;z-index:2000;background:#1a1d27;border:1px solid #6366f1;border-radius:10px;padding:12px 14px;width:270px;font-size:12px;line-height:1.55;color:#e8eaf0;box-shadow:0 8px 28px rgba(0,0,0,.6);display:none;pointer-events:none}
+/* CRITERIO — subrayado punteado + tooltip en hover */
+.item-content{display:flex;align-items:flex-start;gap:4px}
+.item-content span{flex:1;min-width:0}
+.info-btn{background:none;border:none;color:#6366f1;cursor:pointer;font-size:13px;padding:0 2px;line-height:1;flex-shrink:0;opacity:.8}
+.info-btn:hover{opacity:1}
+.item-popover{display:none;position:fixed;z-index:2000;background:#1a1d27;border:1px solid #6366f1;border-radius:10px;padding:12px 14px;max-width:280px;box-shadow:0 8px 28px rgba(0,0,0,.6)}
 .item-popover.show{display:block}
 .item-popover-label{font-size:10px;font-weight:700;color:#6366f1;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+#itemPopoverText{font-size:12px;line-height:1.55;color:#e8eaf0;white-space:pre-wrap}
 
 /* STATUS BUTTON */
 .s-btn{
@@ -186,9 +191,10 @@ tr.item-row:nth-child(even) td.td-item{background:#12151e}
 .obs-textarea:focus{outline:none;border-color:#6366f1}
 /* Modal overlay */
 .sitenav{display:flex;gap:4px;padding:8px 14px;background:#0a0c12;border-bottom:1px solid #1e2235;flex-wrap:wrap;position:sticky;top:0;z-index:100}
-.snav-link{color:#7c82a0;font-size:12px;font-weight:600;text-decoration:none;padding:5px 11px;border-radius:7px;transition:.15s}
+.snav-link{color:#7c82a0;font-size:12px;font-weight:600;text-decoration:none;padding:5px 11px;border-radius:7px;transition:.15s;display:flex;align-items:center;gap:6px}
 .snav-link:hover{color:#e8eaf0;background:#1a1d27}
 .snav-link.active{color:#c3a0ff;background:#1a1d27}
+.snav-link svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
 .nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}
 .user-chip{font-size:11px;color:#7c82a0}
 .logout-btn{background:none;border:1px solid #2e3350;color:#7c82a0;border-radius:7px;padding:4px 10px;font-size:11px;cursor:pointer;transition:.15s}
@@ -197,11 +203,11 @@ tr.item-row:nth-child(even) td.td-item{background:#12151e}
 </head>
 <body>
 <nav class="sitenav">
-  <a href="./dashboard.html" class="snav-link">📊 Dashboard</a>
-  <a href="./checklist.html" class="snav-link active">✅ Checklist</a>
-  <a href="./admin_dispositivos.html" class="snav-link">📱 Dispositivos</a>
-  <a href="./admin.html" class="snav-link">📋 Ítems</a>
-  <a href="./backup.html" class="snav-link">💾 Backup</a>
+  <a href="./dashboard.html" class="snav-link"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</a>
+  <a href="./checklist.html" class="snav-link active"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Checklist</a>
+  <a href="./admin_dispositivos.html" class="snav-link"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>Dispositivos</a>
+  <a href="./admin.html" class="snav-link"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><polyline points="3 6 4 7 6 5"/><polyline points="3 12 4 13 6 11"/><polyline points="3 18 4 19 6 17"/></svg>Ítems</a>
+  <a href="./backup.html" class="snav-link"><svg viewBox="0 0 24 24"><polyline points="21 15 21 21 3 21 3 15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Backup</a>
   <div class="nav-right">
     <span class="user-chip" id="userEmail"></span>
     <button class="logout-btn" onclick="_sbLogout()">Cerrar sesión</button>
@@ -226,17 +232,6 @@ tr.item-row:nth-child(even) td.td-item{background:#12151e}
     font-size="74" font-weight="900" letter-spacing="-3"
     fill="url(#dituGrad)">ditu</text>
 </svg>
-  </div>
-  <div class="card">
-    <label>Tu nombre</label>
-    <select id="selOperador">
-      <option value="">— Selecciona —</option>
-      <option>Jhoinner Samboni</option><option>Cristopher Piamba</option>
-      <option>Santiago Urrego</option><option>Jeison Sandoval</option>
-      <option>Edwin Pabon</option><option>Gabriel Gaitan</option>
-      <option>Stiven Arboleda</option><option>Arturo Romero</option>
-      <option>Maykol Riveros</option><option>Sara Moreno</option>
-    </select>
   </div>
   <div class="card">
     <label>Tipo de checklist</label>
@@ -285,7 +280,23 @@ tr.item-row:nth-child(even) td.td-item{background:#12151e}
 
 <script>
 const _sbc=supabase.createClient('https://akpuifenfstvobwtqtcq.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcHVpZmVuZnN0dm9id3RxdGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDMxOTAsImV4cCI6MjEwMjM3OTE5MH0.5397pVE5XlyV2864iTf96Ttj--HqoffovzJ9Z9mI0ig');
-(async()=>{const{data:{session}}=await _sbc.auth.getSession();if(!session){window.location.href='./login.html';return;}document.getElementById('userEmail').textContent=session.user.email;})();
+let currentUser='';
+let currentRol='operador';
+(async()=>{
+  const{data:{session}}=await _sbc.auth.getSession();
+  if(!session){window.location.href='./login.html';return;}
+  // Cargar perfil desde tabla profiles
+  try{
+    const res=await fetch(SUPA_URL+'/rest/v1/profiles?id=eq.'+session.user.id+'&select=nombre,rol',
+      {headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+session.access_token}});
+    if(res.ok){
+      const[profile]=await res.json();
+      if(profile){currentUser=profile.nombre;currentRol=profile.rol||'operador';}
+    }
+  }catch(_){}
+  if(!currentUser)currentUser=session.user.email;
+  document.getElementById('userEmail').textContent=currentUser;
+})();
 async function _sbLogout(){await _sbc.auth.signOut();window.location.href='./login.html';}
 const SUPA_URL='https://akpuifenfstvobwtqtcq.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcHVpZmVuZnN0dm9id3RxdGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDMxOTAsImV4cCI6MjEwMjM3OTE5MH0.5397pVE5XlyV2864iTf96Ttj--HqoffovzJ9Z9mI0ig';
@@ -333,11 +344,10 @@ function initFranjas(){
 }
 function selectType(t){selectedType=t;document.querySelectorAll('.type-btn').forEach(b=>b.classList.toggle('active',b.dataset.type===t));checkReady();}
 function selectFranja(f){selectedFranja=f;document.querySelectorAll('.franja-btn').forEach(b=>b.classList.toggle('active',b.textContent===f));checkReady();}
-function checkReady(){document.getElementById('btnStart').disabled=!document.getElementById('selOperador').value||!selectedFranja||!DEVICES.length;}
-document.getElementById('selOperador').addEventListener('change',checkReady);
+function checkReady(){document.getElementById('btnStart').disabled=!selectedFranja||!DEVICES.length;}
 
 function startChecklist(){
-  const op=document.getElementById('selOperador').value;
+  const op=currentUser;
   document.getElementById('headerOp').textContent=op;
   document.getElementById('headerMeta').textContent=
     (selectedType==='soporte'?'🟣 Soporte':'🔵 Monitoreo')+' · Franja '+selectedFranja+' · '+
@@ -366,8 +376,10 @@ function buildTable(){
       }).join('');
       const obsKey=`${si}_${ii}`;
       const obsVal=(observations[obsKey]||'').replace(/"/g,'&quot;');
-      const infoBtn=item.c?`<button class="info-btn" data-criterio="${item.c.replace(/"/g,'&quot;').replace(/\n/g,'&#10;')}" onclick="showCriterio(this)" title="Ver criterio de verificación">ℹ️</button>`:'';
-      html+=`<tr class="item-row"><td class="td-num">${item.n}</td><td class="td-item">${item.t}${infoBtn}</td>${devCells}<td style="padding:3px 4px;vertical-align:top"><textarea class="obs-textarea" oninput="observations['${obsKey}']=this.value" placeholder="Comentario...">${obsVal}</textarea></td></tr>`;
+      const itemSpan=item.c
+        ?`<span>${item.t}</span><button class="info-btn" data-criterio="${item.c.replace(/"/g,'&quot;').replace(/\n/g,'&#10;')}" onclick="showCriterio(this)" title="Ver criterio de verificación">ℹ️</button>`
+        :`<span>${item.t}</span>`;
+      html+=`<tr class="item-row"><td class="td-num">${item.n}</td><td class="td-item"><div class="item-content">${itemSpan}</div></td>${devCells}<td style="padding:3px 4px;vertical-align:top"><textarea class="obs-textarea" oninput="observations['${obsKey}']=this.value" placeholder="Comentario...">${obsVal}</textarea></td></tr>`;
     });
   });
   html+='</tbody></table>';
@@ -401,7 +413,7 @@ function updateProgress(){
   if(bp)bp.textContent=filled+'/'+total+' · '+pct+'%';
 }
 async function enviarChecklist(){
-  const op=document.getElementById('selOperador').value;
+  const op=currentUser;
   const btn=document.getElementById('sendBtn');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Enviando...';
   try{
@@ -449,10 +461,10 @@ async function enviarChecklist(){
     btn.disabled=false;btn.innerHTML='✅ Enviar Checklist';
   }
 }
-function resetForm(){results={};observations={};document.getElementById('selOperador').value='';checkReady();show('screenSetup');}
+function resetForm(){results={};observations={};checkReady();show('screenSetup');}
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
 
-// ── Criterio popover ────────────────────────────────────────────────
+// ── Criterio popover ──────────────────────────────
 let _popSrc=null;
 function showCriterio(btn){
   const text=btn.dataset.criterio||'';
