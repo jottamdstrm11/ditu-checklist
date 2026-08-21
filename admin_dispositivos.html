@@ -162,8 +162,9 @@ async function saveAll(){
     for(const d of devices){
       if(!d.nombre.trim())continue;
       if(!d.clave||d.clave.startsWith('nuevo_')){
-        // generate clave from nombre
-        d.clave=d.nombre.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+        // generate clave from nombre + version to avoid duplicates
+        const base=(d.nombre+(d.version?'_'+d.version:'')).toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+        d.clave=base||'device_'+Date.now();
       }
       const body={nombre:d.nombre,version:d.version||'',activo:d.activo,orden:d.orden,clave:d.clave};
       if(d.id){
