@@ -93,12 +93,14 @@ input[type=text]:focus{outline:none;border-color:#6366f1}
 <div class="toast" id="toast"></div>
 
 <script>
-const _sbc=supabase.createClient('https://akpuifenfstvobwtqtcq.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcHVpZmVuZnN0dm9id3RxdGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDMxOTAsImV4cCI6MjEwMjM3OTE5MH0.5397pVE5XlyV2864iTf96Ttj--HqoffovzJ9Z9mI0ig');
-(async()=>{const{data:{session}}=await _sbc.auth.getSession();if(!session){window.location.href='./login.html';return;}document.getElementById('userEmail').textContent=session.user.email;})();
-async function _sbLogout(){await _sbc.auth.signOut();window.location.href='./login.html';}
+// ── Config ──────────────────────────────────────────────────────────
 const SUPA_URL='https://akpuifenfstvobwtqtcq.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcHVpZmVuZnN0dm9id3RxdGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDMxOTAsImV4cCI6MjEwMjM3OTE5MH0.5397pVE5XlyV2864iTf96Ttj--HqoffovzJ9Z9mI0ig';
+const _sbc=supabase.createClient(SUPA_URL,SUPA_KEY);
 const H={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'};
+// ── Auth ─────────────────────────────────────────────────────────────
+(async()=>{const{data:{session}}=await _sbc.auth.getSession();if(!session){window.location.href='./login.html';return;}document.getElementById('userEmail').textContent=session.user.email;})();
+async function _sbLogout(){await _sbc.auth.signOut();window.location.href='./login.html';}
 
 let devices=[];
 
@@ -170,7 +172,9 @@ async function saveAll(){
       }else{
         // insert
         const r=await fetch(SUPA_URL+'/rest/v1/checklist_devices',{method:'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(body)});
-        const [created]=await r.json();
+        const result=await r.json();
+        if(!r.ok)throw new Error(result.message||result.error||'Error al insertar');
+        const created=Array.isArray(result)?result[0]:result;
         if(created?.id)d.id=created.id;
       }
     }
