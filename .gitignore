@@ -1,0 +1,25 @@
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Archivos temporales
+*.tmp
+*.bak
+
+# Variables de entorno locales (nunca subir keys reales)
+.env
+.env.local
+
+# Node (si algún día se agrega tooling)
+node_modules/
