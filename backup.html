@@ -99,6 +99,13 @@ input[type=checkbox]{accent-color:#6366f1;width:15px;height:15px;cursor:pointer}
   <div class="section" id="resultsSection" style="display:none">
     <h2>📋 Runs encontrados</h2>
     <div class="stat-row" id="statsRow"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:#7c82a0;cursor:pointer">
+        <input type="checkbox" id="hideEmpty" checked onchange="renderRuns()" style="accent-color:#6366f1;width:14px;height:14px">
+        Ocultar runs sin resultados
+      </label>
+      <span id="hiddenCount" style="font-size:11px;color:#4a4e6e"></span>
+    </div>
     <div class="runs-list">
       <table>
         <thead>
@@ -137,9 +144,13 @@ const H={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'ap
   if(!session){window.location.href='./login.html';return;}
   document.getElementById('userEmail').textContent=session.user.email;
   // Default dates: last 3 months
-  const now=new Date(),past=new Date();past.setMonth(past.getMonth()-3);
-  document.getElementById('dateTo').value=now.toISOString().split('T')[0];
-  document.getElementById('dateFrom').value=past.toISOString().split('T')[0];
+  const now=new Date();
+  // Use local date to avoid UTC offset cutting off today's runs
+  const pad=n=>String(n).padStart(2,'0');
+  const localDate=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const past=new Date(now);past.setMonth(past.getMonth()-3);
+  document.getElementById('dateTo').value=localDate(now);
+  document.getElementById('dateFrom').value=localDate(past);
 })();
 
 async function logout(){await sb.auth.signOut();window.location.href='./login.html';}
@@ -167,10 +178,18 @@ async function loadRuns(){
       return;
     }
 
-    // Load results for those run ids
+    // Load results with pagination (Supabase limit = 1000 rows per request)
     const ids=runs.map(r=>r.id);
-    const r2=await fetch(SUPA_URL+`/rest/v1/checklist_results?select=*&run_id=in.(${ids.join(',')})`,{headers:H});
-    results=await r2.json();
+    results=[];
+    const PAGE=1000;
+    let offset=0;
+    while(true){
+      const r2=await fetch(SUPA_URL+`/rest/v1/checklist_results?select=*&run_id=in.(${ids.join(',')})&limit=${PAGE}&offset=${offset}`,{headers:H});
+      const page=await r2.json();
+      results.push(...page);
+      if(page.length<PAGE)break;
+      offset+=PAGE;
+    }
 
     renderRuns();
     renderStats();
@@ -199,16 +218,29 @@ function renderRuns(){
   const tbody=document.getElementById('runsTbody');
   const resByRun={};
   results.forEach(r=>{resByRun[r.run_id]=(resByRun[r.run_id]||0)+1;});
-  tbody.innerHTML=runs.map(r=>`
-    <tr>
+  const hideEmpty=document.getElementById('hideEmpty').checked;
+  const visible=runs.filter(r=>!hideEmpty||(resByRun[r.id]||0)>0);
+  const hidden=runs.length-visible.length;
+  document.getElementById('hiddenCount').textContent=hidden>0?`(${hidden} sin resultados ocultos)`:'';
+  if(!visible.length){
+    tbody.innerHTML='<tr><td colspan="6" class="empty">No hay runs con resultados en ese rango.</td></tr>';
+    return;
+  }
+  tbody.innerHTML=visible.map(r=>{
+    const cnt=resByRun[r.id]||0;
+    const pass=results.filter(x=>x.run_id===r.id&&x.estado==='PASS').length;
+    const fail=results.filter(x=>x.run_id===r.id&&x.estado==='FAIL').length;
+    const pct=cnt?Math.round(pass/cnt*100):null;
+    const pctColor=pct===null?'#4a4e6e':pct>=80?'#34d399':pct>=50?'#f59e0b':'#f87171';
+    return `<tr>
       <td><input type="checkbox" class="run-check" value="${r.id}"></td>
       <td>${r.fecha}</td>
       <td>${r.hora_franja||'—'}</td>
       <td style="font-weight:600">${r.operador||'—'}</td>
       <td><span class="badge ${r.tipo==='monitoreo'?'badge-mono':'badge-sop'}">${r.tipo}</span></td>
-      <td style="color:#7c82a0">${resByRun[r.id]||0} registros</td>
-    </tr>
-  `).join('');
+      <td style="color:#7c82a0">${cnt?`<span style="color:${pctColor};font-weight:700">${pct}% aprobado</span> <span style="font-size:11px">(${pass}✓ ${fail}✗ / ${cnt})</span>`:'<span style="color:#4a4e6e;font-style:italic">Sin resultados</span>'}</td>
+    </tr>`;
+  }).join('');
 }
 
 function toggleAll(cb){
@@ -231,35 +263,71 @@ function exportXLSX(){
 
   const wb=XLSX.utils.book_new();
 
-  // Sheet 1: Resumen de runs
+  // ── Sheet 1: Resumen de runs ─────────────────────────────────────
   const resumenData=[
-    ['Fecha','Franja','Operador','Tipo','Total','PASS','FAIL','N/A','UNABLE TO TEST','% Aprobado'],
+    ['Fecha','Franja','Operador','Tipo','Total Tests','PASS','FAIL','N/A','UNABLE TO TEST','% Aprobado'],
     ...selRuns.map(run=>{
       const res=selResults.filter(r=>r.run_id===run.id);
       const pass=res.filter(r=>r.estado==='PASS').length;
       const fail=res.filter(r=>r.estado==='FAIL').length;
       const na=res.filter(r=>r.estado==='N/A').length;
       const utt=res.filter(r=>r.estado==='UNABLE TO TEST').length;
-      const pct=res.length?Math.round(pass/res.length*100):0;
-      return[run.fecha,run.hora_franja||'',run.operador||'',run.tipo,res.length,pass,fail,na,utt,pct+'%'];
+      const pct=res.length?(pass/res.length):0;
+      return[run.fecha,run.hora_franja||'',run.operador||'',run.tipo,res.length,pass,fail,na,utt,pct];
     })
   ];
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(resumenData),'Resumen');
+  const ws1=XLSX.utils.aoa_to_sheet(resumenData);
+  // Column widths
+  ws1['!cols']=[{wch:12},{wch:8},{wch:24},{wch:12},{wch:12},{wch:8},{wch:8},{wch:8},{wch:16},{wch:12}];
+  // Format % col
+  const range1=XLSX.utils.decode_range(ws1['!ref']);
+  for(let R=1;R<=range1.e.r;R++){
+    const cell=ws1[XLSX.utils.encode_cell({r:R,c:9})];
+    if(cell)cell.z='0%';
+  }
+  XLSX.utils.book_append_sheet(wb,ws1,'Resumen');
 
-  // Sheet 2: Detalle completo
+  // ── Sheet 2: Por dispositivo ─────────────────────────────────────
+  const devices=[...new Set(selResults.map(r=>r.dispositivo).filter(Boolean))].sort();
+  const dispData=[
+    ['Dispositivo','Total Tests','PASS','FAIL','N/A','UNABLE TO TEST','% Aprobado'],
+    ...devices.map(dev=>{
+      const res=selResults.filter(r=>r.dispositivo===dev);
+      const pass=res.filter(r=>r.estado==='PASS').length;
+      const fail=res.filter(r=>r.estado==='FAIL').length;
+      const na=res.filter(r=>r.estado==='N/A').length;
+      const utt=res.filter(r=>r.estado==='UNABLE TO TEST').length;
+      const pct=res.length?(pass/res.length):0;
+      return[dev,res.length,pass,fail,na,utt,pct];
+    })
+  ];
+  const ws2=XLSX.utils.aoa_to_sheet(dispData);
+  ws2['!cols']=[{wch:20},{wch:12},{wch:8},{wch:8},{wch:8},{wch:16},{wch:12}];
+  const range2=XLSX.utils.decode_range(ws2['!ref']);
+  for(let R=1;R<=range2.e.r;R++){
+    const cell=ws2[XLSX.utils.encode_cell({r:R,c:6})];
+    if(cell)cell.z='0%';
+  }
+  XLSX.utils.book_append_sheet(wb,ws2,'Por Dispositivo');
+
+  // ── Sheet 3: Detalle completo ────────────────────────────────────
   const detalleData=[
-    ['Fecha','Franja','Operador','Tipo','Sección','Nº Item','Item','Dispositivo','Estado','Observación'],
+    ['Fecha','Franja','Operador','Tipo','Sección','Nº Item','Ítem','Dispositivo','Estado','Observación'],
     ...selResults.map(r=>{
       const run=selRuns.find(s=>s.id===r.run_id)||{};
       return[run.fecha||'',run.hora_franja||'',run.operador||'',run.tipo||'',
-        r.seccion,r.numero_item,r.nombre_item,r.dispositivo,r.estado,r.observacion||''];
+        r.seccion||'',r.numero_item||'',r.nombre_item||'',r.dispositivo||'',r.estado||'',r.observacion||''];
     })
   ];
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(detalleData),'Detalle');
+  const ws3=XLSX.utils.aoa_to_sheet(detalleData);
+  ws3['!cols']=[{wch:12},{wch:8},{wch:22},{wch:11},{wch:20},{wch:8},{wch:36},{wch:18},{wch:16},{wch:40}];
+  XLSX.utils.book_append_sheet(wb,ws3,'Detalle');
 
   const from=document.getElementById('dateFrom').value;
   const to=document.getElementById('dateTo').value;
-  XLSX.writeFile(wb,`ditu_qa_backup_${from}_${to}.xlsx`);
+  const tipo=document.getElementById('filterTipo').value;
+  const tipoLabel=tipo?'_'+(tipo.charAt(0).toUpperCase()+tipo.slice(1)):'';
+  XLSX.writeFile(wb,`Backup_Ditu${tipoLabel}_${from}_${to}.xlsx`);
 }
 
 async function confirmDelete(){

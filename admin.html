@@ -37,9 +37,20 @@ tr:hover td{background:#1a1e30}
 input[type=text]{background:#0f1117;border:1px solid #2e3350;border-radius:6px;color:#e8eaf0;padding:6px 9px;font-size:13px;width:100%;font-family:inherit;transition:border .15s}
 input[type=text]:focus{outline:none;border-color:#6366f1}
 input.num-input{width:70px}
-textarea.criterio-input{background:#0f1117;border:1px solid #1e2235;border-radius:6px;color:#7c82a0;padding:5px 9px;font-size:11px;width:100%;font-family:inherit;resize:vertical;min-height:40px;margin-top:5px;transition:border .15s;line-height:1.4}
-textarea.criterio-input:focus{outline:none;border-color:#6366f1;color:#e8eaf0}
-textarea.criterio-input::placeholder{color:#3a3f55}
+.criterio-btn{width:100%;background:#0f1117;border:1px solid #1e2235;border-radius:6px;color:#7c82a0;padding:5px 9px;font-size:11px;font-family:inherit;text-align:left;cursor:pointer;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:border .15s,background .15s;line-height:1.4}
+.criterio-btn:hover{border-color:#6366f1;color:#c3a0ff}
+.criterio-btn.has-criterio{color:#e8eaf0;background:#1e2440;border-color:#6366f1;border-left:3px solid #6366f1;padding-left:7px;font-style:italic}
+/* Modal criterio */
+.crit-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:3000;display:none;align-items:center;justify-content:center}
+.crit-overlay.show{display:flex}
+.crit-modal{background:#1a1d27;border:1px solid #2e3350;border-radius:14px;padding:24px;width:90%;max-width:540px;display:flex;flex-direction:column;gap:14px;box-shadow:0 12px 40px rgba(0,0,0,.7)}
+.crit-modal-title{font-size:14px;font-weight:700;color:#c3a0ff}
+.crit-modal textarea{background:#0f1117;border:1px solid #2e3350;border-radius:8px;color:#e8eaf0;padding:12px;font-size:13px;font-family:inherit;resize:vertical;min-height:120px;width:100%;line-height:1.6}
+.crit-modal textarea:focus{outline:none;border-color:#6366f1}
+.crit-modal-actions{display:flex;justify-content:flex-end;gap:10px}
+.crit-cancel{background:#22263a;color:#7c82a0;border:1px solid #2e3350;border-radius:8px;padding:9px 18px;font-size:13px;cursor:pointer}
+.crit-save{background:#6366f1;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer}
+.crit-save:hover{background:#4f52d9}
 
 .toggle{position:relative;display:inline-flex;cursor:pointer}
 .toggle input{opacity:0;width:0;height:0;position:absolute}
@@ -160,6 +171,18 @@ textarea.criterio-input::placeholder{color:#3a3f55}
 
 <div class="toast" id="toast"></div>
 
+<!-- Modal criterio -->
+<div class="crit-overlay" id="critOverlay" onclick="if(event.target===this)closeCritModal()">
+  <div class="crit-modal">
+    <div class="crit-modal-title">📝 Criterio de verificación</div>
+    <textarea id="critModalText" placeholder="Escribe el criterio de verificación aquí..."></textarea>
+    <div class="crit-modal-actions">
+      <button class="crit-cancel" onclick="closeCritModal()">Cancelar</button>
+      <button class="crit-save" onclick="saveCritModal()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── Config ──────────────────────────────────────────────────────────
 const SUPA_URL='https://akpuifenfstvobwtqtcq.supabase.co';
@@ -245,8 +268,9 @@ function render(){
               <td>
                 <input type="text" value="${esc(item.nombre_item)}" placeholder="Nombre del ítem"
                   oninput="updateField('${item.id}','nombre_item',this.value)">
-                <textarea class="criterio-input" placeholder="Criterio de verificación (opcional)…"
-                  oninput="updateField('${item.id}','criterio',this.value)">${esc(item.criterio||'')}</textarea>
+                <button class="${item.criterio?'criterio-btn has-criterio':'criterio-btn'}"
+                  onclick="openCritModal('${item.id}',this)"
+                  title="${esc(item.criterio||'Sin criterio')}">${item.criterio?esc(item.criterio.replace(/\n/g,' ')):'+ Criterio de verificación'}</button>
               </td>
               <td style="text-align:center">
                 <label class="toggle">
@@ -356,6 +380,33 @@ function showToast(msg,isError=false){
   t.className='toast'+(isError?' error':'')+' show';
   setTimeout(()=>t.classList.remove('show'),3000);
 }
+
+// ── Modal criterio ──────────────────────────────────────────────────
+let _critId=null,_critBtn=null;
+function openCritModal(id,btn){
+  _critId=id;_critBtn=btn;
+  const item=allItems.find(i=>i.id==id)||toInsert.find(i=>i.id==id);
+  document.getElementById('critModalText').value=item?.criterio||'';
+  document.getElementById('critOverlay').classList.add('show');
+  setTimeout(()=>document.getElementById('critModalText').focus(),80);
+}
+function closeCritModal(){
+  document.getElementById('critOverlay').classList.remove('show');
+  _critId=null;_critBtn=null;
+}
+function saveCritModal(){
+  const val=document.getElementById('critModalText').value.trim();
+  if(_critId!==null){
+    updateField(_critId,'criterio',val);
+    if(_critBtn){
+      _critBtn.textContent=val?val.replace(/\n/g,' '):'+ Criterio de verificación';
+      _critBtn.title=val?val.replace(/\n/g,' '):'Sin criterio';
+      _critBtn.className=val?'criterio-btn has-criterio':'criterio-btn';
+    }
+  }
+  closeCritModal();
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeCritModal();});
 
 load();
 </script>
