@@ -127,7 +127,8 @@ tr:hover td{background:#1e2235}
 const SUPA_URL = 'https://akpuifenfstvobwtqtcq.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcHVpZmVuZnN0dm9id3RxdGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDMxOTAsImV4cCI6MjEwMjM3OTE5MH0.5397pVE5XlyV2864iTf96Ttj--HqoffovzJ9Z9mI0ig';
 const _sbc = supabase.createClient(SUPA_URL, SUPA_KEY);
-const H = {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json'};
+let _token = SUPA_KEY; // se reemplaza con el access_token del usuario al iniciar sesión
+const H = () => ({'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + _token, 'Content-Type': 'application/json'});
 
 const ROLES = ['superadmin', 'admin', 'operador', 'viewer'];
 const ROL_LABELS = {superadmin:'Superadmin', admin:'Admin', operador:'Operador', viewer:'Viewer'};
@@ -155,6 +156,7 @@ function applyNavRole(rol) {
   const { data: { session } } = await _sbc.auth.getSession();
   if (!session) { window.location.href = './login.html'; return; }
   currentUserId = session.user.id;
+  _token = session.access_token; // usar JWT del usuario, no anon key
   document.getElementById('userEmail').textContent = session.user.email;
   try {
     const res = await fetch(SUPA_URL + '/rest/v1/profiles?id=eq.' + session.user.id + '&select=nombre,rol',
@@ -177,7 +179,7 @@ async function _sbLogout() { await _sbc.auth.signOut(); window.location.href = '
 
 // ── Load profiles ─────────────────────────────────────────────
 async function load() {
-  const r = await fetch(SUPA_URL + '/rest/v1/profiles?order=nombre&select=*', { headers: H });
+  const r = await fetch(SUPA_URL + '/rest/v1/profiles?order=nombre&select=*', { headers: H() });
   profiles = await r.json();
   pendingChanges = {};
   renderStats();
@@ -262,7 +264,7 @@ async function saveChanges() {
     for (const id of ids) {
       const rol = pendingChanges[id];
       const r = await fetch(SUPA_URL + '/rest/v1/profiles?id=eq.' + id,
-        { method: 'PATCH', headers: H, body: JSON.stringify({ rol }) });
+        { method: 'PATCH', headers: H(), body: JSON.stringify({ rol }) });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
         throw new Error(err.message || 'Error al actualizar');
