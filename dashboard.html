@@ -1101,11 +1101,13 @@ const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 const _sbc = supabase.createClient(SUPA_URL, SUPA_KEY);
 
 // ── Cliente activo (multi-tenancy) ────────────────────────────────────
+let currentClienteId = null;
 (function applyClienteContext() {
   const raw = sessionStorage.getItem('ditu_cliente');
   if (!raw) { window.location.href = './select_cliente.html'; return; }
   try {
     const c = JSON.parse(raw);
+    currentClienteId = c.id || null;
     const color = c.color_primario || '#7B2FBE';
     document.documentElement.style.setProperty('--cliente-color', color);
     const chip = document.getElementById('clienteChip');
@@ -1154,9 +1156,14 @@ async function supaFetch(path, extraHeaders) {
 async function fetchSummaryRows() {
   const PAGE = 1000;
   let agg = [], offset = 0;
+  // Filtrar por los run_ids del cliente activo para no traer stats de otros clientes
+  const runIds = allRuns.map(r => r.id).filter(Boolean);
+  const runFilter = runIds.length > 0
+    ? `&run_id=in.(${runIds.join(',')})`
+    : (currentClienteId ? '&run_id=eq.00000000-0000-0000-0000-000000000000' : ''); // sin runs → vacío
   while (true) {
     const page = await supaFetch(
-      `/rest/v1/checklist_results_agg?select=run_id,dispositivo,estado,n&limit=${PAGE}&offset=${offset}`,
+      `/rest/v1/checklist_results_agg?select=run_id,dispositivo,estado,n${runFilter}&limit=${PAGE}&offset=${offset}`,
       { 'Range-Unit': 'items', 'Range': `${offset}-${offset + PAGE - 1}` }
     );
     agg = agg.concat(page);
@@ -1205,8 +1212,9 @@ async function loadData() {
   try {
     // ── FASE 1: rápida — solo runs + dispositivos ──────────────
     // Muestra el historial inmediatamente sin esperar las estadísticas
+    const clienteFilter = currentClienteId ? `&cliente_id=eq.${currentClienteId}` : '';
     const [runs, devices] = await Promise.all([
-      supaFetch('/rest/v1/checklist_runs?select=*&order=created_at.desc'),
+      supaFetch(`/rest/v1/checklist_runs?select=*&order=created_at.desc${clienteFilter}`),
       supaFetch('/rest/v1/checklist_devices?select=nombre&activo=eq.true&order=orden')
     ]);
 
