@@ -48,10 +48,10 @@ const SUPA_URL='https://akpuifenfstvobwtqtcq.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcHVpZmVuZnN0dm9id3RxdGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDMxOTAsImV4cCI6MjEwMjM3OTE5MH0.5397pVE5XlyV2864iTf96Ttj--HqoffovzJ9Z9mI0ig';
 const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
 
-// Si ya hay sesión activa, ir al dashboard
+// Si ya hay sesión activa, ir a selector de cliente
 (async()=>{
   const {data:{session}}=await sb.auth.getSession();
-  if(session)window.location.href='./checklist.html';
+  if(session)window.location.href='./select_cliente.html';
 })();
 
 async function doLogin(){
@@ -68,7 +68,7 @@ async function doLogin(){
     err.style.display='block';
     btn.disabled=false;btn.textContent='Ingresar';
   }else{
-    window.location.href='./checklist.html';
+    window.location.href='./select_cliente.html';
   }
 }
 </script>
