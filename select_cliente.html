@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ditu — Seleccionar cliente</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d0d14;color:#e8eaf0;font-family:system-ui,-apple-system,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+
+/* Header Mediastream siempre visible */
+.ms-header{width:100%;max-width:700px;display:flex;align-items:center;justify-content:space-between;margin-bottom:48px}
+.ms-brand{display:flex;align-items:baseline;gap:10px}
+.ms-ditu{font-size:2.6rem;font-weight:900;letter-spacing:-2px;background:linear-gradient(90deg,#fff,#c3a0ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.ms-sub{font-size:12px;color:#7c82a0;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.ms-user{display:flex;align-items:center;gap:10px}
+.ms-name{font-size:13px;color:#7c82a0}
+.logout-btn{background:none;border:1px solid #2e3350;color:#7c82a0;border-radius:7px;padding:5px 12px;font-size:12px;cursor:pointer;transition:.15s}
+.logout-btn:hover{color:#f87171;border-color:#f87171}
+
+/* Cuerpo */
+.prompt{text-align:center;margin-bottom:36px}
+.prompt h1{font-size:22px;font-weight:700;color:#fff;margin-bottom:8px}
+.prompt p{font-size:14px;color:#7c82a0}
+
+/* Grid de clientes */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;width:100%;max-width:700px}
+
+.cliente-card{
+  background:#13111f;
+  border:2px solid #2e3350;
+  border-radius:16px;
+  padding:28px 20px;
+  cursor:pointer;
+  transition:transform .15s, border-color .15s, box-shadow .15s;
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+}
+.cliente-card::before{
+  content:'';
+  position:absolute;top:0;left:0;right:0;height:4px;
+  background:var(--c-primary,#7B2FBE);
+  border-radius:14px 14px 0 0;
+}
+.cliente-card:hover{
+  transform:translateY(-3px);
+  border-color:var(--c-primary,#7B2FBE);
+  box-shadow:0 8px 32px rgba(0,0,0,.4);
+}
+.cliente-avatar{
+  width:56px;height:56px;border-radius:14px;
+  background:var(--c-primary,#7B2FBE);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;font-weight:800;color:#fff;letter-spacing:-1px;
+}
+.cliente-nombre{font-size:15px;font-weight:700;color:#e8eaf0}
+.cliente-badge{font-size:10px;color:#7c82a0;background:#1e2235;border-radius:6px;padding:2px 8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+
+/* Loading / empty */
+.loading{color:#7c82a0;font-size:14px;text-align:center;padding:40px}
+.spinner{width:20px;height:20px;border:2px solid rgba(255,255,255,.2);border-top-color:#9b6dff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block;margin-right:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="ms-header">
+  <div class="ms-brand">
+    <div class="ms-ditu">ditu</div>
+    <div class="ms-sub">by Mediastream</div>
+  </div>
+  <div class="ms-user">
+    <span class="ms-name" id="userName"></span>
+    <button class="logout-btn" onclick="doLogout()">Cerrar sesión</button>
+  </div>
+</div>
+
+<div class="prompt">
+  <h1>¿A qué cliente vas a monitorear?</h1>
+  <p>Selecciona el cliente para continuar</p>
+</div>
+
+<div class="grid" id="grid">
+  <div class="loading"><span class="spinner"></span>Cargando clientes…</div>
+</div>
+
+<script>
+const SUPA_URL = 'https://akpuifenfstvobwtqtcq.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcHVpZmVuZnN0dm9id3RxdGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDMxOTAsImV4cCI6MjEwMjM3OTE5MH0.5397pVE5XlyV2864iTf96Ttj--HqoffovzJ9Z9mI0ig';
+const _sbc = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+let _token = SUPA_KEY;
+let _rol = 'operador';
+
+(async () => {
+  const { data: { session } } = await _sbc.auth.getSession();
+  if (!session) { window.location.href = './login.html'; return; }
+
+  _token = session.access_token;
+  document.getElementById('userName').textContent = session.user.email;
+
+  // Cargar perfil
+  try {
+    const r = await fetch(`${SUPA_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=nombre,rol`,
+      { headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + _token } });
+    if (r.ok) {
+      const [p] = await r.json();
+      if (p) {
+        _rol = p.rol || 'operador';
+        if (p.nombre) document.getElementById('userName').textContent = p.nombre;
+      }
+    }
+  } catch(_) {}
+
+  await loadClientes(session.user.id);
+})();
+
+async function loadClientes(userId) {
+  const grid = document.getElementById('grid');
+  try {
+    let clientes = [];
+
+    if (_rol === 'superadmin' || _rol === 'admin') {
+      // Admins ven todos los clientes activos
+      const r = await fetch(`${SUPA_URL}/rest/v1/clientes?activo=eq.true&order=nombre`,
+        { headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + _token } });
+      clientes = r.ok ? await r.json() : [];
+    } else {
+      // Operadores ven solo sus clientes asignados
+      const r = await fetch(
+        `${SUPA_URL}/rest/v1/user_clientes?user_id=eq.${userId}&select=cliente_id,clientes(*)`,
+        { headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + _token } });
+      const rows = r.ok ? await r.json() : [];
+      clientes = rows.map(row => row.clientes).filter(Boolean);
+    }
+
+    if (!clientes.length) {
+      grid.innerHTML = '<div class="loading">No tienes clientes asignados.<br>Contacta a tu administrador.</div>';
+      return;
+    }
+
+    // Si solo tiene 1 cliente, entrar directo
+    if (clientes.length === 1) {
+      selectCliente(clientes[0]);
+      return;
+    }
+
+    // Mostrar picker
+    grid.innerHTML = clientes.map(c => `
+      <div class="cliente-card" style="--c-primary:${c.color_primario || '#7B2FBE'}"
+           onclick='selectCliente(${JSON.stringify(c).replace(/'/g,"&apos;")})'>
+        <div class="cliente-avatar" style="background:${c.color_primario || '#7B2FBE'}">
+          ${(c.nombre || '?').slice(0,2).toUpperCase()}
+        </div>
+        <div class="cliente-nombre">${c.nombre}</div>
+        <div class="cliente-badge">${_rol}</div>
+      </div>
+    `).join('');
+
+  } catch(e) {
+    console.error(e);
+    grid.innerHTML = '<div class="loading">Error cargando clientes.</div>';
+  }
+}
+
+function selectCliente(cliente) {
+  sessionStorage.setItem('ditu_cliente', JSON.stringify({
+    id:              cliente.id,
+    nombre:          cliente.nombre,
+    color_primario:  cliente.color_primario  || '#7B2FBE',
+    color_secundario: cliente.color_secundario || '#9b6dff',
+    logo_url:        cliente.logo_url || null,
+  }));
+  window.location.href = './dashboard.html';
+}
+
+async function doLogout() {
+  await _sbc.auth.signOut();
+  sessionStorage.removeItem('ditu_cliente');
+  window.location.href = './login.html';
+}
+</script>
+</body>
+</html>
