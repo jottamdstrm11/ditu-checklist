@@ -213,16 +213,22 @@ tr.item-row:nth-child(even) td.td-item{background:#12151e}
 .user-chip{font-size:11px;color:#7c82a0}
 .logout-btn{background:none;border:1px solid #2e3350;color:#7c82a0;border-radius:7px;padding:4px 10px;font-size:11px;cursor:pointer;transition:.15s}
 .logout-btn:hover{color:#f87171;border-color:#f87171}
+.nav-role-badge{font-size:10px;padding:3px 9px;border-radius:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;display:none}
+.nav-role-badge.superadmin{background:#4f46e5;color:#fff}
+.nav-role-badge.admin{background:#1e2035;color:#c3a0ff;border:1px solid #6366f1}
+.nav-role-badge.operador{background:#1a2e1f;color:#4ade80;border:1px solid #166534}
+.nav-role-badge.viewer{background:#1a1d27;color:#7c82a0;border:1px solid #2e3350}
 </style>
 </head>
 <body>
 <nav class="sitenav">
   <a href="./dashboard.html" class="snav-link"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</a>
   <a href="./checklist.html" class="snav-link active"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Checklist</a>
-  <a href="./admin_dispositivos.html" class="snav-link"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>Dispositivos</a>
-  <a href="./admin.html" class="snav-link"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><polyline points="3 6 4 7 6 5"/><polyline points="3 12 4 13 6 11"/><polyline points="3 18 4 19 6 17"/></svg>Ítems</a>
-  <a href="./backup.html" class="snav-link"><svg viewBox="0 0 24 24"><polyline points="21 15 21 21 3 21 3 15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Backup</a>
+  <a href="./admin_dispositivos.html" class="snav-link" id="navDispositivos"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>Dispositivos</a>
+  <a href="./admin.html" class="snav-link" id="navItems"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><polyline points="3 6 4 7 6 5"/><polyline points="3 12 4 13 6 11"/><polyline points="3 18 4 19 6 17"/></svg>Ítems</a>
+  <a href="./backup.html" class="snav-link" id="navBackup"><svg viewBox="0 0 24 24"><polyline points="21 15 21 21 3 21 3 15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Backup</a>
   <div class="nav-right">
+    <span class="nav-role-badge" id="roleBadge"></span>
     <span class="user-chip" id="userEmail"></span>
     <button class="logout-btn" onclick="_sbLogout()">Cerrar sesión</button>
   </div>
@@ -314,8 +320,16 @@ let currentRol='operador';
   }catch(_){}
   if(!currentUser)currentUser=session.user.email;
   document.getElementById('userEmail').textContent=currentUser;
+  applyNavRole(currentRol);
+  if(currentRol==='viewer')document.getElementById('btnStart').disabled=true;
 })();
 async function _sbLogout(){await _sbc.auth.signOut();window.location.href='./login.html';}
+function applyNavRole(rol){
+  const isAdmin=rol==='superadmin'||rol==='admin';
+  ['navDispositivos','navItems','navBackup'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isAdmin?'':'none';});
+  const b=document.getElementById('roleBadge');
+  if(b){b.textContent=rol;b.className='nav-role-badge '+rol;b.style.display='';}
+}
 const FRANJAS=['01:00','04:00','07:00','10:00','13:00','16:00','19:00','22:00'];
 let selectedType='soporte',selectedFranja='',DEVICES=[],ITEMS={},results={};
 
