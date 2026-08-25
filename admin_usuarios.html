@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin — Usuarios ditu</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f1117;color:#e8eaf0;font-family:system-ui,-apple-system,sans-serif;min-height:100vh;padding:32px 24px}
+h1{font-size:22px;font-weight:800;color:#c3a0ff;margin-bottom:6px}
+.subtitle{color:#7c82a0;font-size:13px;margin-bottom:28px}
+
+/* ── Nav ── */
+.sitenav{display:flex;gap:4px;padding:8px 14px;background:#0a0c12;border-bottom:1px solid #1e2235;flex-wrap:wrap;margin:-32px -24px 24px;position:sticky;top:0;z-index:100}
+.snav-link{color:#7c82a0;font-size:12px;font-weight:600;text-decoration:none;padding:5px 11px;border-radius:7px;transition:.15s;display:flex;align-items:center;gap:6px}
+.snav-link:hover{color:#e8eaf0;background:#1a1d27}
+.snav-link.active{color:#c3a0ff;background:#1a1d27}
+.snav-link svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.user-chip{font-size:11px;color:#7c82a0}
+.logout-btn{background:none;border:1px solid #2e3350;color:#7c82a0;border-radius:7px;padding:4px 10px;font-size:11px;cursor:pointer;transition:.15s}
+.logout-btn:hover{color:#f87171;border-color:#f87171}
+.nav-role-badge{font-size:10px;padding:3px 9px;border-radius:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;display:none}
+.nav-role-badge.superadmin{background:#4f46e5;color:#fff}
+.nav-role-badge.admin{background:#1e2035;color:#c3a0ff;border:1px solid #6366f1}
+.nav-role-badge.operador{background:#1a2e1f;color:#4ade80;border:1px solid #166534}
+.nav-role-badge.viewer{background:#1a1d27;color:#7c82a0;border:1px solid #2e3350}
+
+/* ── Cards ── */
+.card{background:#1a1d27;border:1px solid #2e3350;border-radius:14px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead tr{background:#22263a}
+th{padding:12px 16px;text-align:left;font-size:11px;font-weight:700;color:#7c82a0;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid #2e3350}
+td{padding:11px 16px;border-bottom:1px solid #1e2235;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#1e2235}
+
+/* ── Avatar ── */
+.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#9b6dff);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0}
+
+/* ── Role select ── */
+.role-select{background:#0f1117;border:1px solid #2e3350;border-radius:8px;color:#e8eaf0;padding:6px 10px;font-size:13px;cursor:pointer;transition:border .15s;outline:none;min-width:130px}
+.role-select:focus{border-color:#6366f1}
+.role-select.changed{border-color:#f59e0b;color:#f59e0b}
+
+/* ── Role badge (display only) ── */
+.rbadge{display:inline-block;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.rbadge.superadmin{background:#4f46e5;color:#fff}
+.rbadge.admin{background:#1e2035;color:#c3a0ff;border:1px solid #6366f1}
+.rbadge.operador{background:#1a2e1f;color:#4ade80;border:1px solid #166534}
+.rbadge.viewer{background:#1a1d27;color:#7c82a0;border:1px solid #2e3350}
+
+/* ── Buttons ── */
+.btn-save{background:#6366f1;color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;transition:.15s}
+.btn-save:hover{background:#4f52d9}
+.btn-save:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── Stats bar ── */
+.stats-bar{display:flex;gap:20px;margin-bottom:20px;flex-wrap:wrap}
+.stat-chip{background:#1a1d27;border:1px solid #2e3350;border-radius:10px;padding:10px 18px;display:flex;flex-direction:column;gap:2px}
+.stat-chip .sc-val{font-size:22px;font-weight:800;color:#c3a0ff}
+.stat-chip .sc-lbl{font-size:11px;color:#7c82a0;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#22263a;border:1px solid #6366f1;border-radius:10px;padding:12px 24px;font-size:13px;color:#e8eaf0;display:none;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.toast.show{display:block}
+.toast.error{border-color:#f87171;color:#f87171}
+
+/* ── Spinner ── */
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Empty ── */
+.empty{text-align:center;color:#7c82a0;padding:40px;font-size:13px}
+
+/* ── Self-edit warning ── */
+.self-row td{background:rgba(99,102,241,0.06)}
+.self-badge{font-size:10px;background:rgba(99,102,241,0.2);color:#c3a0ff;border:1px solid #6366f1;border-radius:6px;padding:2px 7px;margin-left:6px;font-weight:700}
+</style>
+</head>
+<body>
+
+<nav class="sitenav">
+  <a href="./dashboard.html" class="snav-link"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</a>
+  <a href="./checklist.html" class="snav-link"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Checklist</a>
+  <a href="./admin_dispositivos.html" class="snav-link" id="navDispositivos" style="display:none"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>Dispositivos</a>
+  <a href="./admin.html" class="snav-link" id="navItems" style="display:none"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><polyline points="3 6 4 7 6 5"/><polyline points="3 12 4 13 6 11"/><polyline points="3 18 4 19 6 17"/></svg>Ítems</a>
+  <a href="./backup.html" class="snav-link" id="navBackup" style="display:none"><svg viewBox="0 0 24 24"><polyline points="21 15 21 21 3 21 3 15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Backup</a>
+  <a href="./admin_usuarios.html" class="snav-link active" id="navUsuarios" style="display:none"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuarios</a>
+  <div class="nav-right">
+    <span class="nav-role-badge" id="roleBadge"></span>
+    <span class="user-chip" id="userEmail"></span>
+    <button class="logout-btn" onclick="_sbLogout()">Cerrar sesión</button>
+  </div>
+</nav>
+
+<h1>👥 Admin — Usuarios</h1>
+<p class="subtitle">Gestiona los roles de acceso de cada miembro del equipo. Solo superadmin puede cambiar roles.</p>
+
+<div class="stats-bar" id="statsBar"></div>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:44px"></th>
+        <th>Nombre</th>
+        <th>Email</th>
+        <th>Rol actual</th>
+        <th style="width:160px">Nuevo rol</th>
+      </tr>
+    </thead>
+    <tbody id="tbody">
+      <tr><td colspan="5" class="empty">Cargando usuarios…</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div style="display:flex;justify-content:flex-end;margin-top:20px">
+  <button class="btn-save" id="saveBtn" onclick="saveChanges()">💾 Guardar cambios</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPA_URL = 'https://akpuifenfstvobwtqtcq.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcHVpZmVuZnN0dm9id3RxdGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDMxOTAsImV4cCI6MjEwMjM3OTE5MH0.5397pVE5XlyV2864iTf96Ttj--HqoffovzJ9Z9mI0ig';
+const _sbc = supabase.createClient(SUPA_URL, SUPA_KEY);
+const H = {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json'};
+
+const ROLES = ['superadmin', 'admin', 'operador', 'viewer'];
+const ROL_LABELS = {superadmin:'Superadmin', admin:'Admin', operador:'Operador', viewer:'Viewer'};
+
+let profiles = [];
+let currentUserId = null;
+let pendingChanges = {}; // id → new rol
+
+// ── Auth & nav ────────────────────────────────────────────────
+let currentRol = 'operador';
+function applyNavRole(rol) {
+  currentRol = rol;
+  const isAdmin = rol === 'superadmin' || rol === 'admin';
+  const isSuperAdmin = rol === 'superadmin';
+  ['navDispositivos','navItems','navBackup'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.style.display = isAdmin ? '' : 'none';
+  });
+  const navU = document.getElementById('navUsuarios');
+  if(navU) navU.style.display = isSuperAdmin ? '' : 'none';
+  const b = document.getElementById('roleBadge');
+  if(b){ b.textContent = rol; b.className = 'nav-role-badge ' + rol; b.style.display = ''; }
+}
+
+(async () => {
+  const { data: { session } } = await _sbc.auth.getSession();
+  if (!session) { window.location.href = './login.html'; return; }
+  currentUserId = session.user.id;
+  document.getElementById('userEmail').textContent = session.user.email;
+  try {
+    const res = await fetch(SUPA_URL + '/rest/v1/profiles?id=eq.' + session.user.id + '&select=nombre,rol',
+      { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + session.access_token } });
+    if (res.ok) {
+      const [p] = await res.json();
+      if (p) {
+        currentRol = p.rol || 'operador';
+        if (p.nombre) document.getElementById('userEmail').textContent = p.nombre;
+      }
+    }
+  } catch(_) {}
+  applyNavRole(currentRol);
+  // Solo superadmin puede entrar
+  if (currentRol !== 'superadmin') { window.location.href = './dashboard.html'; return; }
+  load();
+})();
+
+async function _sbLogout() { await _sbc.auth.signOut(); window.location.href = './login.html'; }
+
+// ── Load profiles ─────────────────────────────────────────────
+async function load() {
+  const r = await fetch(SUPA_URL + '/rest/v1/profiles?order=nombre&select=*', { headers: H });
+  profiles = await r.json();
+  pendingChanges = {};
+  renderStats();
+  render();
+}
+
+function renderStats() {
+  const counts = {};
+  ROLES.forEach(r => counts[r] = 0);
+  profiles.forEach(p => { if(counts[p.rol] !== undefined) counts[p.rol]++; });
+  document.getElementById('statsBar').innerHTML = [
+    { key: 'total',      val: profiles.length, lbl: 'Total usuarios' },
+    { key: 'superadmin', val: counts.superadmin, lbl: 'Superadmin' },
+    { key: 'admin',      val: counts.admin,      lbl: 'Admin' },
+    { key: 'operador',   val: counts.operador,   lbl: 'Operadores' },
+    { key: 'viewer',     val: counts.viewer,     lbl: 'Viewers' },
+  ].map(s => `<div class="stat-chip"><span class="sc-val">${s.val}</span><span class="sc-lbl">${s.lbl}</span></div>`).join('');
+}
+
+function render() {
+  const tb = document.getElementById('tbody');
+  if (!profiles.length) {
+    tb.innerHTML = '<tr><td colspan="5" class="empty">Sin usuarios.</td></tr>'; return;
+  }
+  tb.innerHTML = profiles.map(p => {
+    const isSelf = p.id === currentUserId;
+    const initials = (p.nombre || p.email || '?').slice(0,2).toUpperCase();
+    const currentVal = pendingChanges[p.id] ?? p.rol;
+    const hasChange = pendingChanges[p.id] && pendingChanges[p.id] !== p.rol;
+    return `
+      <tr class="${isSelf ? 'self-row' : ''}">
+        <td><div class="avatar">${esc(initials)}</div></td>
+        <td style="font-weight:600">
+          ${esc(p.nombre || '—')}
+          ${isSelf ? '<span class="self-badge">Tú</span>' : ''}
+        </td>
+        <td style="color:#7c82a0;font-size:13px">${esc(p.email || '—')}</td>
+        <td><span class="rbadge ${p.rol}">${ROL_LABELS[p.rol] || p.rol}</span></td>
+        <td>
+          ${isSelf
+            ? `<span style="font-size:12px;color:#7c82a0;font-style:italic">No puedes editar tu propio rol</span>`
+            : `<select class="role-select ${hasChange ? 'changed' : ''}" data-id="${p.id}"
+                onchange="onRoleChange('${p.id}', this.value, this, '${p.rol}')">
+                ${ROLES.map(r => `<option value="${r}" ${currentVal === r ? 'selected' : ''}>${ROL_LABELS[r]}</option>`).join('')}
+              </select>`
+          }
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function onRoleChange(id, newRol, selectEl, originalRol) {
+  if (newRol === originalRol) {
+    delete pendingChanges[id];
+    selectEl.classList.remove('changed');
+  } else {
+    pendingChanges[id] = newRol;
+    selectEl.classList.add('changed');
+  }
+  updateSaveBtn();
+}
+
+function updateSaveBtn() {
+  const btn = document.getElementById('saveBtn');
+  const count = Object.keys(pendingChanges).length;
+  btn.textContent = count > 0 ? `💾 Guardar ${count} cambio${count > 1 ? 's' : ''}` : '💾 Guardar cambios';
+  btn.disabled = count === 0;
+}
+
+// ── Save ──────────────────────────────────────────────────────
+async function saveChanges() {
+  const ids = Object.keys(pendingChanges);
+  if (!ids.length) return;
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Guardando…';
+  try {
+    for (const id of ids) {
+      const rol = pendingChanges[id];
+      const r = await fetch(SUPA_URL + '/rest/v1/profiles?id=eq.' + id,
+        { method: 'PATCH', headers: H, body: JSON.stringify({ rol }) });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.message || 'Error al actualizar');
+      }
+    }
+    showToast(`✅ ${ids.length} usuario${ids.length > 1 ? 's' : ''} actualizado${ids.length > 1 ? 's' : ''} correctamente`);
+    await load();
+    updateSaveBtn();
+  } catch(e) {
+    showToast('❌ Error: ' + e.message, true);
+    btn.disabled = false;
+    btn.innerHTML = '💾 Guardar cambios';
+  }
+}
+
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (isError ? ' error' : '') + ' show';
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// Disable save button initially
+document.getElementById('saveBtn').disabled = true;
+</script>
+</body>
+</html>
