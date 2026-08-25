@@ -1091,7 +1091,9 @@ const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 const _sbc = supabase.createClient(SUPA_URL, SUPA_KEY);
 
 // ── Auth ─────────────────────────────────────────────────────────────
+let currentRol = 'operador';
 function applyNavRole(rol){
+  currentRol = rol;
   const isAdmin=rol==='superadmin'||rol==='admin';
   ['navDispositivos','navItems','navBackup'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isAdmin?'':'none';});
   const b=document.getElementById('roleBadge');
@@ -1732,8 +1734,7 @@ function renderHistorial() {
         <td style="text-align:center;white-space:nowrap">
           <button class="run-action-btn ver ${isActive ? 'active-run' : ''}" style="${isActive?'background:var(--brand-accent);color:#fff;':''}"
             onclick="selectRun('${safeId}','${safeLabel}')">${verLabel}</button>
-          <button class="run-action-btn del" style="margin-left:6px"
-            onclick="openDeleteModal('${safeId}','${safeLabel}')">🗑</button>
+          ${(currentRol==='superadmin'||currentRol==='admin') ? `<button class="run-action-btn del" style="margin-left:6px" onclick="openDeleteModal('${safeId}','${safeLabel}')">🗑</button>` : ''}
         </td>
       </tr>
     `;
