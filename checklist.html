@@ -377,9 +377,10 @@ function numSort(a,b){
   return 0;
 }
 async function loadConfig(){
+  const cf=currentClienteId?`&cliente_id=eq.${currentClienteId}`:'';
   const [devs,items]=await Promise.all([
-    supa('/rest/v1/checklist_devices?activo=eq.true&order=orden&select=*'),
-    supa('/rest/v1/checklist_items?activo=eq.true&select=*')
+    supa(`/rest/v1/checklist_devices?activo=eq.true&order=orden&select=*${cf}`),
+    supa(`/rest/v1/checklist_items?activo=eq.true&select=*${cf}`)
   ]);
   DEVICES=devs;
   ITEMS={soporte:[],monitoreo:[]};

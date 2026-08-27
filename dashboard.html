@@ -1217,7 +1217,7 @@ async function loadData() {
     const clienteFilter = currentClienteId ? `&cliente_id=eq.${currentClienteId}` : '';
     const [runs, devices] = await Promise.all([
       supaFetch(`/rest/v1/checklist_runs?select=*&order=created_at.desc${clienteFilter}`),
-      supaFetch('/rest/v1/checklist_devices?select=nombre&activo=eq.true&order=orden')
+      supaFetch(`/rest/v1/checklist_devices?select=nombre&activo=eq.true&order=orden${clienteFilter}`)
     ]);
 
     activeDevices = (devices || []).map(d => d.nombre).filter(Boolean);
