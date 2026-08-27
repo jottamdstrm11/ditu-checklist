@@ -775,8 +775,8 @@
 
 <!-- ═══════════════════════ HEADER ═══════════════════════════ -->
 <header class="header">
-  <!-- Brand block: ditu text + mascot GIF -->
-  <div class="header-brand">
+  <!-- Brand block: se actualiza dinámicamente con la identidad del cliente -->
+  <div class="header-brand" id="headerBrand">
     <span class="header-brand-ditu">ditu</span>
     <img
       class="header-gif"
@@ -792,7 +792,7 @@
 
   <!-- Title + meta -->
   <div class="header-content">
-    <div class="header-title">
+    <div class="header-title" id="headerTitle">
       <h1>Monitoreo ditu</h1>
       <p>Checklist de Calidad — Monitoreo &amp; Soporte</p>
     </div>
@@ -819,6 +819,7 @@
       <option value="monitoreo">Monitoreo</option>
       <option value="soporte">Soporte</option>
     </select>
+    <span id="tipoTagSingle" style="display:none;font-size:11px;font-weight:700;color:#fff;background:var(--cliente-color,#7B2FBE);border-radius:6px;padding:5px 12px;letter-spacing:.04em;text-transform:uppercase"></span>
     <button class="btn" onclick="loadData()">↺ Actualizar</button>
   </div>
 
@@ -1110,10 +1111,29 @@ let currentClienteId = null;
     const c = JSON.parse(raw);
     currentClienteId = c.id || null;
     const color = c.color_primario || '#7B2FBE';
+    const nombre = c.nombre || 'Cliente';
     document.documentElement.style.setProperty('--cliente-color', color);
+
+    // Actualizar header brand con logo o mantener ditu
+    const headerBrand = document.getElementById('headerBrand');
+    if (headerBrand && c.logo_url) {
+      headerBrand.innerHTML = `
+        <img src="${c.logo_url}" alt="${nombre}"
+             style="max-height:56px;max-width:200px;object-fit:contain;margin:0 20px 0 24px;display:block"
+             onerror="this.style.display='none';document.getElementById('headerBrandFallback').style.display='block'">
+        <div id="headerBrandFallback" style="display:none;font-size:2.4rem;font-weight:900;color:#fff;letter-spacing:-2px;padding:0 18px 0 24px">${nombre.slice(0,4)}</div>
+      `;
+    }
+
+    // Actualizar título del header
+    const headerTitle = document.getElementById('headerTitle');
+    if (headerTitle) {
+      headerTitle.querySelector('h1').textContent = 'Monitoreo ' + nombre;
+    }
+
     const chip = document.getElementById('clienteChip');
     if (chip) {
-      document.getElementById('clienteNombre').textContent = c.nombre || 'Cliente';
+      document.getElementById('clienteNombre').textContent = nombre;
       document.getElementById('clienteDot').style.background = color;
       chip.style.setProperty('--cliente-color', color);
       chip.style.display = '';
@@ -2145,8 +2165,35 @@ function escHtml(s) {
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ── Adapt tipo filter según ítems disponibles del cliente ──────
+async function adaptTipoFilter() {
+  if (!currentClienteId) return;
+  try {
+    const cf = `&cliente_id=eq.${currentClienteId}`;
+    const r = await fetch(SUPA_URL + `/rest/v1/checklist_items?select=tipo&activo=eq.true${cf}`,
+      { headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY } });
+    if (!r.ok) return;
+    const items = await r.json();
+    const tipos = [...new Set(items.map(i => i.tipo).filter(Boolean))];
+    const sel = document.getElementById('f-tipo');
+    const tag = document.getElementById('tipoTagSingle');
+    if (tipos.length === 1) {
+      // Solo un tipo disponible: pre-seleccionar y mostrar tag estático en lugar del select
+      const tipoLabel = tipos[0] === 'soporte' ? 'Soporte' : tipos[0] === 'monitoreo' ? 'Monitoreo' : tipos[0];
+      if (sel) { sel.value = tipos[0]; sel.style.display = 'none'; applyFilters(); }
+      if (tag) { tag.textContent = tipoLabel; tag.style.display = ''; }
+    } else {
+      if (sel) sel.style.display = '';
+      if (tag) tag.style.display = 'none';
+    }
+  } catch(_) {}
+}
+
 // ── Init ───────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', loadData);
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadData();
+  adaptTipoFilter();
+});
 </script>
 </body>
 </html>
