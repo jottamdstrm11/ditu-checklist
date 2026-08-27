@@ -443,16 +443,11 @@ async function saveAll(){
   const btn=document.getElementById('saveBtn');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Guardando...';
   try{
-    // Obtener token de usuario autenticado (más permisos que anon key)
-    const {data:{session:_sess}}=await _sbc.auth.getSession();
-    const authToken=_sess?.access_token||SUPA_KEY;
-    const Hauth={...H,'Authorization':'Bearer '+authToken};
-
     // Inserts
     for(const item of toInsert){
       const body={tipo:item.tipo,seccion:item.seccion,numero_item:item.numero_item,nombre_item:item.nombre_item,activo:item.activo,criterio:item.criterio||''};
       if(currentClienteId)body.cliente_id=currentClienteId;
-      const r=await fetch(SUPA_URL+'/rest/v1/checklist_items',{method:'POST',headers:{...Hauth,'Prefer':'return=representation'},body:JSON.stringify(body)});
+      const r=await fetch(SUPA_URL+'/rest/v1/checklist_items',{method:'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(body)});
       if(!r.ok){
         const errBody=await r.text();
         throw new Error(`Error ${r.status} al crear ítem: ${errBody}`);
@@ -467,7 +462,7 @@ async function saveAll(){
       if(toDelete.has(id)||String(id).startsWith('new_'))continue;
       const item=allItems.find(i=>i.id==id);
       if(!item)continue;
-      const rp=await fetch(SUPA_URL+'/rest/v1/checklist_items?id=eq.'+id,{method:'PATCH',headers:Hauth,
+      const rp=await fetch(SUPA_URL+'/rest/v1/checklist_items?id=eq.'+id,{method:'PATCH',headers:H,
         body:JSON.stringify({numero_item:item.numero_item,nombre_item:item.nombre_item,activo:item.activo,criterio:item.criterio||''})});
       if(!rp.ok){const errBody=await rp.text();throw new Error(`Error ${rp.status} al actualizar ítem: ${errBody}`);}
     }
@@ -476,7 +471,7 @@ async function saveAll(){
     // Deletes
     for(const id of toDelete){
       if(String(id).startsWith('new_'))continue;
-      const rd=await fetch(SUPA_URL+'/rest/v1/checklist_items?id=eq.'+id,{method:'DELETE',headers:Hauth});
+      const rd=await fetch(SUPA_URL+'/rest/v1/checklist_items?id=eq.'+id,{method:'DELETE',headers:H});
       if(!rd.ok){const errBody=await rd.text();throw new Error(`Error ${rd.status} al eliminar ítem: ${errBody}`);}
     }
     toDelete.clear();
