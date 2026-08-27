@@ -69,6 +69,11 @@ input[type=text]:focus{outline:none;border-color:#6366f1}
   <a href="./admin_clientes.html" class="snav-link" id="navClientes" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Clientes</a>
   <div class="nav-right">
     <span class="nav-role-badge" id="roleBadge"></span>
+    <span id="clienteChip" style="display:none;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;border:1px solid rgba(180,140,255,0.3);color:#c3a0ff;background:rgba(155,109,255,0.12);cursor:pointer" onclick="window.location.href='./select_cliente.html'" title="Cambiar cliente">
+      <span id="clienteDot" style="width:8px;height:8px;border-radius:50%;display:inline-block;background:#9b6dff"></span>
+      <span id="clienteNombre">Cliente</span>
+      <span style="opacity:.6;font-size:10px">⇄ cambiar</span>
+    </span>
     <span class="user-chip" id="userEmail"></span>
     <button class="logout-btn" onclick="_sbLogout()">Cerrar sesión</button>
   </div>
@@ -134,7 +139,23 @@ async function _sbLogout(){await _sbc.auth.signOut();window.location.href='./log
 
 let devices=[];
 let currentClienteId=null;
-(()=>{try{const c=JSON.parse(sessionStorage.getItem('ditu_cliente')||'{}');currentClienteId=c.id||null;}catch(_){}})();
+let currentClienteNombre='';
+(()=>{
+  try{
+    const raw=sessionStorage.getItem('ditu_cliente');
+    if(!raw){window.location.href='./select_cliente.html';return;}
+    const c=JSON.parse(raw);
+    currentClienteId=c.id||null;
+    currentClienteNombre=c.nombre||'Cliente';
+    const color=c.color_primario||'#9b6dff';
+    const chip=document.getElementById('clienteChip');
+    if(chip){
+      document.getElementById('clienteNombre').textContent=currentClienteNombre;
+      document.getElementById('clienteDot').style.background=color;
+      chip.style.display='flex';
+    }
+  }catch(_){window.location.href='./select_cliente.html';}
+})();
 
 async function load(){
   const cf=currentClienteId?`&cliente_id=eq.${currentClienteId}`:'';
@@ -145,7 +166,7 @@ async function load(){
 
 function render(){
   const tb=document.getElementById('tbody');
-  if(!devices.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:#7c82a0;padding:32px">Sin dispositivos</td></tr>';return;}
+  if(!devices.length){tb.innerHTML=`<tr><td colspan="5" style="text-align:center;padding:32px"><div style="font-size:28px;margin-bottom:8px">📱</div><div style="color:#c3a0ff;font-weight:600;margin-bottom:4px">Sin dispositivos para ${currentClienteNombre||'este cliente'}</div><div style="color:#7c82a0;font-size:12px">Agrega el primer dispositivo con el botón de abajo</div></td></tr>`;return;}
   tb.innerHTML=devices.map((d,i)=>`
     <tr data-idx="${i}">
       <td style="color:#7c82a0;font-size:12px;font-weight:600">${d.orden??i+1}</td>
