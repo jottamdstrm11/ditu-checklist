@@ -14,6 +14,7 @@
   --na:#2a2d3e;--na-t:#7c82a0;
   --utt:#3d3010;--utt-t:#fbbf24;
   --accent:#6366f1;
+  --cliente-color:#6366f1;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;font-size:13px}
@@ -37,11 +38,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .card select:focus{border-color:var(--accent)}
 .type-toggle{display:flex;gap:8px}
 .type-btn{flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--dim);cursor:pointer;font-size:13px;font-weight:600;text-align:center;transition:all .15s}
-.type-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.type-btn.active{background:var(--cliente-color);border-color:var(--cliente-color);color:#fff}
 .franja-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .franja-btn{padding:8px 4px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--dim);cursor:pointer;font-size:12px;text-align:center;transition:all .15s}
-.franja-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
-.start-btn{width:100%;padding:14px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px}
+.franja-btn.active{background:var(--cliente-color);border-color:var(--cliente-color);color:#fff}
+.start-btn{width:100%;padding:14px;border-radius:10px;border:none;background:var(--cliente-color);color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px}
 .start-btn:disabled{opacity:.4;cursor:not-allowed}
 
 /* CHECKLIST LAYOUT */
@@ -54,11 +55,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .cl-header .op{font-weight:700;font-size:14px}
 .cl-header .meta{font-size:11px;color:var(--dim)}
 .progress-bar{flex:0 0 3px;background:var(--border)}
-.progress-fill{height:100%;background:var(--accent);transition:width .3s}
+.progress-fill{height:100%;background:var(--cliente-color);transition:width .3s}
 .table-container{flex:1 1 0;overflow:auto;min-height:0;padding-bottom:140px}
 .cl-bottom{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--accent);padding:10px 16px;z-index:50;display:flex;align-items:center;gap:12px}
-.send-btn{flex:1;padding:13px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:.15s}
-.send-btn:hover:not(:disabled){background:#4f52d9}
+.send-btn{flex:1;padding:13px;border-radius:8px;border:none;background:var(--cliente-color);color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:.15s}
+.send-btn:hover:not(:disabled){filter:brightness(1.15)}
 .send-btn:disabled{opacity:.4;cursor:not-allowed}
 .bottom-progress{font-size:12px;color:var(--dim);white-space:nowrap;min-width:80px;text-align:right}
 
@@ -107,7 +108,7 @@ thead th.th-item{
 
 /* SECTION ROWS */
 tr.sec-row td{
-  background:var(--accent);color:#fff;
+  background:var(--cliente-color);color:#fff;
   font-weight:800;font-size:11px;
   text-transform:uppercase;letter-spacing:.08em;
   padding:8px 14px;
@@ -247,7 +248,7 @@ tr.item-row:nth-child(even) td.td-item{background:#12151e}
 
 <div class="screen active" id="screenSetup">
 <div class="setup-wrap">
-  <div class="logo">
+  <div class="logo" id="logoArea">
     <div class="logo-banner">
       <img src="./ditu_gif_pequeno.gif" alt="ditu" class="logo-svg">
     </div>
@@ -264,7 +265,7 @@ tr.item-row:nth-child(even) td.td-item{background:#12151e}
     fill="url(#dituGrad)">ditu</text>
 </svg>
   </div>
-  <div class="card">
+  <div class="card" id="cardTipo">
     <label>Tipo de checklist</label>
     <div class="type-toggle">
       <div class="type-btn active" data-type="soporte" onclick="selectType('soporte')">🟣 Soporte</div>
@@ -324,6 +325,24 @@ let currentClienteId = null;
     const c = JSON.parse(raw);
     currentClienteId = c.id || null;
     const color = c.color_primario || '#7B2FBE';
+
+    // Aplicar color de cliente como variable CSS global
+    document.documentElement.style.setProperty('--cliente-color', color);
+
+    // Actualizar área de logo con identidad del cliente
+    const logoArea = document.getElementById('logoArea');
+    if (logoArea && c.logo_url) {
+      logoArea.innerHTML = `
+        <div class="logo-banner" style="margin-bottom:8px">
+          <img src="${c.logo_url}" alt="${c.nombre||'Cliente'}"
+               style="max-width:240px;max-height:120px;width:auto;height:auto;display:block;margin:0 auto;object-fit:contain"
+               onerror="this.style.display='none';document.getElementById('logoFallbackNombre').style.display='block'">
+          <div id="logoFallbackNombre" style="display:none;font-size:28px;font-weight:900;color:#fff;text-align:center;letter-spacing:-1px">${c.nombre||'Cliente'}</div>
+        </div>
+        <div style="font-size:11px;color:var(--dim);text-align:center;margin-top:4px">${c.nombre||''}</div>
+      `;
+    }
+
     const chip = document.getElementById('clienteChip');
     if (chip) {
       document.getElementById('clienteNombre').textContent = c.nombre || 'Cliente';
@@ -578,7 +597,22 @@ document.addEventListener('click',e=>{
   if(p&&!e.target.classList.contains('info-btn')){p.classList.remove('show');_popSrc=null;}
 },true);
 
-(async()=>{initFranjas();await loadConfig();checkReady();})();
+(async()=>{
+  initFranjas();
+  await loadConfig();
+  // Auto-detectar cuántos tipos tienen ítems y ocultar el toggle si solo hay uno
+  const tiposConItems=['soporte','monitoreo'].filter(t=>ITEMS[t]&&ITEMS[t].length>0);
+  if(tiposConItems.length===1){
+    selectedType=tiposConItems[0];
+    document.querySelectorAll('.type-btn').forEach(b=>b.classList.toggle('active',b.dataset.type===selectedType));
+    const cardTipo=document.getElementById('cardTipo');
+    if(cardTipo)cardTipo.style.display='none';
+  } else if(tiposConItems.length===0){
+    const cardTipo=document.getElementById('cardTipo');
+    if(cardTipo)cardTipo.style.display='none';
+  }
+  checkReady();
+})();
 </script>
 
 <div class="item-popover" id="itemPopover">
