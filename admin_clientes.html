@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ditu — Admin Clientes</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d0d14;color:#e8eaf0;font-family:system-ui,-apple-system,sans-serif;font-size:14px;padding:32px 24px 64px}
+
+/* ── Nav ── */
+.sitenav{display:flex;gap:4px;padding:8px 14px;background:#0a0c12;border-bottom:1px solid #1e2235;flex-wrap:wrap;margin:-32px -24px 28px;position:sticky;top:0;z-index:100}
+.snav-link{color:#7c82a0;font-size:12px;font-weight:600;text-decoration:none;padding:5px 11px;border-radius:7px;transition:.15s;display:flex;align-items:center;gap:6px}
+.snav-link:hover{color:#e8eaf0;background:#1a1d27}
+.snav-link.active{color:#c3a0ff;background:#1a1d27}
+.snav-link svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.user-chip{font-size:11px;color:#7c82a0}
+.logout-btn{background:none;border:1px solid #2e3350;color:#7c82a0;border-radius:7px;padding:4px 10px;font-size:11px;cursor:pointer;transition:.15s}
+.logout-btn:hover{color:#f87171;border-color:#f87171}
+.nav-role-badge{font-size:10px;padding:3px 9px;border-radius:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;display:none}
+.nav-role-badge.superadmin{background:#4f46e5;color:#fff}
+.nav-role-badge.admin{background:#1e2035;color:#c3a0ff;border:1px solid #6366f1}
+.cliente-chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#e8eaf0;background:#1a1d27;border:1px solid rgba(180,140,255,0.25);border-radius:8px;padding:3px 10px 3px 6px}
+.cliente-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.cliente-chip a{color:#7c82a0;font-size:10px;font-weight:600;text-decoration:none;margin-left:4px}
+.cliente-chip a:hover{color:#c3a0ff}
+
+/* ── Page header ── */
+h1{font-size:20px;font-weight:800;color:#fff;margin-bottom:4px}
+.subtitle{font-size:12px;color:#7c82a0;margin-bottom:24px}
+
+/* ── Toolbar ── */
+.toolbar{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.btn-primary{background:#9b6dff;color:#fff;border:none;border-radius:9px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;transition:.15s}
+.btn-primary:hover{background:#8055ee}
+.btn-sm{font-size:11px;padding:5px 12px;border-radius:7px;border:none;cursor:pointer;font-weight:700;transition:.15s}
+.btn-edit{background:#1e2235;color:#c3a0ff;border:1px solid rgba(180,140,255,0.25)}
+.btn-edit:hover{background:#2a2d45;border-color:#9b6dff}
+.btn-danger{background:#3a1a1a;color:#f87171;border:1px solid rgba(248,113,113,0.3)}
+.btn-danger:hover{background:#4a1f1f}
+.btn-success{background:#1a2e20;color:#4ade80;border:1px solid rgba(74,222,128,0.3)}
+.btn-success:hover{background:#1e3626}
+
+/* ── Cards grid ── */
+.clientes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.cliente-card{background:#13111f;border:1px solid #2e3350;border-radius:14px;overflow:hidden;transition:.15s}
+.cliente-card:hover{border-color:rgba(180,140,255,0.4)}
+.card-header{padding:16px 18px 14px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1e2235}
+.card-avatar{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;flex-shrink:0}
+.card-info{flex:1;min-width:0}
+.card-nombre{font-size:15px;font-weight:700;color:#e8eaf0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-meta{font-size:11px;color:#7c82a0;margin-top:2px}
+.card-badge{font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.badge-activo{background:#1a2e20;color:#4ade80;border:1px solid rgba(74,222,128,0.3)}
+.badge-inactivo{background:#2a1a1a;color:#f87171;border:1px solid rgba(248,113,113,0.2)}
+.card-body{padding:14px 18px}
+.card-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#7c82a0;margin-bottom:8px}
+.users-list{display:flex;flex-direction:column;gap:4px;max-height:140px;overflow-y:auto;margin-bottom:12px}
+.user-row{display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:#0d0d14;border-radius:6px;font-size:12px}
+.user-row-name{color:#c3c2b7;font-weight:600}
+.user-row-rol{font-size:10px;color:#7c82a0}
+.user-row-remove{background:none;border:none;color:#555;cursor:pointer;font-size:14px;line-height:1;padding:0 2px;transition:.15s}
+.user-row-remove:hover{color:#f87171}
+.empty-users{font-size:12px;color:#4a4f6a;text-align:center;padding:10px 0}
+.card-actions{display:flex;gap:8px;padding:12px 18px;border-top:1px solid #1e2235}
+
+/* ── Modal ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:#13111f;border:1px solid rgba(180,140,255,0.25);border-radius:18px;padding:32px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto}
+.modal h2{font-size:17px;font-weight:800;color:#fff;margin-bottom:20px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:11px;font-weight:700;color:#7c82a0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.field input,.field select{width:100%;background:#0d0d14;border:1px solid rgba(180,140,255,0.2);border-radius:9px;color:#fff;padding:10px 12px;font-size:13px;font-family:inherit;outline:none;transition:border .15s}
+.field input:focus,.field select:focus{border-color:#9b6dff}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.color-preview{display:flex;align-items:center;gap:10px}
+.color-preview input[type=color]{width:40px;height:36px;border-radius:8px;border:1px solid rgba(180,140,255,0.2);padding:2px;background:#0d0d14;cursor:pointer}
+.color-preview input[type=text]{flex:1}
+.modal-actions{display:flex;gap:10px;margin-top:24px;justify-content:flex-end}
+.btn-cancel{background:none;border:1px solid #2e3350;color:#7c82a0;border-radius:9px;padding:8px 16px;font-size:13px;cursor:pointer}
+.btn-cancel:hover{color:#e8eaf0;border-color:#555}
+
+/* ── Assign modal extras ── */
+.search-input{width:100%;background:#0d0d14;border:1px solid rgba(180,140,255,0.2);border-radius:9px;color:#fff;padding:9px 12px;font-size:13px;outline:none;margin-bottom:10px}
+.search-input:focus{border-color:#9b6dff}
+.assign-list{max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
+.assign-row{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:7px;background:#0d0d14;font-size:12px}
+.assign-row.already{background:#1a2e20}
+.assign-row-name{color:#c3c2b7;font-weight:600}
+.assign-row-rol{color:#7c82a0;font-size:10px}
+.assign-btn{font-size:11px;padding:3px 10px;border-radius:6px;border:none;cursor:pointer;font-weight:700}
+.assign-btn.add{background:#1e2235;color:#c3a0ff}
+.assign-btn.add:hover{background:#9b6dff;color:#fff}
+.assign-btn.remove{background:#3a1a1a;color:#f87171}
+.assign-btn.remove:hover{background:#f87171;color:#fff}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:24px;right:24px;background:#1a2e20;border:1px solid #4ade80;color:#4ade80;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;z-index:300;display:none;animation:fadeIn .2s}
+.toast.error{background:#3a1a1a;border-color:#f87171;color:#f87171}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Spinner / loading ── */
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.2);border-top-color:#9b6dff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-msg{color:#7c82a0;font-size:13px;padding:40px;text-align:center}
+</style>
+</head>
+<body>
+
+<nav class="sitenav">
+  <a href="./dashboard.html" class="snav-link"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</a>
+  <a href="./checklist.html" class="snav-link"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Checklist</a>
+  <a href="./admin_dispositivos.html" class="snav-link" id="navDispositivos" style="display:none"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>Dispositivos</a>
+  <a href="./admin.html" class="snav-link" id="navItems" style="display:none"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><polyline points="3 6 4 7 6 5"/><polyline points="3 12 4 13 6 11"/><polyline points="3 18 4 19 6 17"/></svg>Ítems</a>
+  <a href="./backup.html" class="snav-link" id="navBackup" style="display:none"><svg viewBox="0 0 24 24"><polyline points="21 15 21 21 3 21 3 15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Backup</a>
+  <a href="./admin_usuarios.html" class="snav-link" id="navUsuarios" style="display:none"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuarios</a>
+  <a href="./admin_clientes.html" class="snav-link active" id="navClientes" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Clientes</a>
+  <div class="nav-right">
+    <span class="cliente-chip" id="clienteChip" style="display:none">
+      <span class="cliente-dot" id="clienteDot"></span>
+      <span id="clienteNombre"></span>
+      <a href="./select_cliente.html" title="Cambiar cliente">⇄ cambiar</a>
+    </span>
+    <span class="nav-role-badge" id="roleBadge"></span>
+    <span class="user-chip" id="userEmail"></span>
+    <button class="logout-btn" onclick="_sbLogout()">Cerrar sesión</button>
+  </div>
+</nav>
+
+<h1>🏢 Admin — Clientes</h1>
+<p class="subtitle">Gestiona los clientes del sistema y sus usuarios asignados. Solo superadmin.</p>
+
+<div class="toolbar">
+  <button class="btn-primary" onclick="openModalNuevo()">+ Nuevo cliente</button>
+</div>
+
+<div class="clientes-grid" id="clientesGrid">
+  <div class="loading-msg"><span class="spinner"></span> Cargando clientes…</div>
+</div>
+
+<!-- ── Modal crear/editar cliente ── -->
+<div class="overlay" id="modalCliente" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h2 id="modalTitle">Nuevo cliente</h2>
+    <div class="field">
+      <label>Nombre del cliente *</label>
+      <input type="text" id="fNombre" placeholder="Ej: Canal 13">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Color primario</label>
+        <div class="color-preview">
+          <input type="color" id="fColorPicker" value="#7B2FBE" oninput="document.getElementById('fColor').value=this.value">
+          <input type="text" id="fColor" value="#7B2FBE" placeholder="#7B2FBE" oninput="syncColorPicker()">
+        </div>
+      </div>
+      <div class="field">
+        <label>Color secundario</label>
+        <div class="color-preview">
+          <input type="color" id="fColor2Picker" value="#9b6dff" oninput="document.getElementById('fColor2').value=this.value">
+          <input type="text" id="fColor2" value="#9b6dff" placeholder="#9b6dff" oninput="syncColor2Picker()">
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Logo URL (opcional)</label>
+      <input type="url" id="fLogo" placeholder="https://...">
+    </div>
+    <div class="field">
+      <label>Estado</label>
+      <select id="fActivo">
+        <option value="true">Activo</option>
+        <option value="false">Inactivo</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" id="btnGuardar" onclick="guardarCliente()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal asignar usuarios ── -->
+<div class="overlay" id="modalAsignar" style="display:none" onclick="if(event.target===this)closeModalAsignar()">
+  <div class="modal">
+    <h2 id="asignarTitle">Usuarios — Cliente</h2>
+    <p style="font-size:12px;color:#7c82a0;margin-bottom:16px">Busca y asigna usuarios a este cliente.</p>
+    <input class="search-input" type="text" id="searchUser" placeholder="Buscar por nombre o email…" oninput="filterAssignList()">
+    <div class="assign-list" id="assignList"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModalAsignar()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPA_URL = 'https://akpuifenfstvobwtqtcq.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcHVpZmVuZnN0dm9id3RxdGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDMxOTAsImV4cCI6MjEwMjM3OTE5MH0.5397pVE5XlyV2864iTf96Ttj--HqoffovzJ9Z9mI0ig';
+const _sbc = supabase.createClient(SUPA_URL, SUPA_KEY);
+let _token = SUPA_KEY;
+const H = () => ({ 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + _token, 'Content-Type': 'application/json' });
+
+// ── Cliente activo (multi-tenancy) ─────────────────────────────────
+(function applyClienteContext() {
+  const raw = sessionStorage.getItem('ditu_cliente');
+  if (!raw) { window.location.href = './select_cliente.html'; return; }
+  try {
+    const c = JSON.parse(raw);
+    const color = c.color_primario || '#7B2FBE';
+    const chip = document.getElementById('clienteChip');
+    if (chip) {
+      document.getElementById('clienteNombre').textContent = c.nombre || 'Cliente';
+      document.getElementById('clienteDot').style.background = color;
+      chip.style.display = '';
+    }
+  } catch(_) { window.location.href = './select_cliente.html'; }
+})();
+
+// ── Auth ───────────────────────────────────────────────────────────
+let currentRol = 'operador';
+(async () => {
+  const { data: { session } } = await _sbc.auth.getSession();
+  if (!session) { window.location.href = './login.html'; return; }
+  _token = session.access_token;
+  document.getElementById('userEmail').textContent = session.user.email;
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=nombre,rol`,
+      { headers: H() });
+    if (res.ok) {
+      const [p] = await res.json();
+      if (p) {
+        currentRol = p.rol || 'operador';
+        if (p.nombre) document.getElementById('userEmail').textContent = p.nombre;
+      }
+    }
+  } catch(_) {}
+
+  const b = document.getElementById('roleBadge');
+  if (b) { b.textContent = currentRol; b.className = 'nav-role-badge ' + currentRol; b.style.display = ''; }
+
+  // Solo superadmin puede entrar
+  if (currentRol !== 'superadmin') {
+    document.getElementById('clientesGrid').innerHTML = '<div class="loading-msg">🔒 Solo superadmin puede gestionar clientes.</div>';
+    return;
+  }
+  ['navDispositivos','navItems','navBackup'].forEach(id => { const el = document.getElementById(id); if(el) el.style.display = ''; });
+  document.getElementById('navUsuarios').style.display = '';
+  document.getElementById('navClientes').style.display = '';
+
+  await Promise.all([loadClientes(), loadAllProfiles()]);
+})();
+
+async function _sbLogout() { await _sbc.auth.signOut(); sessionStorage.removeItem('ditu_cliente'); window.location.href = './login.html'; }
+
+// ── Data ──────────────────────────────────────────────────────────
+let clientes = [];
+let allProfiles = [];
+let userClientes = []; // {user_id, cliente_id}
+let editingId = null;
+let assigningClienteId = null;
+
+async function loadClientes() {
+  const r = await fetch(`${SUPA_URL}/rest/v1/clientes?order=nombre`, { headers: H() });
+  clientes = r.ok ? await r.json() : [];
+  const r2 = await fetch(`${SUPA_URL}/rest/v1/user_clientes?select=user_id,cliente_id`, { headers: H() });
+  userClientes = r2.ok ? await r2.json() : [];
+  renderClientes();
+}
+
+async function loadAllProfiles() {
+  const r = await fetch(`${SUPA_URL}/rest/v1/profiles?select=id,nombre,email,rol&order=nombre`, { headers: H() });
+  allProfiles = r.ok ? await r.json() : [];
+}
+
+function usersOfCliente(clienteId) {
+  const ids = userClientes.filter(uc => uc.cliente_id === clienteId).map(uc => uc.user_id);
+  return allProfiles.filter(p => ids.includes(p.id));
+}
+
+// ── Render ────────────────────────────────────────────────────────
+function renderClientes() {
+  const grid = document.getElementById('clientesGrid');
+  if (!clientes.length) {
+    grid.innerHTML = '<div class="loading-msg">No hay clientes aún. Crea el primero.</div>';
+    return;
+  }
+  grid.innerHTML = clientes.map(c => {
+    const color = c.color_primario || '#7B2FBE';
+    const initials = (c.nombre || '?').slice(0,2).toUpperCase();
+    const users = usersOfCliente(c.id);
+    const usersHTML = users.length
+      ? users.map(u => `
+          <div class="user-row">
+            <span>
+              <span class="user-row-name">${u.nombre || u.email || '—'}</span>
+              <span class="user-row-rol"> · ${u.rol || ''}</span>
+            </span>
+            <button class="user-row-remove" title="Quitar del cliente" onclick="removeUserFromCliente('${u.id}','${c.id}')">✕</button>
+          </div>`).join('')
+      : '<div class="empty-users">Sin usuarios asignados</div>';
+
+    return `
+      <div class="cliente-card">
+        <div class="card-header">
+          <div class="card-avatar" style="background:${color}">${initials}</div>
+          <div class="card-info">
+            <div class="card-nombre">${c.nombre}</div>
+            <div class="card-meta">${users.length} usuario${users.length!==1?'s':''} asignado${users.length!==1?'s':''}</div>
+          </div>
+          <span class="card-badge ${c.activo !== false ? 'badge-activo' : 'badge-inactivo'}">${c.activo !== false ? 'Activo' : 'Inactivo'}</span>
+        </div>
+        <div class="card-body">
+          <div class="card-section-label">Usuarios</div>
+          <div class="users-list">${usersHTML}</div>
+          <button class="btn-sm btn-edit" style="width:100%" onclick="openModalAsignar('${c.id}','${c.nombre.replace(/'/g,"\\'")}')">+ Asignar usuario</button>
+        </div>
+        <div class="card-actions">
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="width:12px;height:12px;border-radius:3px;background:${color};flex-shrink:0"></div>
+            <span style="font-size:11px;color:#7c82a0">${color}</span>
+          </div>
+          <div style="flex:1"></div>
+          <button class="btn-sm btn-edit" onclick="openModalEditar('${c.id}')">Editar</button>
+          <button class="btn-sm btn-danger" onclick="toggleActivo('${c.id}',${c.activo !== false})">${c.activo !== false ? 'Desactivar' : 'Activar'}</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Modal crear/editar ─────────────────────────────────────────────
+function openModalNuevo() {
+  editingId = null;
+  document.getElementById('modalTitle').textContent = 'Nuevo cliente';
+  document.getElementById('fNombre').value = '';
+  document.getElementById('fColor').value = '#7B2FBE';
+  document.getElementById('fColorPicker').value = '#7B2FBE';
+  document.getElementById('fColor2').value = '#9b6dff';
+  document.getElementById('fColor2Picker').value = '#9b6dff';
+  document.getElementById('fLogo').value = '';
+  document.getElementById('fActivo').value = 'true';
+  document.getElementById('modalCliente').style.display = 'flex';
+}
+
+function openModalEditar(id) {
+  const c = clientes.find(x => x.id === id);
+  if (!c) return;
+  editingId = id;
+  document.getElementById('modalTitle').textContent = 'Editar cliente';
+  document.getElementById('fNombre').value = c.nombre || '';
+  const col = c.color_primario || '#7B2FBE';
+  const col2 = c.color_secundario || '#9b6dff';
+  document.getElementById('fColor').value = col;
+  document.getElementById('fColorPicker').value = col;
+  document.getElementById('fColor2').value = col2;
+  document.getElementById('fColor2Picker').value = col2;
+  document.getElementById('fLogo').value = c.logo_url || '';
+  document.getElementById('fActivo').value = String(c.activo !== false);
+  document.getElementById('modalCliente').style.display = 'flex';
+}
+
+function closeModal() { document.getElementById('modalCliente').style.display = 'none'; }
+
+function syncColorPicker() {
+  const v = document.getElementById('fColor').value;
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) document.getElementById('fColorPicker').value = v;
+}
+function syncColor2Picker() {
+  const v = document.getElementById('fColor2').value;
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) document.getElementById('fColor2Picker').value = v;
+}
+
+async function guardarCliente() {
+  const nombre = document.getElementById('fNombre').value.trim();
+  if (!nombre) { showToast('El nombre es obligatorio', true); return; }
+  const payload = {
+    nombre,
+    color_primario: document.getElementById('fColor').value || '#7B2FBE',
+    color_secundario: document.getElementById('fColor2').value || '#9b6dff',
+    logo_url: document.getElementById('fLogo').value.trim() || null,
+    activo: document.getElementById('fActivo').value === 'true'
+  };
+  const btn = document.getElementById('btnGuardar');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+
+  let r;
+  if (editingId) {
+    r = await fetch(`${SUPA_URL}/rest/v1/clientes?id=eq.${editingId}`, {
+      method: 'PATCH', headers: H(), body: JSON.stringify(payload)
+    });
+  } else {
+    r = await fetch(`${SUPA_URL}/rest/v1/clientes`, {
+      method: 'POST', headers: { ...H(), 'Prefer': 'return=representation' }, body: JSON.stringify(payload)
+    });
+  }
+
+  btn.disabled = false; btn.textContent = 'Guardar';
+  if (r.ok) {
+    closeModal();
+    showToast(editingId ? 'Cliente actualizado ✓' : 'Cliente creado ✓');
+    await loadClientes();
+  } else {
+    showToast('Error al guardar: ' + r.status, true);
+  }
+}
+
+async function toggleActivo(id, currentlyActive) {
+  const r = await fetch(`${SUPA_URL}/rest/v1/clientes?id=eq.${id}`, {
+    method: 'PATCH', headers: H(), body: JSON.stringify({ activo: !currentlyActive })
+  });
+  if (r.ok) { showToast(currentlyActive ? 'Cliente desactivado' : 'Cliente activado'); await loadClientes(); }
+  else showToast('Error: ' + r.status, true);
+}
+
+// ── Modal asignar usuarios ─────────────────────────────────────────
+function openModalAsignar(clienteId, clienteNombre) {
+  assigningClienteId = clienteId;
+  document.getElementById('asignarTitle').textContent = `Usuarios — ${clienteNombre}`;
+  document.getElementById('searchUser').value = '';
+  renderAssignList('');
+  document.getElementById('modalAsignar').style.display = 'flex';
+}
+function closeModalAsignar() { document.getElementById('modalAsignar').style.display = 'none'; }
+
+function filterAssignList() {
+  renderAssignList(document.getElementById('searchUser').value.toLowerCase());
+}
+
+function renderAssignList(query) {
+  const assignedIds = userClientes.filter(uc => uc.cliente_id === assigningClienteId).map(uc => uc.user_id);
+  const filtered = allProfiles.filter(p =>
+    !query || (p.nombre||'').toLowerCase().includes(query) || (p.email||'').toLowerCase().includes(query)
+  );
+  document.getElementById('assignList').innerHTML = filtered.map(p => {
+    const isAssigned = assignedIds.includes(p.id);
+    return `<div class="assign-row ${isAssigned ? 'already' : ''}">
+      <span>
+        <span class="assign-row-name">${p.nombre || p.email || '—'}</span>
+        <span class="assign-row-rol"> · ${p.rol || 'operador'}</span>
+      </span>
+      ${isAssigned
+        ? `<button class="assign-btn remove" onclick="removeUserFromCliente('${p.id}','${assigningClienteId}',true)">Quitar</button>`
+        : `<button class="assign-btn add" onclick="addUserToCliente('${p.id}','${assigningClienteId}')">Asignar</button>`
+      }
+    </div>`;
+  }).join('') || '<div class="empty-users">Sin resultados</div>';
+}
+
+async function addUserToCliente(userId, clienteId) {
+  const r = await fetch(`${SUPA_URL}/rest/v1/user_clientes`, {
+    method: 'POST',
+    headers: { ...H(), 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ user_id: userId, cliente_id: clienteId })
+  });
+  if (r.ok || r.status === 409) { // 409 = ya existe (unique constraint)
+    userClientes = [...userClientes.filter(uc => !(uc.user_id===userId && uc.cliente_id===clienteId)),
+      { user_id: userId, cliente_id: clienteId }];
+    showToast('Usuario asignado ✓');
+    renderAssignList(document.getElementById('searchUser').value.toLowerCase());
+    renderClientes();
+  } else showToast('Error: ' + r.status, true);
+}
+
+async function removeUserFromCliente(userId, clienteId, fromModal = false) {
+  const r = await fetch(`${SUPA_URL}/rest/v1/user_clientes?user_id=eq.${userId}&cliente_id=eq.${clienteId}`, {
+    method: 'DELETE', headers: H()
+  });
+  if (r.ok) {
+    userClientes = userClientes.filter(uc => !(uc.user_id===userId && uc.cliente_id===clienteId));
+    showToast('Usuario removido');
+    if (fromModal) renderAssignList(document.getElementById('searchUser').value.toLowerCase());
+    renderClientes();
+  } else showToast('Error: ' + r.status, true);
+}
+
+// ── Toast ─────────────────────────────────────────────────────────
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (isError ? ' error' : '');
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3000);
+}
+</script>
+</body>
+</html>

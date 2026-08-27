@@ -760,6 +760,7 @@
   <a href="./admin.html" class="snav-link" id="navItems" style="display:none"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><polyline points="3 6 4 7 6 5"/><polyline points="3 12 4 13 6 11"/><polyline points="3 18 4 19 6 17"/></svg>Ítems</a>
   <a href="./backup.html" class="snav-link" id="navBackup" style="display:none"><svg viewBox="0 0 24 24"><polyline points="21 15 21 21 3 21 3 15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Backup</a>
   <a href="./admin_usuarios.html" class="snav-link" id="navUsuarios" style="display:none"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuarios</a>
+  <a href="./admin_clientes.html" class="snav-link" id="navClientes" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Clientes</a>
   <div class="nav-right">
     <span class="cliente-chip" id="clienteChip" style="display:none">
       <span class="cliente-dot" id="clienteDot"></span>
@@ -1128,6 +1129,7 @@ function applyNavRole(rol){
   const isSuperAdmin=rol==='superadmin';
   ['navDispositivos','navItems','navBackup'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isAdmin?'':'none';});
   const navU=document.getElementById('navUsuarios');if(navU)navU.style.display=isSuperAdmin?'':'none';
+  const navC=document.getElementById('navClientes');if(navC)navC.style.display=isSuperAdmin?'':'none';
   const b=document.getElementById('roleBadge');
   if(b){b.textContent=rol;b.className='nav-role-badge '+rol;b.style.display='';}
 }
