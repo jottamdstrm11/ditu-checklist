@@ -85,6 +85,11 @@ input[type=checkbox]{accent-color:#6366f1;width:15px;height:15px;cursor:pointer}
   <a href="./admin_usuarios.html" class="snav-link" id="navUsuarios" style="display:none"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuarios</a>
   <a href="./admin_clientes.html" class="snav-link" id="navClientes" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Clientes</a>
   <div class="nav-right">
+    <span class="cliente-chip" id="clienteChip" style="display:none;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#e8eaf0;background:#1a1d27;border:1px solid rgba(180,140,255,0.25);border-radius:8px;padding:3px 10px 3px 6px">
+      <span id="clienteDot" style="width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block"></span>
+      <span id="clienteNombre"></span>
+      <a href="./select_cliente.html" style="color:#7c82a0;font-size:10px;font-weight:600;text-decoration:none;margin-left:4px" title="Cambiar cliente">⇄ cambiar</a>
+    </span>
     <span class="nav-role-badge" id="roleBadge"></span>
     <span class="user-chip" id="userEmail"></span>
     <button class="logout-btn" onclick="logout()">Cerrar sesión</button>
@@ -162,6 +167,26 @@ const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
 const H={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'};
 
+// ── Cliente activo (multi-tenancy) ────────────────────────────────────
+let currentClienteId=null;
+let currentClienteNombre='ditu';
+(function(){
+  const raw=sessionStorage.getItem('ditu_cliente');
+  if(!raw){window.location.href='./select_cliente.html';return;}
+  try{
+    const c=JSON.parse(raw);
+    currentClienteId=c.id||null;
+    currentClienteNombre=c.nombre||'ditu';
+    const color=c.color_primario||'#7B2FBE';
+    const chip=document.getElementById('clienteChip');
+    if(chip){
+      document.getElementById('clienteNombre').textContent=currentClienteNombre;
+      document.getElementById('clienteDot').style.background=color;
+      chip.style.display='inline-flex';
+    }
+  }catch(_){window.location.href='./select_cliente.html';}
+})();
+
 // ── Auth ─────────────────────────────────────────────────────────────
 (async()=>{
   const {data:{session}}=await sb.auth.getSession();
@@ -206,6 +231,7 @@ async function loadRuns(){
 
     let url=`/rest/v1/checklist_runs?select=*&fecha=gte.${from}&fecha=lte.${to}&order=fecha.desc`;
     if(tipo)url+=`&tipo=eq.${tipo}`;
+    if(currentClienteId)url+=`&cliente_id=eq.${currentClienteId}`;
     const r=await fetch(SUPA_URL+url,{headers:H});
     runs=await r.json();
 
@@ -365,7 +391,8 @@ function exportXLSX(){
   const to=document.getElementById('dateTo').value;
   const tipo=document.getElementById('filterTipo').value;
   const tipoLabel=tipo?'_'+(tipo.charAt(0).toUpperCase()+tipo.slice(1)):'';
-  XLSX.writeFile(wb,`Backup_Ditu${tipoLabel}_${from}_${to}.xlsx`);
+  const clienteSlug=currentClienteNombre.replace(/\s+/g,'_');
+  XLSX.writeFile(wb,`Backup_${clienteSlug}${tipoLabel}_${from}_${to}.xlsx`);
 }
 
 let _pendingDeleteSel=[];
