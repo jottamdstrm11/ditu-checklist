@@ -1248,11 +1248,12 @@ async function loadData() {
     const runStatsMap = {};
     allRuns.forEach(r => {
       runStatsMap[r.id] = {
-        id:          r.id,
-        fecha:       r.fecha       ?? '',
-        hora_franja: r.hora_franja ?? '',
-        operador:    r.operador    ?? '',
-        tipo:        r.tipo        ?? '',
+        id:            r.id,
+        fecha:         r.fecha          ?? '',
+        hora_franja:   r.hora_franja    ?? '',
+        operador:      r.operador       ?? '',
+        tipo:          r.tipo           ?? '',
+        items_esperados: r.items_esperados ?? null,
         total: 0, PASS: 0, FAIL: 0, 'N/A': 0, 'UNABLE TO TEST': 0,
         _statsLoaded: false
       };
@@ -1326,11 +1327,12 @@ async function loadStatsInBackground(runs) {
     const runStatsMap = {};
     runs.forEach(r => {
       runStatsMap[r.id] = {
-        id:          r.id,
-        fecha:       r.fecha       ?? '',
-        hora_franja: r.hora_franja ?? '',
-        operador:    r.operador    ?? '',
-        tipo:        r.tipo        ?? '',
+        id:            r.id,
+        fecha:         r.fecha          ?? '',
+        hora_franja:   r.hora_franja    ?? '',
+        operador:      r.operador       ?? '',
+        tipo:          r.tipo           ?? '',
+        items_esperados: r.items_esperados ?? null,
         total: 0, PASS: 0, FAIL: 0, 'N/A': 0, 'UNABLE TO TEST': 0,
         _statsLoaded: true
       };
@@ -1771,6 +1773,9 @@ function renderHistorial() {
     const naCount    = loaded ? (s['N/A']            || 0) : null;
     const uttCount   = loaded ? (s['UNABLE TO TEST'] || 0) : null;
     const tot        = loaded ? (s.total             || 0) : null;
+    // Preferir el total guardado en el run (items_esperados); fallback al config actual
+    const expected   = (s.items_esperados != null ? s.items_esperados : 0) || expectedTotals[s.tipo] || 0;
+    const isIncomplete = loaded && expected > 0 && tot !== null && tot < expected;
     const pct        = (loaded && tot) ? Math.round((passCount / tot) * 100) : (loaded ? 0 : null);
     const pctColor   = pct !== null ? (pct >= 90 ? '#1baf7a' : pct >= 70 ? '#eda100' : '#e34948') : 'var(--text-muted)';
     const isActive   = selectedRunIds.has(s.id);
@@ -1785,7 +1790,13 @@ function renderHistorial() {
         <td style="color:var(--text-secondary);white-space:nowrap">${escHtml(s.hora_franja || '—')}</td>
         <td style="font-weight:600">${escHtml(s.operador || '—')}</td>
         <td style="color:var(--text-secondary)">${escHtml(tipoLabel)}</td>
-        <td style="text-align:right;color:var(--text-muted);font-variant-numeric:tabular-nums">${tot !== null ? tot.toLocaleString('es-CL') : dotdotdot}</td>
+        <td style="text-align:right;font-variant-numeric:tabular-nums">
+          ${tot !== null
+            ? (isIncomplete
+                ? `<span style="color:#eda100;font-weight:600">${tot.toLocaleString('es-CL')}</span><span style="font-size:10px;color:#eda100;margin-left:4px" title="Incompleto: se esperaban ${expected} verificaciones">⚠️ /${expected}</span>`
+                : `<span style="color:var(--text-muted)">${tot.toLocaleString('es-CL')}</span>`)
+            : dotdotdot}
+        </td>
         <td style="text-align:right" class="run-stat pass">${passCount !== null ? passCount.toLocaleString('es-CL') : dotdotdot}</td>
         <td style="text-align:right" class="run-stat fail">${failCount !== null ? (failCount ? failCount.toLocaleString('es-CL') : '<span style="color:var(--text-muted)">0</span>') : dotdotdot}</td>
         <td style="text-align:right" class="run-stat na">${naCount !== null ? (naCount ? naCount.toLocaleString('es-CL') : '<span style="color:var(--text-muted)">0</span>') : dotdotdot}</td>
@@ -2165,6 +2176,30 @@ function escHtml(s) {
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ── Totales esperados (ítems × dispositivos) por tipo ──────────
+let expectedTotals = {}; // { soporte: N, monitoreo: N }
+async function loadExpectedTotals() {
+  if (!currentClienteId) return;
+  try {
+    const cf = `&cliente_id=eq.${currentClienteId}`;
+    const [items, devices] = await Promise.all([
+      fetch(SUPA_URL + `/rest/v1/checklist_items?select=tipo&activo=eq.true${cf}`,
+        { headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY } }).then(r => r.json()),
+      fetch(SUPA_URL + `/rest/v1/checklist_devices?select=id&activo=eq.true${cf}`,
+        { headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY } }).then(r => r.json())
+    ]);
+    const devCount = (devices || []).length;
+    const soporteCount = (items || []).filter(i => i.tipo === 'soporte').length;
+    const monitoreoCount = (items || []).filter(i => i.tipo === 'monitoreo').length;
+    expectedTotals = {
+      soporte:   soporteCount  * devCount,
+      monitoreo: monitoreoCount * devCount
+    };
+    // Re-renderizar historial con denominadores reales
+    renderHistorial();
+  } catch(_) {}
+}
+
 // ── Adapt tipo filter según ítems disponibles del cliente ──────
 async function adaptTipoFilter() {
   if (!currentClienteId) return;
@@ -2193,6 +2228,7 @@ async function adaptTipoFilter() {
 document.addEventListener('DOMContentLoaded', async () => {
   await loadData();
   adaptTipoFilter();
+  loadExpectedTotals();
 });
 </script>
 </body>

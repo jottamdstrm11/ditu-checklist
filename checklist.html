@@ -491,10 +491,22 @@ function updateProgress(){
   const total=data.reduce((a,s)=>a+s.items.length*DEVICES.length,0);
   const filled=Object.values(results).filter(v=>v).length;
   const pct=total>0?Math.round(filled/total*100):0;
+  const remaining=total-filled;
   document.getElementById('progressFill').style.width=pct+'%';
   document.getElementById('headerPct').textContent=filled+'/'+total+' · '+pct+'%';
   const bp=document.getElementById('bottomProgress');
   if(bp)bp.textContent=filled+'/'+total+' · '+pct+'%';
+  // Bloquear envío hasta completar el 100%
+  const sendBtn=document.getElementById('sendBtn');
+  if(sendBtn){
+    if(remaining>0){
+      sendBtn.disabled=true;
+      sendBtn.textContent=`Faltan ${remaining} verificacion${remaining!==1?'es':''}`;
+    } else {
+      sendBtn.disabled=false;
+      sendBtn.innerHTML='✅ Enviar Checklist';
+    }
+  }
 }
 async function enviarChecklist(){
   const op=currentUser;
@@ -505,7 +517,9 @@ async function enviarChecklist(){
     const hRows={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=minimal'};
 
     // 1. Crear el run
-    const runPayload={fecha:new Date().toISOString().split('T')[0],operador:op,tipo:selectedType,hora_franja:selectedFranja};
+    const dataEnvio=ITEMS[selectedType]||[];
+    const totalEsperado=dataEnvio.reduce((a,s)=>a+s.items.length*DEVICES.length,0);
+    const runPayload={fecha:new Date().toISOString().split('T')[0],operador:op,tipo:selectedType,hora_franja:selectedFranja,items_esperados:totalEsperado};
     if(currentClienteId)runPayload.cliente_id=currentClienteId;
     const r1=await fetch(SUPA_URL+'/rest/v1/checklist_runs',{method:'POST',headers:hRun,body:JSON.stringify(runPayload)});
     if(!r1.ok)throw new Error('Error creando run: '+r1.status);
