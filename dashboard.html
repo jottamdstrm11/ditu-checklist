@@ -9,12 +9,12 @@
   <style>
     /* ─── Design tokens ─────────────────────────────────────── */
     :root {
-      --brand-bg:        #0d0d14;
-      --brand-surface:   #13111f;
-      --brand-card:      #1c1830;
-      --brand-border:    rgba(180,140,255,0.15);
-      --brand-accent:    #9b6dff;
-      --brand-accent2:   #c3a0ff;
+      --brand-bg:        #080A18;
+      --brand-surface:   #0E1126;
+      --brand-card:      #141A32;
+      --brand-border:    rgba(80,100,200,0.18);
+      --brand-accent:    #E31837;
+      --brand-accent2:   #ff4d66;
 
       --text-primary:    #ffffff;
       --text-secondary:  #c3c2b7;
@@ -35,8 +35,8 @@
       --series-7:  #9085e9;
       --series-8:  #e66767;
 
-      --surface:    #1a0a35;
-      --grid:       rgba(180,140,255,0.10);
+      --surface:    #0E1126;
+      --grid:       rgba(80,100,200,0.12);
       --radius-sm:  6px;
       --radius-md:  12px;
       --radius-lg:  18px;
@@ -107,7 +107,7 @@
       align-items: center;
       gap: 20px;
       padding: 0 24px;
-      background: linear-gradient(135deg, #1a0a35 0%, #0f0024 60%, #200040 100%);
+      background: linear-gradient(135deg, #0E1126 0%, #080A18 60%, #111830 100%);
     }
     .header-divider {
       width: 1px;
@@ -250,7 +250,7 @@
     }
     .filter-group select,
     .filter-group input[type="text"] {
-      background: #1a0a35;
+      background: #0E1126;
       border: 1px solid var(--brand-border);
       border-radius: var(--radius-sm);
       color: var(--text-primary);
@@ -265,11 +265,11 @@
     .filter-group input:focus {
       border-color: var(--brand-accent);
     }
-    .filter-group select option { background: #1a0a35; color: #fff; }
+    .filter-group select option { background: #0E1126; color: #fff; }
     select { color-scheme: dark; }
-    select option { background: #1a0a35; color: #fff; }
+    select option { background: #0E1126; color: #fff; }
     .filter-group input[type="date"] {
-      background: #0f0024;
+      background: #080A18;
       border: 1px solid var(--brand-border);
       border-radius: var(--radius-sm);
       color: var(--text-primary);
@@ -299,8 +299,8 @@
       margin-right: 4px;
     }
     .chip {
-      background: rgba(155,109,255,0.10);
-      border: 1px solid rgba(155,109,255,0.25);
+      background: rgba(227,24,55,0.10);
+      border: 1px solid rgba(227,24,55,0.25);
       border-radius: 999px;
       color: var(--brand-accent2);
       font-size: 0.72rem;
@@ -309,7 +309,7 @@
       cursor: pointer;
       transition: background 0.15s, border-color 0.15s;
     }
-    .chip:hover { background: rgba(155,109,255,0.22); border-color: var(--brand-accent); }
+    .chip:hover { background: rgba(227,24,55,0.15); border-color: var(--brand-accent); }
     .chip.active { background: var(--brand-accent); border-color: var(--brand-accent); color: #fff; }
 
     .btn {
@@ -360,7 +360,7 @@
       border-bottom: 1px solid rgba(180,140,255,0.06);
       transition: background 0.1s;
     }
-    tbody tr:hover { background: rgba(155,109,255,0.06); }
+    tbody tr:hover { background: rgba(227,24,55,0.06); }
     tbody td { padding: 9px 12px; vertical-align: top; }
     tbody td.numero { font-variant-numeric: tabular-nums; color: var(--text-muted); }
     tbody td.seccion { color: var(--text-secondary); font-size: 0.75rem; }
@@ -410,7 +410,7 @@
       min-width: 34px;
       transition: background 0.1s;
     }
-    .page-btn:hover:not(:disabled) { background: rgba(155,109,255,0.12); }
+    .page-btn:hover:not(:disabled) { background: rgba(227,24,55,0.12); }
     .page-btn.active { background: var(--brand-accent); border-color: var(--brand-accent); color: #fff; }
     .page-btn:disabled { opacity: 0.3; cursor: default; }
 
@@ -420,7 +420,7 @@
       align-items: center;
       gap: 10px;
       padding: 10px 14px;
-      background: rgba(155,109,255,0.06);
+      background: rgba(227,24,55,0.06);
       border: 1px solid var(--brand-border);
       border-radius: var(--radius-sm);
       margin-bottom: 20px;
@@ -430,7 +430,7 @@
     #appsScriptUrl {
       flex: 1;
       min-width: 240px;
-      background: #0f0024;
+      background: #080A18;
       border: 1px solid var(--brand-border);
       border-radius: var(--radius-sm);
       color: var(--text-primary);
@@ -467,9 +467,9 @@
       cursor: pointer;
       transition: background 0.12s;
     }
-    .historial-table tbody tr:hover { background: rgba(155,109,255,0.07); }
-    .historial-table tbody tr.run-active { background: rgba(155,109,255,0.14); }
-    .historial-table tbody tr.run-checked { background: rgba(155,109,255,0.08); }
+    .historial-table tbody tr:hover { background: rgba(227,24,55,0.07); }
+    .historial-table tbody tr.run-active { background: rgba(227,24,55,0.14); }
+    .historial-table tbody tr.run-checked { background: rgba(227,24,55,0.08); }
     .historial-table tbody td { padding: 9px 12px; vertical-align: middle; }
     .run-pct-bar {
       width: 90px;
@@ -507,7 +507,7 @@
       white-space: nowrap;
     }
     .run-action-btn:hover { opacity: 0.85; transform: translateY(-1px); }
-    .run-action-btn.ver { background: rgba(155,109,255,0.2); color: var(--brand-accent2); }
+    .run-action-btn.ver { background: rgba(227,24,55,0.18); color: var(--brand-accent2); }
     .run-action-btn.ver.active-run { background: var(--brand-accent); color: #fff; }
     .run-action-btn.del { background: rgba(227,73,72,0.15); color: #e34948; }
     .run-action-btn.del:hover { background: rgba(227,73,72,0.25); }
@@ -522,7 +522,7 @@
       background: transparent; color: var(--text-secondary);
       font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: .15s;
     }
-    .hist-filter-bar .chip:hover { background: rgba(155,109,255,0.1); color: var(--brand-accent2); }
+    .hist-filter-bar .chip:hover { background: rgba(227,24,55,0.1); color: var(--brand-accent2); }
     .hist-filter-bar .chip.active { background: var(--brand-accent); border-color: var(--brand-accent); color: #fff; }
     .hist-filter-bar input[type=date] {
       background: var(--brand-card); border: 1px solid var(--brand-border);
@@ -550,7 +550,7 @@
     /* ─── Multi-run matrix ───────────────────────────────────────── */
     .run-block { margin-bottom: 32px; }
     .run-block-header {
-      background: rgba(155,109,255,0.15); border: 1px solid rgba(155,109,255,0.25);
+      background: rgba(227,24,55,0.12); border: 1px solid rgba(227,24,55,0.25);
       border-radius: 8px; padding: 8px 16px; margin-bottom: 10px;
       font-size: 0.82rem; font-weight: 700; color: var(--brand-accent2);
       display: flex; align-items: center; gap: 10px;
@@ -568,7 +568,7 @@
     }
     .modal-overlay.open { display: flex; }
     .modal-box {
-      background: #1a0a35;
+      background: #0E1126;
       border: 1px solid rgba(227,73,72,0.4);
       border-radius: var(--radius-lg);
       padding: 28px 32px;
@@ -605,7 +605,7 @@
       color: var(--text-muted);
     }
     .view-toggle-btn.active { background: var(--brand-accent); color: #fff; }
-    .view-toggle-btn:not(.active):hover { background: rgba(155,109,255,0.15); color: var(--text-secondary); }
+    .view-toggle-btn:not(.active):hover { background: rgba(227,24,55,0.12); color: var(--text-secondary); }
 
     .matrix-wrap { overflow-x: auto; }
     .matrix-table {
@@ -633,7 +633,7 @@
     .matrix-table tbody tr {
       border-bottom: 1px solid rgba(180,140,255,0.05);
     }
-    .matrix-table tbody tr:hover { background: rgba(155,109,255,0.05); }
+    .matrix-table tbody tr:hover { background: rgba(227,24,55,0.05); }
     .matrix-table td {
       padding: 7px 10px;
       vertical-align: middle;
@@ -688,7 +688,7 @@
 
     .clear-run-btn {
       background: transparent;
-      border: 1px solid rgba(155,109,255,0.3);
+      border: 1px solid rgba(227,24,55,0.25);
       border-radius: 999px;
       color: var(--brand-accent2);
       font-size: 0.68rem;
@@ -697,11 +697,11 @@
       cursor: pointer;
       transition: background 0.12s;
     }
-    .clear-run-btn:hover { background: rgba(155,109,255,0.15); }
+    .clear-run-btn:hover { background: rgba(227,24,55,0.12); }
     #historial-active-banner {
       display: none;
-      background: rgba(155,109,255,0.18);
-      border: 1px solid rgba(155,109,255,0.45);
+      background: rgba(227,24,55,0.15);
+      border: 1px solid rgba(227,24,55,0.4);
       border-radius: var(--radius-sm);
       padding: 10px 16px;
       font-size: 0.82rem;
@@ -710,7 +710,7 @@
       margin-bottom: 14px;
       align-items: center;
       gap: 12px;
-      box-shadow: 0 0 0 1px rgba(155,109,255,0.1);
+      box-shadow: 0 0 0 1px rgba(227,24,55,0.1);
     }
     #historial-active-banner.visible { display: flex; }
 
@@ -724,7 +724,7 @@
     .spinner {
       display: inline-block;
       width: 20px; height: 20px;
-      border: 2px solid rgba(155,109,255,0.3);
+      border: 2px solid rgba(227,24,55,0.25);
       border-top-color: var(--brand-accent);
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
@@ -811,10 +811,10 @@
   <div class="config-bar" style="flex-wrap:wrap;gap:10px">
     <span style="font-size:11px;color:var(--text-secondary)">🗄 Supabase</span>
     <span id="dataSourceBadge" class="data-source-badge demo">CARGANDO…</span>
-    <select id="f-operador" onchange="applyFilters()" style="background:#1a0a35;border:1px solid rgba(180,140,255,0.3);color:#fff;padding:5px 10px;border-radius:6px;font-size:12px;outline:none;color-scheme:dark">
+    <select id="f-operador" onchange="applyFilters()" style="background:#0E1126;border:1px solid rgba(80,100,200,0.3);color:#fff;padding:5px 10px;border-radius:6px;font-size:12px;outline:none;color-scheme:dark">
       <option value="">Todos los operadores</option>
     </select>
-    <select id="f-tipo" onchange="applyFilters()" style="display:none;background:#1a0a35;border:1px solid rgba(180,140,255,0.3);color:#fff;padding:5px 10px;border-radius:6px;font-size:12px;outline:none;color-scheme:dark">
+    <select id="f-tipo" onchange="applyFilters()" style="display:none;background:#0E1126;border:1px solid rgba(80,100,200,0.3);color:#fff;padding:5px 10px;border-radius:6px;font-size:12px;outline:none;color-scheme:dark">
       <option value="">Todos los tipos</option>
       <option value="monitoreo">Monitoreo</option>
       <option value="soporte">Soporte</option>
@@ -1113,6 +1113,9 @@ let currentClienteId = null;
     const color = c.color_primario || '#7B2FBE';
     const nombre = c.nombre || 'Cliente';
     document.documentElement.style.setProperty('--cliente-color', color);
+    // El acento de la UI sigue el color del cliente (rojo TV Azteca, morado Ditu, etc.)
+    document.documentElement.style.setProperty('--brand-accent', color);
+    document.documentElement.style.setProperty('--brand-accent2', color + 'cc');
 
     // Actualizar header brand con logo o mantener ditu
     const headerBrand = document.getElementById('headerBrand');
@@ -1550,8 +1553,8 @@ function updateCharts() {
           labels: { color: '#c3c2b7', font: { size: 11 }, boxWidth: 12, padding: 16 }
         },
         tooltip: {
-          backgroundColor: '#1a0a35',
-          borderColor: 'rgba(180,140,255,0.3)',
+          backgroundColor: '#0E1126',
+          borderColor: 'rgba(80,100,200,0.3)',
           borderWidth: 1,
           titleColor: '#fff',
           bodyColor: '#c3c2b7',
@@ -1604,8 +1607,8 @@ function updateCharts() {
           labels: { color: '#c3c2b7', font: { size: 11 }, boxWidth: 12, padding: 12 }
         },
         tooltip: {
-          backgroundColor: '#1a0a35',
-          borderColor: 'rgba(180,140,255,0.3)',
+          backgroundColor: '#0E1126',
+          borderColor: 'rgba(80,100,200,0.3)',
           borderWidth: 1,
           titleColor: '#fff',
           bodyColor: '#c3c2b7',
