@@ -105,8 +105,8 @@ tr:hover td{background:#1e2235}
   </div>
 </nav>
 
-<h1>👥 Admin — Usuarios</h1>
-<p class="subtitle">Gestiona los roles de acceso de cada miembro del equipo. Solo superadmin puede cambiar roles.</p>
+<h1 id="usuTitle">👥 Admin — Usuarios</h1>
+<p class="subtitle" id="usuSubtitle">Gestiona los roles de acceso de cada miembro del equipo. Solo superadmin puede cambiar roles.</p>
 
 <div class="stats-bar" id="statsBar"></div>
 
@@ -141,19 +141,31 @@ let _token = SUPA_KEY; // se reemplaza con el access_token del usuario al inicia
 const H = () => ({'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + _token, 'Content-Type': 'application/json'});
 
 // ── Cliente activo (multi-tenancy) ────────────────────────────────────
+let currentClienteId = null;
+let currentClienteNombre = '';
 (function applyClienteContext() {
   const raw = sessionStorage.getItem('ditu_cliente');
   if (!raw) { window.location.href = './select_cliente.html'; return; }
   try {
     const c = JSON.parse(raw);
+    currentClienteId = c.id || null;
+    currentClienteNombre = c.nombre || 'Cliente';
     const color = c.color_primario || '#7B2FBE';
     const chip = document.getElementById('clienteChip');
     if (chip) {
-      document.getElementById('clienteNombre').textContent = c.nombre || 'Cliente';
+      document.getElementById('clienteNombre').textContent = currentClienteNombre;
       document.getElementById('clienteDot').style.background = color;
       chip.style.display = '';
     }
   } catch(_) { window.location.href = './select_cliente.html'; }
+})();
+
+// Actualizar título con nombre del cliente
+(function updateTitle() {
+  const h1 = document.getElementById('usuTitle');
+  const sub = document.getElementById('usuSubtitle');
+  if (h1 && currentClienteNombre) h1.textContent = `👥 Admin — Usuarios ${currentClienteNombre}`;
+  if (sub && currentClienteNombre) sub.textContent = `Usuarios asignados a ${currentClienteNombre}. Solo superadmin puede cambiar roles.`;
 })();
 
 const ROLES = ['superadmin', 'admin', 'operador', 'viewer'];
@@ -205,10 +217,21 @@ function applyNavRole(rol) {
 
 async function _sbLogout() { await _sbc.auth.signOut(); window.location.href = './login.html'; }
 
-// ── Load profiles ─────────────────────────────────────────────
+// ── Load profiles (filtrado por cliente activo) ────────────────
 async function load() {
-  const r = await fetch(SUPA_URL + '/rest/v1/profiles?order=nombre&select=*', { headers: H() });
-  profiles = await r.json();
+  if (currentClienteId) {
+    // Obtener user_ids del cliente activo
+    const ru = await fetch(SUPA_URL + `/rest/v1/user_clientes?cliente_id=eq.${currentClienteId}&select=user_id`, { headers: H() });
+    const userClientes = ru.ok ? await ru.json() : [];
+    const userIds = userClientes.map(uc => uc.user_id);
+    if (userIds.length === 0) { profiles = []; pendingChanges = {}; renderStats(); render(); return; }
+    const inFilter = userIds.map(id => `"${id}"`).join(',');
+    const rp = await fetch(SUPA_URL + `/rest/v1/profiles?id=in.(${inFilter})&order=nombre&select=*`, { headers: H() });
+    profiles = rp.ok ? await rp.json() : [];
+  } else {
+    const r = await fetch(SUPA_URL + '/rest/v1/profiles?order=nombre&select=*', { headers: H() });
+    profiles = await r.json();
+  }
   pendingChanges = {};
   renderStats();
   render();

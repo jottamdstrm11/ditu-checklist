@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Monitoreo ditu — QA</title>
+  <title>Checklist ditu — QA</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <style>
@@ -793,8 +793,8 @@
   <!-- Title + meta -->
   <div class="header-content">
     <div class="header-title" id="headerTitle">
-      <h1>Monitoreo ditu</h1>
-      <p>Checklist de Calidad — Monitoreo &amp; Soporte</p>
+      <h1>ditu</h1>
+      <p id="headerSubtitle">Checklist de Calidad</p>
     </div>
     <div class="header-spacer"></div>
     <div class="header-meta">
@@ -814,8 +814,8 @@
     <select id="f-operador" onchange="applyFilters()" style="background:#1a0a35;border:1px solid rgba(180,140,255,0.3);color:#fff;padding:5px 10px;border-radius:6px;font-size:12px;outline:none;color-scheme:dark">
       <option value="">Todos los operadores</option>
     </select>
-    <select id="f-tipo" onchange="applyFilters()" style="background:#1a0a35;border:1px solid rgba(180,140,255,0.3);color:#fff;padding:5px 10px;border-radius:6px;font-size:12px;outline:none;color-scheme:dark">
-      <option value="">Monitoreo y Soporte</option>
+    <select id="f-tipo" onchange="applyFilters()" style="display:none;background:#1a0a35;border:1px solid rgba(180,140,255,0.3);color:#fff;padding:5px 10px;border-radius:6px;font-size:12px;outline:none;color-scheme:dark">
+      <option value="">Todos los tipos</option>
       <option value="monitoreo">Monitoreo</option>
       <option value="soporte">Soporte</option>
     </select>
@@ -1128,7 +1128,7 @@ let currentClienteId = null;
     // Actualizar título del header
     const headerTitle = document.getElementById('headerTitle');
     if (headerTitle) {
-      headerTitle.querySelector('h1').textContent = 'Monitoreo ' + nombre;
+      headerTitle.querySelector('h1').textContent = nombre;
     }
 
     const chip = document.getElementById('clienteChip');
@@ -2212,13 +2212,13 @@ async function adaptTipoFilter() {
     const tipos = [...new Set(items.map(i => i.tipo).filter(Boolean))];
     const sel = document.getElementById('f-tipo');
     const tag = document.getElementById('tipoTagSingle');
-    if (tipos.length === 1) {
-      // Solo un tipo disponible: pre-seleccionar y mostrar tag estático en lugar del select
-      const tipoLabel = tipos[0] === 'soporte' ? 'Soporte' : tipos[0] === 'monitoreo' ? 'Monitoreo' : tipos[0];
-      if (sel) { sel.value = tipos[0]; sel.style.display = 'none'; applyFilters(); }
-      if (tag) { tag.textContent = tipoLabel; tag.style.display = ''; }
-    } else {
+    if (tipos.length > 1) {
+      // Múltiples tipos: mostrar select para filtrar
       if (sel) sel.style.display = '';
+      if (tag) tag.style.display = 'none';
+    } else {
+      // Un solo tipo o ninguno: ocultar filtro completamente, no pre-filtrar
+      if (sel) { sel.value = ''; sel.style.display = 'none'; }
       if (tag) tag.style.display = 'none';
     }
   } catch(_) {}
