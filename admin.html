@@ -24,11 +24,12 @@ h1{font-size:22px;font-weight:800;color:#c3a0ff;margin-bottom:4px}
 .sec-filter:focus{outline:none;border-color:#6366f1}
 
 /* Section groups */
-.sec-block{margin-bottom:16px;border-radius:12px;overflow:hidden;border:1px solid #2e3350}
+.sec-block{margin-bottom:16px;border-radius:12px;border:1px solid #2e3350;overflow:hidden}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:480px}
 .sec-header{background:#22263a;padding:10px 16px;font-size:12px;font-weight:700;color:#c3a0ff;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center}
 .sec-count{background:#2e3350;border-radius:5px;padding:2px 8px;font-size:11px;color:#7c82a0}
 
-table{width:100%;border-collapse:collapse}
 th{padding:9px 12px;text-align:left;font-size:10px;font-weight:700;color:#7c82a0;letter-spacing:.06em;text-transform:uppercase;background:#1c1f2e;border-bottom:1px solid #2e3350}
 td{padding:7px 10px;border-bottom:1px solid #1e2235;vertical-align:middle}
 tr:last-child td{border-bottom:none}
@@ -159,7 +160,7 @@ input.num-input{width:70px}
       <label>Número</label>
       <input type="text" id="newNum" placeholder="Ej: 2.5" style="width:90px">
     </div>
-    <div class="form-group" style="min-width:140px">
+    <div class="form-group" id="tipoGroup" style="min-width:140px;display:none">
       <label>Tipo</label>
       <select id="newTipo">
         <option value="monitoreo">Monitoreo</option>
@@ -273,6 +274,10 @@ async function load(){
   const r=await fetch(SUPA_URL+`/rest/v1/checklist_items?select=*&or=(tipo.neq.soporte,tipo.is.null)&order=seccion,numero_item${cf}`,{headers:H});
   if(!r.ok){console.error('load error',r.status,await r.text());return;}
   allItems=await r.json();
+  // Mostrar selector tipo solo para clientes que usan monitoreo/soporte (ej: Ditu)
+  const usaTipos=currentClienteNombre.toLowerCase().includes('ditu');
+  const tg=document.getElementById('tipoGroup');
+  if(tg)tg.style.display=usaTipos?'':'none';
   // Populate add-form section dropdown from existing sections
   updateSecDropdown();
   render();
@@ -327,7 +332,7 @@ function render(){
 
     html+=`<div class="sec-block">
       <div class="sec-header">📋 ${sec} <span class="sec-count">${secItems.length} ítems</span></div>
-      <table>
+      <div class="table-wrap"><table>
         <thead><tr>
           <th style="width:80px">#</th>
           <th>Nombre del ítem</th>
@@ -357,7 +362,7 @@ function render(){
             </tr>
           `).join('')}
         </tbody>
-      </table>
+      </table></div>
     </div>`;
   }
 
