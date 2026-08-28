@@ -261,8 +261,8 @@ let currentClienteNombre='';
 async function load(){
   document.getElementById('content').innerHTML='<p class="empty">Cargando...</p>';
   const cf=currentClienteId?`&cliente_id=eq.${currentClienteId}`:'';
-  // tipo=monitoreo evita mostrar duplicados (items con tipo='soporte' del esquema anterior)
-  const r=await fetch(SUPA_URL+`/rest/v1/checklist_items?select=*&tipo=eq.monitoreo&order=seccion,numero_item${cf}`,{headers:H});
+  // Excluir tipo='soporte' (duplicados del esquema anterior) pero incluir tipo=null o cualquier otro valor
+  const r=await fetch(SUPA_URL+`/rest/v1/checklist_items?select=*&or=(tipo.neq.soporte,tipo.is.null)&order=seccion,numero_item${cf}`,{headers:H});
   if(!r.ok){console.error('load error',r.status,await r.text());return;}
   allItems=await r.json();
   // Populate add-form section dropdown from existing sections
@@ -292,7 +292,13 @@ function render(){
   const secF=document.getElementById('secFilter').value;
 
   const items=allItems.filter(i=>!toDelete.has(i.id));
-  const secs=[...new Set([...items.map(i=>i.seccion),...toInsert.map(i=>i.seccion)].filter(Boolean))].sort();
+  // Ordenar secciones por el numero_item más bajo de cada sección (no alfabéticamente)
+  const secsSet=[...new Set([...items.map(i=>i.seccion),...toInsert.map(i=>i.seccion)].filter(Boolean))];
+  const secs=secsSet.sort((a,b)=>{
+    const aMin=Math.min(...[...items,...toInsert].filter(i=>i.seccion===a).map(i=>parseFloat(i.numero_item)||9999));
+    const bMin=Math.min(...[...items,...toInsert].filter(i=>i.seccion===b).map(i=>parseFloat(i.numero_item)||9999));
+    return aMin-bMin;
+  });
 
   // update section filter dropdown
   const sf=document.getElementById('secFilter');
