@@ -78,7 +78,7 @@ input[type=text]:focus{outline:none;border-color:#6366f1}
     <button class="logout-btn" onclick="_sbLogout()">Cerrar sesión</button>
   </div>
 </nav>
-<h1>⚙️ Admin — Dispositivos ditu</h1>
+<h1 id="dispTitle">⚙️ Admin — Dispositivos</h1>
 <p class="subtitle" id="dispSubtitle">Edita nombre, versión y estado de cada dispositivo. Los cambios se reflejan inmediatamente en el formulario de checklist.</p>
 
 <div class="card">
@@ -153,6 +153,8 @@ let currentClienteNombre='';
       document.getElementById('clienteNombre').textContent=currentClienteNombre;
           const sub=document.getElementById('dispSubtitle');
           if(sub)sub.textContent=`Dispositivos de ${currentClienteNombre} — edita nombre, versión y estado. Los cambios se reflejan inmediatamente en el checklist.`;
+          const h1=document.getElementById('dispTitle');
+          if(h1)h1.textContent=`⚙️ Admin — Dispositivos ${currentClienteNombre}`;
       document.getElementById('clienteDot').style.background=color;
       chip.style.display='flex';
     }
