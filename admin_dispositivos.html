@@ -79,7 +79,7 @@ input[type=text]:focus{outline:none;border-color:#6366f1}
   </div>
 </nav>
 <h1>⚙️ Admin — Dispositivos ditu</h1>
-<p class="subtitle">Edita nombre, versión y estado de cada dispositivo. Los cambios se reflejan inmediatamente en el formulario de checklist.</p>
+<p class="subtitle" id="dispSubtitle">Edita nombre, versión y estado de cada dispositivo. Los cambios se reflejan inmediatamente en el formulario de checklist.</p>
 
 <div class="card">
   <table id="devTable">
@@ -151,6 +151,8 @@ let currentClienteNombre='';
     const chip=document.getElementById('clienteChip');
     if(chip){
       document.getElementById('clienteNombre').textContent=currentClienteNombre;
+          const sub=document.getElementById('dispSubtitle');
+          if(sub)sub.textContent=`Dispositivos de ${currentClienteNombre} — edita nombre, versión y estado. Los cambios se reflejan inmediatamente en el checklist.`;
       document.getElementById('clienteDot').style.background=color;
       chip.style.display='flex';
     }
