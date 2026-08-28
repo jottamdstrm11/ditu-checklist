@@ -57,47 +57,106 @@
 
     /* ─── Header ─────────────────────────────────────────────── */
     .header {
-      background: var(--cliente-color, #7B2FBE);
-      border-bottom: 1px solid rgba(0,0,0,0.25);
+      background: #080A18;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
       padding: 0;
       display: flex;
-      align-items: stretch;
-      min-height: 88px;
+      flex-direction: column;
       position: sticky;
       top: 0;
       z-index: 100;
       overflow: hidden;
     }
+    /* Thin accent bar — client color only here, not as background block */
+    .header-accent-bar {
+      height: 3px;
+      background: var(--cliente-color, #7B2FBE);
+      width: 100%;
+      flex-shrink: 0;
+    }
+    .header-inner {
+      display: flex;
+      align-items: stretch;
+      min-height: 70px;
+    }
 
-    /* Left brand block — same treatment as checklist form */
+    /* Brand area — always dark, client color as accent only */
     .header-brand {
       display: flex;
       align-items: center;
-      gap: 0;
+      padding: 0 24px 0 20px;
       flex-shrink: 0;
-      background: var(--cliente-color, #7B2FBE);
+      border-right: 1px solid rgba(255,255,255,0.07);
+      min-width: 210px;
     }
-    .header-brand-ditu {
-      font-size: 3.6rem;
-      font-weight: 900;
-      letter-spacing: -3px;
-      color: #fff;
-      font-family: system-ui, -apple-system, sans-serif;
-      line-height: 1;
-      padding: 0 18px 0 28px;
-      align-self: center;
-    }
-    .header-gif {
-      height: 88px;
-      width: 88px;
-      object-fit: cover;
-      object-position: top center;
-      flex-shrink: 0;
+    /* Logo image — shown when logo_url is set in DB */
+    .header-logo-img {
+      max-height: 40px;
+      max-width: 176px;
+      object-fit: contain;
       display: block;
     }
-    .header-gif-error {
-      /* shown when GIF fails to load */
-      width: 0;
+    /* Wordmark — fallback when no logo_url */
+    .brand-wordmark {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+    .brand-icon-box {
+      width: 38px;
+      height: 38px;
+      border-radius: 9px;
+      border: 1.5px solid var(--cliente-color, #7B2FBE);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
+    }
+    /* Ditu mascot GIF inside icon box */
+    .brand-icon-gif {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+      display: block;
+    }
+    /* Fallback icon when GIF fails */
+    .brand-icon-fallback {
+      font-size: 1.2rem;
+      display: none;
+    }
+    .brand-text-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .brand-name-text {
+      font-size: 0.98rem;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.2px;
+      line-height: 1.15;
+    }
+    .brand-tool-text {
+      font-size: 0.6rem;
+      color: rgba(255,255,255,0.38);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 600;
+    }
+    /* Logo placeholder slot — swap this div for <img> with the official asset */
+    .brand-logo-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      color: var(--cliente-color, #7B2FBE);
+      font-size: 0.7rem;
+      font-weight: 900;
+      letter-spacing: -0.5px;
     }
 
     /* Right content area */
@@ -107,23 +166,23 @@
       align-items: center;
       gap: 20px;
       padding: 0 24px;
-      background: linear-gradient(135deg, #0E1126 0%, #080A18 60%, #111830 100%);
+      background: transparent;
     }
     .header-divider {
       width: 1px;
       align-self: stretch;
-      background: rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.07);
       flex-shrink: 0;
     }
     .header-title h1 {
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       font-weight: 700;
       letter-spacing: -0.3px;
       color: #fff;
     }
     .header-title p {
-      font-size: 0.76rem;
-      color: rgba(255,255,255,0.55);
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.4);
       margin-top: 2px;
     }
     .header-spacer { flex: 1; }
@@ -775,31 +834,48 @@
 
 <!-- ═══════════════════════ HEADER ═══════════════════════════ -->
 <header class="header">
-  <!-- Brand block: se actualiza dinámicamente con la identidad del cliente -->
-  <div class="header-brand" id="headerBrand">
-    <span class="header-brand-ditu">ditu</span>
-    <img
-      class="header-gif"
-      src="./ditu_gif_pequeno.gif"
-      alt="ditu mascot"
-      onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
-    />
-    <!-- Fallback if GIF not found -->
-    <div style="display:none;width:88px;height:88px;align-items:center;justify-content:center;font-size:2.2rem">🎬</div>
-  </div>
+  <!-- Thin accent line — único lugar donde va el color del cliente -->
+  <div class="header-accent-bar" id="headerAccentBar"></div>
 
-  <div class="header-divider"></div>
-
-  <!-- Title + meta -->
-  <div class="header-content">
-    <div class="header-title" id="headerTitle">
-      <h1>ditu</h1>
-      <p id="headerSubtitle">Checklist de Calidad</p>
+  <div class="header-inner">
+    <!-- Brand block: se actualiza dinámicamente -->
+    <div class="header-brand" id="headerBrand">
+      <!--
+        PLACEHOLDER LOGO — Reemplaza el div.brand-logo-placeholder por
+        <img class="header-logo-img" src="./tv_azteca_logo.svg" alt="TV Azteca">
+        cuando tengas el asset oficial, sin tocar el resto del layout.
+      -->
+      <div class="brand-wordmark" id="brandWordmark">
+        <div class="brand-icon-box" id="brandIconBox">
+          <img
+            class="brand-icon-gif"
+            src="./ditu_gif_pequeno.gif"
+            alt="logo"
+            id="brandGif"
+            onerror="this.style.display='none';document.getElementById('brandIconFallback').style.display='flex'"
+          />
+          <span class="brand-icon-fallback" id="brandIconFallback">◈</span>
+        </div>
+        <div class="brand-text-stack">
+          <span class="brand-name-text" id="brandNameText">ditu</span>
+          <span class="brand-tool-text">Checklist de Calidad</span>
+        </div>
+      </div>
     </div>
-    <div class="header-spacer"></div>
-    <div class="header-meta">
-      <div><strong id="last-updated">—</strong></div>
-      <div>Última actualización</div>
+
+    <div class="header-divider"></div>
+
+    <!-- Title + meta -->
+    <div class="header-content">
+      <div class="header-title" id="headerTitle">
+        <h1>ditu</h1>
+        <p id="headerSubtitle">Checklist de Calidad</p>
+      </div>
+      <div class="header-spacer"></div>
+      <div class="header-meta">
+        <div><strong id="last-updated">—</strong></div>
+        <div>Última actualización</div>
+      </div>
     </div>
   </div>
 </header>
@@ -1113,19 +1189,38 @@ let currentClienteId = null;
     const color = c.color_primario || '#7B2FBE';
     const nombre = c.nombre || 'Cliente';
     document.documentElement.style.setProperty('--cliente-color', color);
-    // El acento de la UI sigue el color del cliente (rojo TV Azteca, morado Ditu, etc.)
+    // El acento de la UI sigue el color del cliente
     document.documentElement.style.setProperty('--brand-accent', color);
     document.documentElement.style.setProperty('--brand-accent2', color + 'cc');
 
-    // Actualizar header brand con logo o mantener ditu
-    const headerBrand = document.getElementById('headerBrand');
-    if (headerBrand && c.logo_url) {
-      headerBrand.innerHTML = `
-        <img src="${c.logo_url}" alt="${nombre}"
-             style="max-height:56px;max-width:200px;object-fit:contain;margin:0 20px 0 24px;display:block"
-             onerror="this.style.display='none';document.getElementById('headerBrandFallback').style.display='block'">
-        <div id="headerBrandFallback" style="display:none;font-size:2.4rem;font-weight:900;color:#fff;letter-spacing:-2px;padding:0 18px 0 24px">${nombre.slice(0,4)}</div>
-      `;
+    // ── Header brand: siempre oscuro, color del cliente solo como acento ──
+    // La barra de acento ya toma el color via CSS var(--cliente-color)
+
+    if (c.logo_url) {
+      // Si hay logo oficial en DB → mostrar imagen, sin bloque de color
+      const wb = document.getElementById('brandWordmark');
+      if (wb) {
+        wb.innerHTML = `
+          <img class="header-logo-img" src="${c.logo_url}" alt="${nombre}"
+               onerror="this.outerHTML='<div class=\\'brand-wordmark\\'>${buildWordmark(nombre, color)}</div>'">
+        `;
+      }
+    } else {
+      // Wordmark refinado: ícono con borde del color del cliente + nombre del cliente
+      const nameEl = document.getElementById('brandNameText');
+      if (nameEl) nameEl.textContent = nombre;
+      const iconBox = document.getElementById('brandIconBox');
+      if (iconBox) iconBox.style.borderColor = color;
+      // Si no es Ditu, ocultar el GIF y mostrar iniciales
+      const gif = document.getElementById('brandGif');
+      const fallback = document.getElementById('brandIconFallback');
+      const isDitu = nombre.toLowerCase().includes('ditu');
+      if (!isDitu && gif && fallback) {
+        gif.style.display = 'none';
+        fallback.style.display = 'flex';
+        fallback.textContent = nombre.slice(0, 2).toUpperCase();
+        fallback.style.cssText = `display:flex;color:${color};font-size:0.65rem;font-weight:900;letter-spacing:-0.5px;`;
+      }
     }
 
     // Actualizar título del header
