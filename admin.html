@@ -141,12 +141,7 @@ input.num-input{width:70px}
   </div>
 </nav>
 <h1>📋 Admin — Ítems de checklist</h1>
-<p class="subtitle" id="adminSubtitle">Agrega, edita o desactiva ítems de verificación para Monitoreo y Soporte.</p>
-
-<div class="tabs">
-  <button class="tab active" onclick="setTipo('monitoreo',this)">🔵 Monitoreo</button>
-  <button class="tab" onclick="setTipo('soporte',this)">🟣 Soporte</button>
-</div>
+<p class="subtitle" id="adminSubtitle">Agrega, edita o desactiva ítems de verificación.</p>
 
 <div class="toolbar">
   <input class="search" id="searchBox" type="text" placeholder="Buscar ítem..." oninput="render()">
@@ -166,12 +161,6 @@ input.num-input{width:70px}
     <div class="form-group" style="min-width:180px">
       <label>Sección</label>
       <select id="newSec">
-        <option value="CUENTA">CUENTA</option>
-        <option value="NAVEGACION">NAVEGACION</option>
-        <option value="LIVE">LIVE</option>
-        <option value="VOD">VOD</option>
-        <option value="ADS Y PUBLICIDAD">ADS Y PUBLICIDAD</option>
-        <option value="PLATAFORMA LEGAL Y SOPORTE">PLATAFORMA LEGAL Y SOPORTE</option>
         <option value="__nueva__">+ Nueva sección...</option>
       </select>
     </div>
@@ -240,10 +229,9 @@ function applyNavRole(rol){
   load();
 })();
 async function _sbLogout(){await _sbc.auth.signOut();window.location.href='./login.html';}
-const SECS=['CUENTA','NAVEGACION','LIVE','VOD','ADS Y PUBLICIDAD','PLATAFORMA LEGAL Y SOPORTE'];
+
 
 let allItems=[];
-let currentTipo='monitoreo';
 let dirty=new Set(); // ids with pending changes
 let toDelete=new Set();
 let toInsert=[];
@@ -274,17 +262,19 @@ async function load(){
   document.getElementById('content').innerHTML='<p class="empty">Cargando...</p>';
   const cf=currentClienteId?`&cliente_id=eq.${currentClienteId}`:'';
   const r=await fetch(SUPA_URL+`/rest/v1/checklist_items?select=*&order=seccion,numero_item${cf}`,{headers:H});
+  if(!r.ok){console.error('load error',r.status,await r.text());return;}
   allItems=await r.json();
+  // Populate add-form section dropdown from existing sections
+  updateSecDropdown();
   render();
 }
 
-function setTipo(tipo,btn){
-  currentTipo=tipo;
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('searchBox').value='';
-  document.getElementById('addForm').classList.remove('open');
-  render();
+function updateSecDropdown(){
+  const existingSecs=[...new Set(allItems.map(i=>i.seccion).filter(Boolean))].sort();
+  const sel=document.getElementById('newSec');
+  if(!sel)return;
+  sel.innerHTML=existingSecs.map(s=>`<option value="${s}">${s}</option>`).join('')+
+    `<option value="__nueva__">+ Nueva sección...</option>`;
 }
 
 function numSort(a,b){
@@ -300,21 +290,19 @@ function render(){
   const q=(document.getElementById('searchBox').value||'').toLowerCase();
   const secF=document.getElementById('secFilter').value;
 
-  const items=allItems.filter(i=>i.tipo===currentTipo&&!toDelete.has(i.id));
-  const secs=[...new Set(items.map(i=>i.seccion))];
-  const sortedSecs=SECS.filter(s=>secs.includes(s)).concat(secs.filter(s=>!SECS.includes(s)));
+  const items=allItems.filter(i=>!toDelete.has(i.id));
+  const secs=[...new Set([...items.map(i=>i.seccion),...toInsert.map(i=>i.seccion)].filter(Boolean))].sort();
 
   // update section filter dropdown
   const sf=document.getElementById('secFilter');
   const prev=sf.value;
   sf.innerHTML='<option value="">Todas las secciones</option>'+
-    sortedSecs.map(s=>`<option value="${s}"${s===prev?'selected':''}>${s}</option>`).join('');
+    secs.map(s=>`<option value="${s}"${s===prev?'selected':''}>${s}</option>`).join('');
 
-  // also include pending inserts
-  const pending=toInsert.filter(i=>i.tipo===currentTipo&&!toDelete.has(i.id));
+  const pending=toInsert.filter(i=>!toDelete.has(i.id));
 
   let html='';
-  const allSecs=secF?[secF]:sortedSecs;
+  const allSecs=secF?[secF]:secs;
 
   for(const sec of allSecs){
     let secItems=[...items.filter(i=>i.seccion===sec),...pending.filter(i=>i.seccion===sec)]
@@ -360,7 +348,7 @@ function render(){
 
   if(!html)html=`<div class="empty" style="padding:40px 20px">
     <div style="font-size:32px;margin-bottom:12px">📋</div>
-    <div style="font-size:15px;font-weight:600;color:#c3a0ff;margin-bottom:6px">No hay ítems de ${currentTipo} para ${currentClienteNombre||'este cliente'}</div>
+    <div style="font-size:15px;font-weight:600;color:#c3a0ff;margin-bottom:6px">No hay ítems para ${currentClienteNombre||'este cliente'}</div>
     <div style="font-size:12px;color:#7c82a0;margin-bottom:20px">Agrega el primer ítem usando el botón de abajo</div>
     <button class="btn-add" onclick="toggleAddForm()" style="margin:0 auto">+ Agregar primer ítem</button>
   </div>`;
@@ -433,8 +421,19 @@ function confirmAdd(){
   if(sec==='__nueva__')sec=document.getElementById('newSecCustom').value.trim().toUpperCase();
   if(!num||!name||!sec){alert('Completa número, sección y nombre.');return;}
   const tmpId='new_'+Date.now();
-  toInsert.push({id:tmpId,tipo:currentTipo,seccion:sec,numero_item:num,nombre_item:name,activo:true});
+  // tipo='monitoreo' as default (invisible to user, required by DB schema)
+  toInsert.push({id:tmpId,tipo:'monitoreo',seccion:sec,numero_item:num,nombre_item:name,activo:true});
   dirty.add(tmpId);
+  // keep new section in dropdown
+  updateSecDropdown();
+  const sel=document.getElementById('newSec');
+  if(sel&&sec&&sec!=='__nueva__'){
+    // add the new sec option if not present
+    if(![...sel.options].some(o=>o.value===sec)){
+      const opt=document.createElement('option');opt.value=sec;opt.textContent=sec;
+      sel.insertBefore(opt,sel.querySelector('option[value="__nueva__"]'));
+    }
+  }
   toggleAddForm();
   render();
 }
@@ -445,14 +444,17 @@ async function saveAll(){
   try{
     // Inserts
     for(const item of toInsert){
-      const body={tipo:item.tipo,seccion:item.seccion,numero_item:item.numero_item,nombre_item:item.nombre_item,activo:item.activo,criterio:item.criterio||''};
+      const body={tipo:item.tipo||'monitoreo',seccion:item.seccion,numero_item:item.numero_item,nombre_item:item.nombre_item,activo:item.activo,criterio:item.criterio||''};
       if(currentClienteId)body.cliente_id=currentClienteId;
+      console.log('[saveAll] POST body:', JSON.stringify(body));
       const r=await fetch(SUPA_URL+'/rest/v1/checklist_items',{method:'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(body)});
+      const rawResp=await r.text();
+      console.log('[saveAll] POST response', r.status, rawResp);
       if(!r.ok){
-        const errBody=await r.text();
-        throw new Error(`Error ${r.status} al crear ítem: ${errBody}`);
+        throw new Error(`Error ${r.status}: ${rawResp}`);
       }
-      const [created]=await r.json();
+      const parsed=JSON.parse(rawResp);
+      const created=Array.isArray(parsed)?parsed[0]:parsed;
       if(created?.id){item.id=created.id;allItems.push({...item,id:created.id});}
     }
     toInsert=[];
@@ -489,7 +491,8 @@ function showToast(msg,isError=false){
   const t=document.getElementById('toast');
   t.textContent=msg;
   t.className='toast'+(isError?' error':'')+' show';
-  setTimeout(()=>t.classList.remove('show'),3000);
+  if(isError)console.error('[ditu admin]',msg);
+  setTimeout(()=>t.classList.remove('show'),isError?8000:3000);
 }
 
 // ── Modal criterio ──────────────────────────────────────────────────
