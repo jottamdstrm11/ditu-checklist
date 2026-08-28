@@ -261,7 +261,8 @@ let currentClienteNombre='';
 async function load(){
   document.getElementById('content').innerHTML='<p class="empty">Cargando...</p>';
   const cf=currentClienteId?`&cliente_id=eq.${currentClienteId}`:'';
-  const r=await fetch(SUPA_URL+`/rest/v1/checklist_items?select=*&order=seccion,numero_item${cf}`,{headers:H});
+  // tipo=monitoreo evita mostrar duplicados (items con tipo='soporte' del esquema anterior)
+  const r=await fetch(SUPA_URL+`/rest/v1/checklist_items?select=*&tipo=eq.monitoreo&order=seccion,numero_item${cf}`,{headers:H});
   if(!r.ok){console.error('load error',r.status,await r.text());return;}
   allItems=await r.json();
   // Populate add-form section dropdown from existing sections
