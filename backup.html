@@ -149,12 +149,13 @@ input[type=checkbox]{accent-color:var(--cliente-color);width:15px;height:15px;cu
         Ocultar runs sin resultados
       </label>
       <span id="hiddenCount" style="font-size:11px;color:#4a4e6e"></span>
+      <button id="selectAllBtn" onclick="toggleSelectAll()" style="margin-left:auto;padding:5px 14px;border-radius:7px;border:1px solid #2e3350;background:#1a1d27;color:#7c82a0;font-size:12px;font-weight:600;cursor:pointer;transition:.15s" onmouseover="this.style.color='#e8eaf0'" onmouseout="this.style.color='#7c82a0'">☑ Seleccionar todos</button>
     </div>
     <div class="runs-list">
       <table>
         <thead>
           <tr>
-            <th style="width:36px"><input type="checkbox" id="checkAll" onchange="toggleAll(this)"></th>
+            <th style="width:36px"></th>
             <th>Fecha</th>
             <th>Franja</th>
             <th>Operador</th>
@@ -291,7 +292,7 @@ async function loadRuns(){
     const tipo=document.getElementById('filterTipo').value;
     if(!from||!to){alert('Selecciona rango de fechas.');return;}
 
-    let url=`/rest/v1/checklist_runs?select=*&fecha=gte.${from}&fecha=lte.${to}&order=fecha.desc`;
+    let url=`/rest/v1/checklist_runs?select=*&fecha=gte.${from}&fecha=lte.${to}&order=fecha.desc,hora_franja.asc`;
     if(tipo)url+=`&tipo=eq.${tipo}`;
     if(currentClienteId)url+=`&cliente_id=eq.${currentClienteId}`;
     const r=await fetch(SUPA_URL+url,{headers:H});
@@ -341,6 +342,8 @@ function renderStats(){
 }
 
 function renderRuns(){
+  const btn=document.getElementById('selectAllBtn');
+  if(btn)btn.textContent='☑ Seleccionar todos';
   const tbody=document.getElementById('runsTbody');
   const resByRun={};
   results.forEach(r=>{resByRun[r.run_id]=(resByRun[r.run_id]||0)+1;});
@@ -369,8 +372,12 @@ function renderRuns(){
   }).join('');
 }
 
-function toggleAll(cb){
-  document.querySelectorAll('.run-check').forEach(c=>c.checked=cb.checked);
+function toggleSelectAll(){
+  const checks=[...document.querySelectorAll('.run-check')];
+  const allChecked=checks.length>0&&checks.every(c=>c.checked);
+  checks.forEach(c=>c.checked=!allChecked);
+  const btn=document.getElementById('selectAllBtn');
+  if(btn)btn.textContent=allChecked?'☑ Seleccionar todos':'☐ Deseleccionar todos';
 }
 
 function getSelected(){
