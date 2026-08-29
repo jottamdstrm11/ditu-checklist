@@ -287,7 +287,7 @@ async function load(){
 }
 
 function updateSecDropdown(){
-  const existingSecs=[...new Set(allItems.map(i=>i.seccion).filter(Boolean))].sort();
+  const existingSecs=[...new Set([...allItems,...toInsert].map(i=>i.seccion).filter(Boolean))].sort();
   const sel=document.getElementById('newSec');
   if(!sel)return;
   sel.innerHTML=existingSecs.map(s=>`<option value="${s}">${s}</option>`).join('')+
