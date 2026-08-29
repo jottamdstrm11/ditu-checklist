@@ -2103,28 +2103,43 @@ async function renderMatrix() {
   }
 
   // ── Corregir stats del historial con datos reales de checklist_results ──
-  // La vista agregada (checklist_results_agg) puede estar desactualizada;
-  // los detalles vienen directo de la tabla → son siempre correctos.
+  // checklist_results guarda CADA cambio de estado (auditoría), no solo el final.
+  // Por eso rows.length infla el total. Debemos contar celdas únicas (ítem×dispositivo)
+  // usando la misma lógica de dedup que usa buildRunMatrix: FAIL gana sobre otros estados.
   let statsUpdated = false;
   runIds.forEach(rid => {
     const rows = allDetailRows.filter(r => r.run_id === rid);
     if (!rows.length) return;
     const entry = runsStats.find(s => s.id === rid);
     if (!entry) return;
-    const tot  = rows.length;
-    const pass = rows.filter(r => r.estado === 'PASS').length;
-    const fail = rows.filter(r => r.estado === 'FAIL').length;
-    const na   = rows.filter(r => r.estado === 'N/A').length;
-    const utt  = rows.filter(r => r.estado === 'UNABLE TO TEST').length;
-    if (entry.total !== tot) {
-      entry.total = tot;
-      entry.PASS  = pass;
-      entry.FAIL  = fail;
-      entry['N/A'] = na;
-      entry['UNABLE TO TEST'] = utt;
-      entry._statsLoaded = true;
-      statsUpdated = true;
-    }
+
+    // Deduplicar: misma clave (dispositivo|numero_item|nombre_item) → el estado ganador
+    const cellMap = new Map();
+    rows.forEach(r => {
+      const key = `${r.dispositivo || ''}|${r.numero_item ?? ''}|${r.nombre_item ?? ''}`;
+      if (!cellMap.has(key)) {
+        cellMap.set(key, r.estado);
+      } else if (r.estado === 'FAIL') {
+        cellMap.set(key, 'FAIL'); // FAIL siempre gana (igual que en buildRunMatrix)
+      }
+    });
+
+    let pass = 0, fail = 0, na = 0, utt = 0;
+    cellMap.forEach(estado => {
+      if (estado === 'PASS') pass++;
+      else if (estado === 'FAIL') fail++;
+      else if (estado === 'N/A') na++;
+      else if (estado === 'UNABLE TO TEST') utt++;
+    });
+    const tot = cellMap.size;
+
+    entry.total = tot;
+    entry.PASS  = pass;
+    entry.FAIL  = fail;
+    entry['N/A'] = na;
+    entry['UNABLE TO TEST'] = utt;
+    entry._statsLoaded = true;
+    statsUpdated = true;
   });
   if (statsUpdated) renderHistorial();
 
