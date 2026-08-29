@@ -1219,9 +1219,8 @@ let currentClienteId = null;
 
     // ── Header brand: siempre oscuro, color del cliente solo como acento ──
     const isDitu   = nombre.toLowerCase().includes('ditu');
-    const isAzteca = nombre.toLowerCase().includes('azteca');
-    // Logo URL: primero de DB, luego fallback local por nombre conocido
-    const logoSrc  = c.logo_url || (isAzteca ? './tv_azteca_logo.png' : null);
+    // Logo URL desde DB (admin_clientes permite configurarlo por cliente)
+    const logoSrc  = c.logo_url || null;
 
     const wb = document.getElementById('brandWordmark');
     if (wb && logoSrc) {
