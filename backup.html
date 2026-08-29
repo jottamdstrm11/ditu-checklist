@@ -101,9 +101,23 @@ input[type=checkbox]{accent-color:var(--cliente-color);width:15px;height:15px;cu
   <h1>💾 Backup de datos</h1>
   <p class="subtitle">Exporta resultados a Excel y libera espacio eliminando registros antiguos de Supabase.</p>
 
+  <!-- Indicador uso BD -->
+  <div id="dbUsageBar" style="background:#1a1d27;border:1px solid #2e3350;border-radius:14px;padding:16px 22px;margin-bottom:20px;display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+      <span style="font-size:13px;font-weight:700;color:#e8eaf0">🗄️ Uso de base de datos Supabase</span>
+      <span id="dbUsageLabel" style="font-size:12px;color:#7c82a0"></span>
+    </div>
+    <div style="background:#0f1117;border-radius:6px;height:8px;overflow:hidden">
+      <div id="dbUsageFill" style="height:100%;border-radius:6px;transition:width .6s ease;background:var(--cliente-color)"></div>
+    </div>
+    <p style="font-size:11px;color:#4a4e6e;margin-top:6px">Plan gratuito Supabase: 500 MB. Se recomienda hacer backup y limpiar cuando supere el 70%.</p>
+  </div>
+
   <!-- Filtros -->
   <div class="section">
     <h2>📅 Seleccionar rango de fechas</h2>
+    <!-- Accesos rápidos de meses -->
+    <div id="quickMonths" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"></div>
     <div class="form-row">
       <div class="form-group">
         <label>Desde</label>
@@ -216,11 +230,57 @@ let currentClienteNombre='ditu';
   const past=new Date(now);past.setMonth(past.getMonth()-3);
   document.getElementById('dateTo').value=localDate(now);
   document.getElementById('dateFrom').value=localDate(past);
+  loadDbUsage();
 })();
 
 async function logout(){await sb.auth.signOut();window.location.href='./login.html';}
 
 let runs=[], results=[];
+
+// ── Quick month buttons ──────────────────────────────────────────────
+function buildQuickMonths(){
+  const now=new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  const months=[];
+  for(let i=0;i<4;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const label=d.toLocaleDateString('es-CL',{month:'short',year:'2-digit'}).replace('.',' \'');
+    const firstDay=`${d.getFullYear()}-${pad(d.getMonth()+1)}-01`;
+    const lastD=new Date(d.getFullYear(),d.getMonth()+1,0);
+    const lastDay=`${lastD.getFullYear()}-${pad(lastD.getMonth()+1)}-${pad(lastD.getDate())}`;
+    months.push({label:label.charAt(0).toUpperCase()+label.slice(1),firstDay,lastDay,isCurrent:i===0});
+  }
+  document.getElementById('quickMonths').innerHTML=months.map(m=>
+    `<button onclick="selectMonth('${m.firstDay}','${m.lastDay}')" style="padding:5px 12px;border-radius:7px;border:1px solid ${m.isCurrent?'var(--cliente-color)':'#2e3350'};background:${m.isCurrent?'rgba(99,102,241,0.12)':'#1a1d27'};color:${m.isCurrent?'var(--cliente-color)':'#7c82a0'};font-size:12px;font-weight:600;cursor:pointer;transition:.15s">${m.label}</button>`
+  ).join('');
+}
+function selectMonth(from,to){
+  document.getElementById('dateFrom').value=from;
+  document.getElementById('dateTo').value=to;
+  loadRuns();
+}
+buildQuickMonths();
+
+// ── DB usage indicator ───────────────────────────────────────────────
+async function loadDbUsage(){
+  try{
+    // Supabase no expone tamaño real via REST anon, así que estimamos:
+    // contamos total de registros en checklist_results (todos los clientes o filtrado)
+    const r=await fetch(SUPA_URL+'/rest/v1/checklist_results?select=id&limit=1',
+      {headers:{...H,'Prefer':'count=exact','Range':'0-0'}});
+    const count=parseInt(r.headers.get('content-range')?.split('/')?.[1]||'0');
+    // Estimación: ~324 bytes por registro (promedio basado en estructura)
+    const estBytes=count*324;
+    const estMB=estBytes/1024/1024;
+    const pct=Math.min(100,Math.round(estMB/500*100));
+    const color=pct>=80?'#f87171':pct>=60?'#f59e0b':'var(--cliente-color)';
+    document.getElementById('dbUsageFill').style.width=pct+'%';
+    document.getElementById('dbUsageFill').style.background=color;
+    document.getElementById('dbUsageLabel').textContent=
+      `~${estMB<1?'<1':estMB.toFixed(1)} MB de 500 MB (${pct}%) · ${count.toLocaleString('es-CL')} registros totales`;
+    document.getElementById('dbUsageBar').style.display='block';
+  }catch(e){console.warn('No se pudo cargar uso BD',e);}
+}
 
 async function loadRuns(){
   const btn=document.getElementById('loadBtn');

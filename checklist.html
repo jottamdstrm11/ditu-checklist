@@ -431,7 +431,34 @@ function selectType(t){selectedType=t;document.querySelectorAll('.type-btn').for
 function selectFranja(f){selectedFranja=f;document.querySelectorAll('.franja-btn').forEach(b=>b.classList.toggle('active',b.textContent===f));checkReady();}
 function checkReady(){document.getElementById('btnStart').disabled=!selectedFranja||!DEVICES.length;}
 
-function startChecklist(){
+async function startChecklist(){
+  const btn=document.getElementById('btnStart');
+  btn.disabled=true;btn.textContent='Verificando...';
+  try{
+    // Calcular fecha local (misma lógica que enviarChecklist)
+    const _n=new Date();const _p=n=>String(n).padStart(2,'0');
+    const fechaHoy=`${_n.getFullYear()}-${_p(_n.getMonth()+1)}-${_p(_n.getDate())}`;
+    // Verificar si ya existe un run para este cliente+tipo+fecha+franja
+    let dupUrl=`/rest/v1/checklist_runs?select=id,operador&fecha=eq.${fechaHoy}&tipo=eq.${selectedType}&hora_franja=eq.${selectedFranja}`;
+    if(currentClienteId)dupUrl+=`&cliente_id=eq.${currentClienteId}`;
+    const dupRes=await fetch(SUPA_URL+dupUrl,{headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}});
+    const dups=await dupRes.json();
+    if(dups&&dups.length>0){
+      const opDup=dups[0].operador||'otro operador';
+      const isSuperAdmin=currentRol==='superadmin';
+      const msg=`Ya existe un checklist de ${selectedType} para la franja ${selectedFranja} registrado por ${opDup}.\n\n`+
+        (isSuperAdmin?'Como superadmin puedes continuar de todas formas.':'Contacta a un administrador si necesitas registrar uno adicional.');
+      if(isSuperAdmin){
+        if(!confirm(msg+'\n\n¿Continuar de todas formas?')){btn.disabled=false;btn.textContent='Comenzar checklist →';return;}
+      } else {
+        alert(msg);btn.disabled=false;btn.textContent='Comenzar checklist →';return;
+      }
+    }
+  }catch(e){
+    // Si falla la verificación, dejar pasar (no bloquear por error de red)
+    console.warn('No se pudo verificar duplicados:',e);
+  }
+  btn.disabled=false;btn.textContent='Comenzar checklist →';
   const op=currentUser;
   document.getElementById('headerOp').textContent=op;
   document.getElementById('headerMeta').textContent=
@@ -522,7 +549,9 @@ async function enviarChecklist(){
     // 1. Crear el run
     const dataEnvio=ITEMS[selectedType]||[];
     const totalEsperado=dataEnvio.reduce((a,s)=>a+s.items.length*DEVICES.length,0);
-    const runPayload={fecha:new Date().toISOString().split('T')[0],operador:op,tipo:selectedType,hora_franja:selectedFranja,items_esperados:totalEsperado};
+    const _now=new Date();const _pad=n=>String(n).padStart(2,'0');
+    const localFecha=`${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-${_pad(_now.getDate())}`;
+    const runPayload={fecha:localFecha,operador:op,tipo:selectedType,hora_franja:selectedFranja,items_esperados:totalEsperado};
     if(currentClienteId)runPayload.cliente_id=currentClienteId;
     const r1=await fetch(SUPA_URL+'/rest/v1/checklist_runs',{method:'POST',headers:hRun,body:JSON.stringify(runPayload)});
     if(!r1.ok)throw new Error('Error creando run: '+r1.status);
