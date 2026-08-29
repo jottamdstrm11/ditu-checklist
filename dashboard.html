@@ -1896,9 +1896,7 @@ function renderHistorial() {
         <td style="color:var(--text-secondary)">${escHtml(tipoLabel)}</td>
         <td style="text-align:right;font-variant-numeric:tabular-nums">
           ${tot !== null
-            ? (isIncomplete
-                ? `<span style="color:#eda100;font-weight:600">${tot.toLocaleString('es-CL')}</span><span style="font-size:10px;color:#eda100;margin-left:4px" title="Incompleto: se esperaban ${expected} verificaciones">⚠️ /${expected}</span>`
-                : `<span style="color:var(--text-muted)">${tot.toLocaleString('es-CL')}</span>`)
+            ? `<span style="color:var(--text-muted)">${tot.toLocaleString('es-CL')}</span>`
             : dotdotdot}
         </td>
         <td style="text-align:right" class="run-stat pass">${passCount !== null ? passCount.toLocaleString('es-CL') : dotdotdot}</td>
