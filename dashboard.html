@@ -1194,27 +1194,25 @@ let currentClienteId = null;
     document.documentElement.style.setProperty('--brand-accent2', color + 'cc');
 
     // ── Header brand: siempre oscuro, color del cliente solo como acento ──
-    // La barra de acento ya toma el color via CSS var(--cliente-color)
+    const isDitu   = nombre.toLowerCase().includes('ditu');
+    const isAzteca = nombre.toLowerCase().includes('azteca');
+    // Logo URL: primero de DB, luego fallback local por nombre conocido
+    const logoSrc  = c.logo_url || (isAzteca ? './tv_azteca_logo.png' : null);
 
-    if (c.logo_url) {
-      // Si hay logo oficial en DB → mostrar imagen, sin bloque de color
-      const wb = document.getElementById('brandWordmark');
-      if (wb) {
-        wb.innerHTML = `
-          <img class="header-logo-img" src="${c.logo_url}" alt="${nombre}"
-               onerror="this.outerHTML='<div class=\\'brand-wordmark\\'>${buildWordmark(nombre, color)}</div>'">
-        `;
-      }
+    const wb = document.getElementById('brandWordmark');
+    if (wb && logoSrc) {
+      // Logo imagen — fondo transparente encaja sobre el header oscuro
+      wb.innerHTML = `<img class="header-logo-img" alt="${nombre}" src="${logoSrc}"
+        style="max-height:44px;max-width:160px;object-fit:contain;filter:${isAzteca?'drop-shadow(0 0 4px rgba(255,255,255,0.1))':''}"
+        onerror="this.style.display='none'">`;
     } else {
-      // Wordmark refinado: ícono con borde del color del cliente + nombre del cliente
+      // Wordmark refinado: ícono con borde del color del cliente + nombre
       const nameEl = document.getElementById('brandNameText');
       if (nameEl) nameEl.textContent = nombre;
       const iconBox = document.getElementById('brandIconBox');
       if (iconBox) iconBox.style.borderColor = color;
-      // Si no es Ditu, ocultar el GIF y mostrar iniciales
       const gif = document.getElementById('brandGif');
       const fallback = document.getElementById('brandIconFallback');
-      const isDitu = nombre.toLowerCase().includes('ditu');
       if (!isDitu && gif && fallback) {
         gif.style.display = 'none';
         fallback.style.display = 'flex';
