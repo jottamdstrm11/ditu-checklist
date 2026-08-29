@@ -339,11 +339,9 @@ function renderRuns(){
   const btn=document.getElementById('selectAllBtn');
   if(btn)btn.textContent='☑ Seleccionar todos';
   const tbody=document.getElementById('runsTbody');
-  const hideEmpty=document.getElementById('hideEmpty').checked;
-  // Solo ocultar si items_esperados === 0 explícito (NULL = datos desconocidos, no vacío)
-  const visible=runs.filter(r=>!hideEmpty||r.items_esperados===null||r.items_esperados>0);
-  const hidden=runs.length-visible.length;
-  document.getElementById('hiddenCount').textContent=hidden>0?`(${hidden} ocultos)`:'';
+  // Mostrar todos los runs (incluidos los sin items_esperados=NULL, que sí tienen datos)
+  const visible=runs.filter(r=>r.items_esperados===null||r.items_esperados>0);
+  document.getElementById('hiddenCount').textContent='';
   if(!visible.length){
     tbody.innerHTML='<tr><td colspan="6" class="empty">No hay runs en ese rango.</td></tr>';
     return;
