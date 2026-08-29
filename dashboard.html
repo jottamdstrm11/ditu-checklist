@@ -1277,36 +1277,30 @@ async function supaFetch(path, extraHeaders) {
   return r.json();
 }
 
-// ── Carga desde checklist_results y deduplica por (run_id × dispositivo × ítem) ──
-// checklist_results guarda CADA cambio de estado (historial de auditoría).
-// La deduplicación asegura contar celdas únicas, no filas brutas.
-// FAIL gana sobre cualquier otro estado (igual que en buildRunMatrix).
+// ── Carga agregada: 1 fila por (run_id × dispositivo × estado) ──
 async function fetchSummaryRows() {
   const PAGE = 1000;
-  let raw = [], offset = 0;
+  let agg = [], offset = 0;
   const runIds = allRuns.map(r => r.id).filter(Boolean);
   const runFilter = runIds.length > 0
     ? `&run_id=in.(${runIds.join(',')})`
     : (currentClienteId ? '&run_id=eq.00000000-0000-0000-0000-000000000000' : '');
   while (true) {
     const page = await supaFetch(
-      `/rest/v1/checklist_results?select=run_id,dispositivo,numero_item,nombre_item,estado${runFilter}&limit=${PAGE}&offset=${offset}`
+      `/rest/v1/checklist_results_agg?select=run_id,dispositivo,estado,n${runFilter}&limit=${PAGE}&offset=${offset}`,
+      { 'Range-Unit': 'items', 'Range': `${offset}-${offset + PAGE - 1}` }
     );
-    raw = raw.concat(page);
+    agg = agg.concat(page);
     if (page.length < PAGE) break;
     offset += PAGE;
   }
-  // Deduplicar: por (run_id, dispositivo, ítem) → FAIL gana
-  const dedupMap = new Map();
-  raw.forEach(r => {
-    const key = `${r.run_id}|${r.dispositivo || ''}|${r.numero_item ?? ''}|${r.nombre_item ?? ''}`;
-    if (!dedupMap.has(key)) {
-      dedupMap.set(key, r);
-    } else if (r.estado === 'FAIL') {
-      dedupMap.set(key, r);
+  const expanded = [];
+  for (const row of agg) {
+    for (let i = 0; i < (row.n || 0); i++) {
+      expanded.push({ run_id: row.run_id, dispositivo: row.dispositivo, estado: row.estado });
     }
-  });
-  return [...dedupMap.values()];
+  }
+  return expanded;
 }
 
 // ── Caché de detalles por run_id (se llena on-demand al hacer clic en Ver) ──
