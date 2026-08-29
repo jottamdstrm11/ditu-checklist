@@ -244,11 +244,11 @@ function buildQuickMonths(){
   const months=[];
   for(let i=0;i<4;i++){
     const d=new Date(now.getFullYear(),now.getMonth()-i,1);
-    const label=d.toLocaleDateString('es-CL',{month:'short',year:'2-digit'}).replace('.',' \'');
+    const label=d.toLocaleDateString('es-CL',{month:'long'});
     const firstDay=`${d.getFullYear()}-${pad(d.getMonth()+1)}-01`;
     const lastD=new Date(d.getFullYear(),d.getMonth()+1,0);
     const lastDay=`${lastD.getFullYear()}-${pad(lastD.getMonth()+1)}-${pad(lastD.getDate())}`;
-    months.push({label:label.charAt(0).toUpperCase()+label.slice(1),firstDay,lastDay,isCurrent:i===0});
+    months.push({label:label.charAt(0).toUpperCase()+label.slice(1).toLowerCase(),firstDay,lastDay,isCurrent:i===0});
   }
   document.getElementById('quickMonths').innerHTML=months.map(m=>
     `<button onclick="selectMonth('${m.firstDay}','${m.lastDay}')" style="padding:5px 12px;border-radius:7px;border:1px solid ${m.isCurrent?'var(--cliente-color)':'#2e3350'};background:${m.isCurrent?'rgba(99,102,241,0.12)':'#1a1d27'};color:${m.isCurrent?'var(--cliente-color)':'#7c82a0'};font-size:12px;font-weight:600;cursor:pointer;transition:.15s">${m.label}</button>`
