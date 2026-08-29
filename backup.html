@@ -148,8 +148,8 @@ input[type=checkbox]{accent-color:var(--cliente-color);width:15px;height:15px;cu
     <div class="stat-row" id="statsRow"></div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:#7c82a0;cursor:pointer">
-        <input type="checkbox" id="hideEmpty" checked onchange="renderRuns()" style="accent-color:#6366f1;width:14px;height:14px">
-        Ocultar runs sin resultados
+        <input type="checkbox" id="hideEmpty" onchange="renderRuns()" style="accent-color:#6366f1;width:14px;height:14px">
+        Ocultar runs sin resultados (items_esperados = 0)
       </label>
       <span id="hiddenCount" style="font-size:11px;color:#4a4e6e"></span>
       <button id="selectAllBtn" onclick="toggleSelectAll()" style="margin-left:auto;padding:5px 14px;border-radius:7px;border:1px solid #2e3350;background:#1a1d27;color:#7c82a0;font-size:12px;font-weight:600;cursor:pointer;transition:.15s" onmouseover="this.style.color='#e8eaf0'" onmouseout="this.style.color='#7c82a0'">☑ Seleccionar todos</button>
@@ -343,8 +343,8 @@ function renderRuns(){
   if(btn)btn.textContent='☑ Seleccionar todos';
   const tbody=document.getElementById('runsTbody');
   const hideEmpty=document.getElementById('hideEmpty').checked;
-  // Sin resultados cargados en memoria, usamos items_esperados como proxy para "tiene datos"
-  const visible=runs.filter(r=>!hideEmpty||(r.items_esperados||0)>0);
+  // Solo ocultar si items_esperados === 0 explícito (NULL = datos desconocidos, no vacío)
+  const visible=runs.filter(r=>!hideEmpty||r.items_esperados===null||r.items_esperados>0);
   const hidden=runs.length-visible.length;
   document.getElementById('hiddenCount').textContent=hidden>0?`(${hidden} ocultos)`:'';
   if(!visible.length){
