@@ -147,10 +147,7 @@ input[type=checkbox]{accent-color:var(--cliente-color);width:15px;height:15px;cu
     <h2>📋 Runs encontrados</h2>
     <div class="stat-row" id="statsRow"></div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-      <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:#7c82a0;cursor:pointer">
-        <input type="checkbox" id="hideEmpty" onchange="renderRuns()" style="accent-color:#6366f1;width:14px;height:14px">
-        Ocultar runs sin resultados (items_esperados = 0)
-      </label>
+      <span style="font-size:11px;color:#4a4e6e">"sin conteo previo" = run sin campo items_esperados (igual tiene datos)</span>
       <span id="hiddenCount" style="font-size:11px;color:#4a4e6e"></span>
       <button id="selectAllBtn" onclick="toggleSelectAll()" style="margin-left:auto;padding:5px 14px;border-radius:7px;border:1px solid #2e3350;background:#1a1d27;color:#7c82a0;font-size:12px;font-weight:600;cursor:pointer;transition:.15s" onmouseover="this.style.color='#e8eaf0'" onmouseout="this.style.color='#7c82a0'">☑ Seleccionar todos</button>
     </div>
@@ -357,7 +354,7 @@ function renderRuns(){
     <td>${r.hora_franja||'—'}</td>
     <td style="font-weight:600">${r.operador||'—'}</td>
     <td><span class="badge ${r.tipo==='monitoreo'?'badge-mono':'badge-sop'}">${r.tipo}</span></td>
-    <td style="color:#60a5fa;font-size:12px">${r.items_esperados?`${r.items_esperados} ítems esperados`:'<span style="color:#4a4e6e;font-style:italic">—</span>'}</td>
+    <td style="color:#60a5fa;font-size:12px">${r.items_esperados?`${r.items_esperados} ítems esperados`:'<span style="color:#6b7280;font-size:11px">sin conteo previo</span>'}</td>
   </tr>`).join('');
 }
 
