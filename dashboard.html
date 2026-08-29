@@ -1227,7 +1227,7 @@ let currentClienteId = null;
       // Logo imagen — con fallback de texto si la imagen no carga
       const initials = nombre.slice(0,2).toUpperCase();
       wb.innerHTML = `<img class="header-logo-img" alt="${nombre}" src="${logoSrc}"
-        style="max-height:44px;max-width:160px;object-fit:contain;filter:${isAzteca?'drop-shadow(0 0 6px rgba(255,255,255,0.15))':''}"
+        style="max-height:44px;max-width:160px;object-fit:contain"
         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
         <span style="display:none;align-items:center;gap:10px">
           <span style="width:36px;height:36px;border-radius:8px;border:1.5px solid ${color};display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:900;color:${color};letter-spacing:-0.5px;flex-shrink:0">${initials}</span>
