@@ -1330,8 +1330,18 @@ async function loadData() {
   selectedRunId = null;
   clearRunBanner();
   try { clearChips(); } catch(_) {}
-  const chipTodo = document.getElementById('chip-todo');
+  // Activar "Últimos 30 días" por defecto para reducir carga inicial
+  const chipTodo = document.getElementById('hfc-30d');
   if (chipTodo) chipTodo.classList.add('active');
+  // Fijar fechas del filtro de historial a últimos 30 días
+  (function(){
+    const pad=n=>String(n).padStart(2,'0');
+    const today=new Date();
+    const past=new Date(today);past.setDate(past.getDate()-29);
+    const fmt=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const fD=document.getElementById('f-desde');const fH=document.getElementById('f-hasta');
+    if(fD)fD.value=fmt(past);if(fH)fH.value=fmt(today);
+  })();
   Object.keys(runDetailsCache).forEach(k => delete runDetailsCache[k]);
 
   try {
@@ -1403,59 +1413,79 @@ async function loadData() {
   }
 }
 
-// ── Carga estadísticas en segundo plano ───────────────────────
+// ── Carga estadísticas en segundo plano — por lotes ───────────
 async function loadStatsInBackground(runs) {
   const badge = document.getElementById('dataSourceBadge');
+  const BATCH = 8; // runs por lote — mantiene requests pequeños
+  let totalLoaded = 0;
+  allRows = []; // reset acumulador
+
   try {
-    const summaryResults = await fetchSummaryRows();
+    for (let i = 0; i < runs.length; i += BATCH) {
+      const batch = runs.slice(i, i + BATCH);
+      const batchIds = batch.map(r => r.id);
 
-    const runMap = {};
-    runs.forEach(r => { runMap[r.id] = r; });
+      // Fetch resultados solo para este lote (pocos cientos de filas, no miles)
+      const PAGE = 1000;
+      let batchResults = [], offset = 0;
+      while (true) {
+        const page = await supaFetch(
+          `/rest/v1/checklist_results?select=run_id,dispositivo,numero_item,nombre_item,estado&run_id=in.(${batchIds.join(',')})&limit=${PAGE}&offset=${offset}`,
+          { 'Range-Unit': 'items', 'Range': `${offset}-${offset + PAGE - 1}` }
+        );
+        batchResults = batchResults.concat(page);
+        if (page.length < PAGE) break;
+        offset += PAGE;
+      }
 
-    // Reconstruir allRows con datos reales
-    allRows = summaryResults.map(r => {
-      const run = runMap[r.run_id] || {};
-      return {
-        run_id:      r.run_id       ?? '',
-        estado:      r.estado       ?? '',
-        dispositivo: r.dispositivo  ?? '',
-        created_at:  run.fecha      ?? '',
-        operador:    run.operador   ?? '',
-        tipo:        run.tipo       ?? '',
-        hora_franja: run.hora_franja?? '',
-      };
-    });
+      // Deduplicar: FAIL gana sobre cualquier otro estado anterior
+      const cellMap = new Map();
+      for (const row of batchResults) {
+        const key = `${row.run_id}|${row.dispositivo || ''}|${row.numero_item ?? ''}|${row.nombre_item ?? ''}`;
+        const prev = cellMap.get(key);
+        if (!prev || row.estado === 'FAIL') cellMap.set(key, row);
+      }
+      const deduped = Array.from(cellMap.values());
+      totalLoaded += deduped.length;
 
-    // Actualizar runsStats con conteos reales
-    const runStatsMap = {};
-    runs.forEach(r => {
-      runStatsMap[r.id] = {
-        id:            r.id,
-        fecha:         r.fecha          ?? '',
-        hora_franja:   r.hora_franja    ?? '',
-        operador:      r.operador       ?? '',
-        tipo:          r.tipo           ?? '',
-        items_esperados: r.items_esperados ?? null,
-        total: 0, PASS: 0, FAIL: 0, 'N/A': 0, 'UNABLE TO TEST': 0,
-        _statsLoaded: true
-      };
-    });
-    summaryResults.forEach(r => {
-      const s = runStatsMap[r.run_id];
-      if (!s) return;
-      s.total++;
-      if (s[r.estado] !== undefined) s[r.estado]++;
-    });
-    runsStats = Object.values(runStatsMap)
-      .sort((a, b) => (b.fecha || b.id).localeCompare(a.fecha || a.id));
+      // Acumular en allRows (para filtros y vista detalle)
+      deduped.forEach(r => {
+        const run = batch.find(b => b.id === r.run_id) || {};
+        allRows.push({
+          run_id: r.run_id ?? '', estado: r.estado ?? '',
+          dispositivo: r.dispositivo ?? '', created_at: run.fecha ?? '',
+          operador: run.operador ?? '', tipo: run.tipo ?? '',
+          hora_franja: run.hora_franja ?? '',
+        });
+      });
 
-    badge.textContent = `EN VIVO · ${summaryResults.length.toLocaleString('es-CL')} registros`;
+      // Calcular stats de este lote y mergearlo en runsStats
+      const batchStats = {};
+      batch.forEach(r => { batchStats[r.id] = { total:0, PASS:0, FAIL:0, 'N/A':0, 'UNABLE TO TEST':0 }; });
+      deduped.forEach(r => {
+        const s = batchStats[r.run_id]; if (!s) return;
+        s.total++;
+        if (s[r.estado] !== undefined) s[r.estado]++;
+      });
+
+      runsStats = runsStats.map(s =>
+        batchStats[s.id] ? { ...s, ...batchStats[s.id], _statsLoaded: true } : s
+      );
+
+      const pct = Math.round((i + batch.length) / runs.length * 100);
+      badge.textContent = `Cargando estadísticas… ${pct}%`;
+
+      // Actualizar UI después de cada lote — el usuario ve progreso inmediato
+      renderHistorial();
+      applyFilters();
+    }
+
+    badge.textContent = `EN VIVO · ${totalLoaded.toLocaleString('es-CL')} registros`;
     badge.className   = 'data-source-badge live';
-
-    // Re-renderizar con datos completos
-    renderHistorial();
     populateFilterDropdowns();
+    renderHistorial();
     applyFilters();
+
   } catch (e) {
     console.error('Error cargando estadísticas:', e);
     badge.textContent = 'Error al cargar estadísticas';
@@ -1528,7 +1558,7 @@ function clearFilters() {
   clearRunBanner();
   renderHistorial();
   try { clearChips(); } catch(_) {}
-  document.getElementById('chip-todo')?.classList.add('active');
+  document.getElementById('hfc-todo')?.classList.add('active');
   applyFilters();
 }
 
