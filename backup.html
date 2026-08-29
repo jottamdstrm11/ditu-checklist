@@ -421,33 +421,48 @@ async function exportXLSX(){
   }
   XLSX.utils.book_append_sheet(wb,ws1,'Resumen');
 
-  // ── Sheet 2: Por dispositivo ─────────────────────────────────────
+  // ── Sheet 2: Por dispositivo (acumulado de runs seleccionados) ───
   const devices=[...new Set(selResults.map(r=>r.dispositivo).filter(Boolean))].sort();
+  const dispRows=devices.map(dev=>{
+    const res=selResults.filter(r=>r.dispositivo===dev);
+    const runs_count=[...new Set(res.map(r=>r.run_id))].length;
+    const pass=res.filter(r=>r.estado==='PASS').length;
+    const fail=res.filter(r=>r.estado==='FAIL').length;
+    const na=res.filter(r=>r.estado==='N/A').length;
+    const utt=res.filter(r=>r.estado==='UNABLE TO TEST').length;
+    const pct_fail=res.length?(fail/res.length):0;
+    const pct_ok=res.length?(pass/res.length):0;
+    return{dev,runs_count,total:res.length,pass,fail,na,utt,pct_fail,pct_ok};
+  });
+  // Sort: más fallas primero (dispositivos problemáticos al tope)
+  dispRows.sort((a,b)=>b.pct_fail-a.pct_fail);
   const dispData=[
-    ['Dispositivo','Total Tests','PASS','FAIL','N/A','UNABLE TO TEST','% Aprobado'],
-    ...devices.map(dev=>{
-      const res=selResults.filter(r=>r.dispositivo===dev);
-      const pass=res.filter(r=>r.estado==='PASS').length;
-      const fail=res.filter(r=>r.estado==='FAIL').length;
-      const na=res.filter(r=>r.estado==='N/A').length;
-      const utt=res.filter(r=>r.estado==='UNABLE TO TEST').length;
-      const pct=res.length?(pass/res.length):0;
-      return[dev,res.length,pass,fail,na,utt,pct];
-    })
+    ['Dispositivo','Runs probados','Total checks','PASS','FAIL','N/A','UNABLE TO TEST','% FAIL','% Aprobado'],
+    ...dispRows.map(d=>[d.dev,d.runs_count,d.total,d.pass,d.fail,d.na,d.utt,d.pct_fail,d.pct_ok])
   ];
   const ws2=XLSX.utils.aoa_to_sheet(dispData);
-  ws2['!cols']=[{wch:20},{wch:12},{wch:8},{wch:8},{wch:8},{wch:16},{wch:12}];
+  ws2['!cols']=[{wch:22},{wch:14},{wch:14},{wch:8},{wch:8},{wch:8},{wch:16},{wch:10},{wch:12}];
   const range2=XLSX.utils.decode_range(ws2['!ref']);
   for(let R=1;R<=range2.e.r;R++){
-    const cell=ws2[XLSX.utils.encode_cell({r:R,c:6})];
-    if(cell)cell.z='0%';
+    const cellF=ws2[XLSX.utils.encode_cell({r:R,c:7})];
+    if(cellF)cellF.z='0%';
+    const cellP=ws2[XLSX.utils.encode_cell({r:R,c:8})];
+    if(cellP)cellP.z='0%';
   }
   XLSX.utils.book_append_sheet(wb,ws2,'Por Dispositivo');
 
-  // ── Sheet 3: Detalle completo ────────────────────────────────────
+  // ── Sheet 3: Detalle completo (ordenado por fecha y franja) ──────
+  // Build a sort key per run_id so we don't recompute it per row
+  const runSortKey={};
+  selRuns.forEach(r=>{runSortKey[r.id]=(r.fecha||'')+'|'+(r.hora_franja||'');});
+  const sortedResults=[...selResults].sort((a,b)=>{
+    const ka=runSortKey[a.run_id]||'';
+    const kb=runSortKey[b.run_id]||'';
+    return ka<kb?-1:ka>kb?1:0;
+  });
   const detalleData=[
     ['Fecha','Franja','Operador','Tipo','Sección','Nº Item','Ítem','Dispositivo','Estado','Observación'],
-    ...selResults.map(r=>{
+    ...sortedResults.map(r=>{
       const run=selRuns.find(s=>s.id===r.run_id)||{};
       return[run.fecha||'',run.hora_franja||'',run.operador||'',run.tipo||'',
         r.seccion||'',r.numero_item||'',r.nombre_item||'',r.dispositivo||'',r.estado||'',r.observacion||''];
