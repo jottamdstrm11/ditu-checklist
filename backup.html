@@ -74,6 +74,9 @@ tr:hover td{background:#1e2235}
 @keyframes spin{to{transform:rotate(360deg)}}
 .empty{text-align:center;color:#7c82a0;padding:24px;font-size:13px}
 input[type=checkbox]{accent-color:var(--cliente-color);width:15px;height:15px;cursor:pointer}
+.month-btn{padding:5px 12px;border-radius:7px;border:1px solid #2e3350;background:#1a1d27;color:#7c82a0;font-size:12px;font-weight:600;cursor:pointer;transition:.15s}
+.month-btn:hover{border-color:var(--cliente-color);color:var(--cliente-color)}
+.month-btn-active{border-color:var(--cliente-color)!important;background:rgba(99,102,241,0.12)!important;color:var(--cliente-color)!important}
 </style>
 </head>
 <body>
@@ -249,13 +252,16 @@ function buildQuickMonths(){
     const firstDay=`${d.getFullYear()}-${pad(d.getMonth()+1)}-01`;
     const lastD=new Date(d.getFullYear(),d.getMonth()+1,0);
     const lastDay=`${lastD.getFullYear()}-${pad(lastD.getMonth()+1)}-${pad(lastD.getDate())}`;
-    months.push({label:label.charAt(0).toUpperCase()+label.slice(1).toLowerCase(),firstDay,lastDay,isCurrent:i===0});
+    months.push({label:label.charAt(0).toUpperCase()+label.slice(1).toLowerCase(),firstDay,lastDay,isSelected:i===0});
   }
-  document.getElementById('quickMonths').innerHTML=months.map(m=>
-    `<button onclick="selectMonth('${m.firstDay}','${m.lastDay}')" style="padding:5px 12px;border-radius:7px;border:1px solid ${m.isCurrent?'var(--cliente-color)':'#2e3350'};background:${m.isCurrent?'rgba(99,102,241,0.12)':'#1a1d27'};color:${m.isCurrent?'var(--cliente-color)':'#7c82a0'};font-size:12px;font-weight:600;cursor:pointer;transition:.15s">${m.label}</button>`
+  document.getElementById('quickMonths').innerHTML=months.map((m,idx)=>
+    `<button class="month-btn${m.isSelected?' month-btn-active':''}" data-idx="${idx}" onclick="selectMonth('${m.firstDay}','${m.lastDay}',this)">${m.label}</button>`
   ).join('');
 }
-function selectMonth(from,to){
+function selectMonth(from,to,btn){
+  // Update active visual state
+  document.querySelectorAll('.month-btn').forEach(b=>b.classList.remove('month-btn-active'));
+  if(btn)btn.classList.add('month-btn-active');
   document.getElementById('dateFrom').value=from;
   document.getElementById('dateTo').value=to;
   loadRuns();
