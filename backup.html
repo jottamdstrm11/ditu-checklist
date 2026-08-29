@@ -293,7 +293,7 @@ async function loadRuns(){
     const tipo=document.getElementById('filterTipo').value;
     if(!from||!to){alert('Selecciona rango de fechas.');return;}
 
-    let url=`/rest/v1/checklist_runs?select=*&fecha=gte.${from}&fecha=lte.${to}&order=fecha.desc,hora_franja.asc`;
+    let url=`/rest/v1/checklist_runs?select=*&fecha=gte.${from}&fecha=lte.${to}&order=fecha.desc,hora_franja.desc`;
     if(tipo)url+=`&tipo=eq.${tipo}`;
     if(currentClienteId)url+=`&cliente_id=eq.${currentClienteId}`;
     const r=await fetch(SUPA_URL+url,{headers:H});
