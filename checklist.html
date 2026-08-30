@@ -389,7 +389,6 @@ let selectedType='soporte',selectedFranja='',DEVICES=[],ITEMS={},results={};
 
 async function supa(p){const r=await fetch(SUPA_URL+p,{headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}});return r.json();}
 
-const SECCION_CANONICAL=['CUENTA','NAVEGACION','LIVE','VOD','ADS Y PUBLICIDAD','PLATAFORMA LEGAL Y SOPORTE'];
 function numSort(a,b){
   const pa=String(a).split('.').map(Number),pb=String(b).split('.').map(Number);
   for(let i=0;i<Math.max(pa.length,pb.length);i++){
@@ -409,7 +408,12 @@ async function loadConfig(){
   ['soporte','monitoreo'].forEach(tipo=>{
     const ti=items.filter(i=>i.tipo===tipo&&i.activo!==false);
     const secs=[...new Set(ti.map(i=>i.seccion))];
-    const sortedSecs=SECCION_CANONICAL.filter(s=>secs.includes(s)).concat(secs.filter(s=>!SECCION_CANONICAL.includes(s)));
+    // Ordenar secciones por el numero_item mínimo de cada una (funciona para cualquier cliente)
+    const sortedSecs=[...secs].sort((a,b)=>{
+      const minA=Math.min(...ti.filter(i=>i.seccion===a).map(i=>parseFloat(i.numero_item)||0));
+      const minB=Math.min(...ti.filter(i=>i.seccion===b).map(i=>parseFloat(i.numero_item)||0));
+      return minA-minB;
+    });
     ITEMS[tipo]=sortedSecs.map(s=>({
       s,
       items:ti.filter(i=>i.seccion===s).map(i=>({n:i.numero_item,t:i.nombre_item,c:i.criterio||''})).sort((a,b)=>numSort(a.n,b.n))
