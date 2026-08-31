@@ -66,6 +66,7 @@ input[type=text]:focus{outline:none;border-color:var(--cliente-color)}
   <a href="./admin_dispositivos.html" class="snav-link active" id="navDispositivos" style="display:none"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>Dispositivos</a>
   <a href="./admin.html" class="snav-link" id="navItems" style="display:none"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><polyline points="3 6 4 7 6 5"/><polyline points="3 12 4 13 6 11"/><polyline points="3 18 4 19 6 17"/></svg>Ítems</a>
   <a href="./backup.html" class="snav-link" id="navBackup" style="display:none"><svg viewBox="0 0 24 24"><polyline points="21 15 21 21 3 21 3 15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Backup</a>
+  <a href="./analytics.html" class="snav-link" id="navAnalytics" style="display:none"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Analytics</a>
   <a href="./admin_usuarios.html" class="snav-link" id="navUsuarios" style="display:none"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuarios</a>
   <a href="./admin_clientes.html" class="snav-link" id="navClientes" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Clientes</a>
   <div class="nav-right">
@@ -114,10 +115,13 @@ const _sbc=supabase.createClient(SUPA_URL,SUPA_KEY);
 const H={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'};
 // ── Auth & Roles ─────────────────────────────────────────────────────
 let currentRol='operador';
+let isOperadorMode=false; // operador ve solo versiones, no puede agregar/eliminar/reordenar
 function applyNavRole(rol){
   const isAdmin=rol==='superadmin'||rol==='admin';
+  const isOperadorOrAbove=isAdmin||rol==='operador';
   const isSuperAdmin=rol==='superadmin';
-  ['navDispositivos','navItems','navBackup'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isAdmin?'':'none';});
+  ['navItems','navBackup'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isAdmin?'':'none';});
+  ['navDispositivos','navAnalytics'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isOperadorOrAbove?'':'none';});
   const navU=document.getElementById('navUsuarios');if(navU)navU.style.display=isSuperAdmin?'':'none';
   const navC=document.getElementById('navClientes');if(navC)navC.style.display=isSuperAdmin?'':'none';
   const b=document.getElementById('roleBadge');
@@ -133,7 +137,18 @@ function applyNavRole(rol){
     if(res.ok){const[p]=await res.json();if(p){currentRol=p.rol||'operador';if(p.nombre)document.getElementById('userEmail').textContent=p.nombre;}}
   }catch(_){}
   applyNavRole(currentRol);
-  if(currentRol!=='superadmin'&&currentRol!=='admin'){window.location.href='./dashboard.html';return;}
+  // Viewer no puede acceder; operador accede en modo restringido (solo versiones)
+  if(currentRol==='viewer'){window.location.href='./dashboard.html';return;}
+  if(currentRol==='operador'){
+    isOperadorMode=true;
+    // Banner informativo
+    const banner=document.createElement('div');
+    banner.style.cssText='background:#1a2e1f;border:1px solid #166534;border-radius:10px;padding:12px 18px;margin-bottom:20px;font-size:13px;color:#4ade80;display:flex;align-items:center;gap:10px';
+    banner.innerHTML='<span style="font-size:18px">🔒</span><div><strong>Modo versiones</strong> — Puedes actualizar la versión de cada dispositivo. Para cambios de configuración contacta a un administrador.</div>';
+    document.getElementById('dispTitle').insertAdjacentElement('afterend',banner);
+    // Ocultar botón agregar
+    document.querySelector('.btn-add').style.display='none';
+  }
   load();
 })();
 async function _sbLogout(){await _sbc.auth.signOut();window.location.href='./login.html';}
@@ -172,7 +187,19 @@ async function load(){
 
 function render(){
   const tb=document.getElementById('tbody');
-  if(!devices.length){tb.innerHTML=`<tr><td colspan="5" style="text-align:center;padding:32px"><div style="font-size:28px;margin-bottom:8px">📱</div><div style="color:#c3a0ff;font-weight:600;margin-bottom:4px">Sin dispositivos para ${currentClienteNombre||'este cliente'}</div><div style="color:#7c82a0;font-size:12px">Agrega el primer dispositivo con el botón de abajo</div></td></tr>`;return;}
+  if(!devices.length){tb.innerHTML=`<tr><td colspan="${isOperadorMode?2:5}" style="text-align:center;padding:32px"><div style="font-size:28px;margin-bottom:8px">📱</div><div style="color:#c3a0ff;font-weight:600;margin-bottom:4px">Sin dispositivos para ${currentClienteNombre||'este cliente'}</div><div style="color:#7c82a0;font-size:12px">Agrega el primer dispositivo con el botón de abajo</div></td></tr>`;return;}
+  if(isOperadorMode){
+    // Actualizar cabeceras para modo simplificado
+    document.querySelector('#devTable thead tr').innerHTML='<th style="width:200px">Dispositivo</th><th style="width:200px">Versión</th>';
+    // Usamos el índice del array original (no del filtrado) para que oninput apunte al dispositivo correcto
+    tb.innerHTML=devices.map((d,i)=>d.activo?`
+      <tr>
+        <td style="font-weight:600;color:#e8eaf0">${esc(d.nombre)}</td>
+        <td><input type="text" value="${esc(d.version??'')}" placeholder="Versión (ej: Android 15)" oninput="devices[${i}].version=this.value" style="max-width:260px"></td>
+      </tr>
+    `:'').join('');
+    return;
+  }
   tb.innerHTML=devices.map((d,i)=>`
     <tr data-idx="${i}">
       <td style="color:#7c82a0;font-size:12px;font-weight:600">${d.orden??i+1}</td>
@@ -219,28 +246,32 @@ async function saveAll(){
   const btn=document.getElementById('saveBtn');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Guardando...';
   try{
-    for(const d of devices){
-      if(!d.nombre.trim())continue;
-      if(!d.clave||d.clave.startsWith('nuevo_')){
-        // generate clave from nombre + version to avoid duplicates
-        const base=(d.nombre+(d.version?'_'+d.version:'')).toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
-        d.clave=base||'device_'+Date.now();
+    if(isOperadorMode){
+      // Operador: solo actualiza versión de dispositivos existentes activos
+      for(const d of devices.filter(x=>x.activo&&x.id)){
+        await fetch(SUPA_URL+'/rest/v1/checklist_devices?id=eq.'+d.id,{method:'PATCH',headers:H,body:JSON.stringify({version:d.version||''})});
       }
-      const body={nombre:d.nombre,version:d.version||'',activo:d.activo,orden:d.orden,clave:d.clave};
-      if(currentClienteId)body.cliente_id=currentClienteId;
-      if(d.id){
-        // update
-        await fetch(SUPA_URL+'/rest/v1/checklist_devices?id=eq.'+d.id,{method:'PATCH',headers:H,body:JSON.stringify(body)});
-      }else{
-        // insert
-        const r=await fetch(SUPA_URL+'/rest/v1/checklist_devices',{method:'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(body)});
-        const result=await r.json();
-        if(!r.ok)throw new Error(result.message||result.error||'Error al insertar');
-        const created=Array.isArray(result)?result[0]:result;
-        if(created?.id)d.id=created.id;
+    }else{
+      for(const d of devices){
+        if(!d.nombre.trim())continue;
+        if(!d.clave||d.clave.startsWith('nuevo_')){
+          const base=(d.nombre+(d.version?'_'+d.version:'')).toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+          d.clave=base||'device_'+Date.now();
+        }
+        const body={nombre:d.nombre,version:d.version||'',activo:d.activo,orden:d.orden,clave:d.clave};
+        if(currentClienteId)body.cliente_id=currentClienteId;
+        if(d.id){
+          await fetch(SUPA_URL+'/rest/v1/checklist_devices?id=eq.'+d.id,{method:'PATCH',headers:H,body:JSON.stringify(body)});
+        }else{
+          const r=await fetch(SUPA_URL+'/rest/v1/checklist_devices',{method:'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(body)});
+          const result=await r.json();
+          if(!r.ok)throw new Error(result.message||result.error||'Error al insertar');
+          const created=Array.isArray(result)?result[0]:result;
+          if(created?.id)d.id=created.id;
+        }
       }
     }
-    showToast('✅ Cambios guardados correctamente');
+    showToast('✅ Versiones actualizadas correctamente');
     await load();
   }catch(e){
     showToast('❌ Error: '+e.message,true);

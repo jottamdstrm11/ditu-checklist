@@ -378,8 +378,12 @@ let currentRol='operador';
 async function _sbLogout(){await _sbc.auth.signOut();window.location.href='./login.html';}
 function applyNavRole(rol){
   const isAdmin=rol==='superadmin'||rol==='admin';
+  const isOperadorOrAbove=isAdmin||rol==='operador';
   const isSuperAdmin=rol==='superadmin';
-  ['navDispositivos','navItems','navBackup','navAnalytics'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isAdmin?'':'none';});
+  // Admin exclusivo: Ítems, Backup
+  ['navItems','navBackup'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isAdmin?'':'none';});
+  // Operadores y admin: Dispositivos (versiones) + Analytics
+  ['navDispositivos','navAnalytics'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isOperadorOrAbove?'':'none';});
   const navU=document.getElementById('navUsuarios');if(navU)navU.style.display=isSuperAdmin?'':'none';
   const navC=document.getElementById('navClientes');if(navC)navC.style.display=isSuperAdmin?'':'none';
   const b=document.getElementById('roleBadge');
