@@ -2197,12 +2197,6 @@ async function renderMatrix() {
     `<tr><td colspan="99" class="state-msg"><span class="spinner"></span> Cargando detalles…</td></tr>`;
   if (matrizCont) matrizCont.style.display = 'block';
 
-  // Canonical section order
-  const SECCION_CANONICAL = [
-    'CUENTA','NAVEGACION','LIVE','VOD',
-    'ADS Y PUBLICIDAD','PLATAFORMA LEGAL Y SOPORTE'
-  ];
-
   // Helper: build single run matrix data from a set of rows
   function buildRunMatrix(runRows) {
     const devicesInRun = [...new Set(runRows.map(r => r.dispositivo).filter(Boolean))];
@@ -2213,6 +2207,8 @@ async function renderMatrix() {
       : devicesInRun.sort();
     const sectionsMap = {};
     const sectionOrder = [];
+    // Track minimum numero_item per section for ordering
+    const sectionMinItem = {};
     runRows.forEach(r => {
       const sec = r.seccion || '—';
       if (!sectionsMap[sec]) { sectionsMap[sec] = new Map(); sectionOrder.push(sec); }
@@ -2224,12 +2220,12 @@ async function renderMatrix() {
         if (!item.devs[dev]) item.devs[dev] = { estado: r.estado, obs: r.observacion || '' };
         else if (r.estado === 'FAIL') item.devs[dev] = { estado: r.estado, obs: r.observacion || '' };
       }
+      // Track minimum numero_item for this section
+      const num = parseFloat(r.numero_item) || 0;
+      if (sectionMinItem[sec] === undefined || num < sectionMinItem[sec]) sectionMinItem[sec] = num;
     });
-    sectionOrder.sort((a, b) => {
-      const ai = SECCION_CANONICAL.indexOf(a), bi = SECCION_CANONICAL.indexOf(b);
-      if (ai === -1 && bi === -1) return a.localeCompare(b);
-      if (ai === -1) return 1; if (bi === -1) return -1; return ai - bi;
-    });
+    // Sort sections by minimum numero_item (works for any client)
+    sectionOrder.sort((a, b) => (sectionMinItem[a] ?? 0) - (sectionMinItem[b] ?? 0));
     return { devicesSet, sectionsMap, sectionOrder };
   }
 
