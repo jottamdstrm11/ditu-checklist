@@ -1279,7 +1279,8 @@ function applyNavRole(rol){
   const isViewer=rol==='viewer';
   const navCl=document.getElementById('navChecklist');if(navCl)navCl.style.display=isViewer?'none':'';
   ['navItems','navBackup'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isAdmin?'':'none';});
-  ['navDispositivos','navAnalytics'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isOperadorOrAbove?'':'none';});
+  const navDis=document.getElementById('navDispositivos');if(navDis)navDis.style.display=isOperadorOrAbove?'':'none';
+  // Analytics visible para todos
   const navU=document.getElementById('navUsuarios');if(navU)navU.style.display=isSuperAdmin?'':'none';
   const navC=document.getElementById('navClientes');if(navC)navC.style.display=isSuperAdmin?'':'none';
   const b=document.getElementById('roleBadge');
