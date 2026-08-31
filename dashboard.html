@@ -816,7 +816,7 @@
 <body>
 <nav class="sitenav">
   <a href="./dashboard.html" class="snav-link active"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</a>
-  <a href="./checklist.html" class="snav-link"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Checklist</a>
+  <a href="./checklist.html" class="snav-link" id="navChecklist"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Checklist</a>
   <a href="./admin_dispositivos.html" class="snav-link" id="navDispositivos" style="display:none"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>Dispositivos</a>
   <a href="./admin.html" class="snav-link" id="navItems" style="display:none"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><polyline points="3 6 4 7 6 5"/><polyline points="3 12 4 13 6 11"/><polyline points="3 18 4 19 6 17"/></svg>Ítems</a>
   <a href="./backup.html" class="snav-link" id="navBackup" style="display:none"><svg viewBox="0 0 24 24"><polyline points="21 15 21 21 3 21 3 15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Backup</a>
@@ -1274,8 +1274,12 @@ let currentRol = 'operador';
 function applyNavRole(rol){
   currentRol = rol;
   const isAdmin=rol==='superadmin'||rol==='admin';
+  const isOperadorOrAbove=isAdmin||rol==='operador';
   const isSuperAdmin=rol==='superadmin';
-  ['navDispositivos','navItems','navBackup'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isAdmin?'':'none';});
+  const isViewer=rol==='viewer';
+  const navCl=document.getElementById('navChecklist');if(navCl)navCl.style.display=isViewer?'none':'';
+  ['navItems','navBackup'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isAdmin?'':'none';});
+  ['navDispositivos','navAnalytics'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isOperadorOrAbove?'':'none';});
   const navU=document.getElementById('navUsuarios');if(navU)navU.style.display=isSuperAdmin?'':'none';
   const navC=document.getElementById('navClientes');if(navC)navC.style.display=isSuperAdmin?'':'none';
   const b=document.getElementById('roleBadge');
