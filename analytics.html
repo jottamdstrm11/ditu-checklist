@@ -216,23 +216,31 @@ async function loadAll() {
 
   if (!allRuns.length) { allResults = []; return; }
 
-  // Load results in batches of 50 run IDs, paginating each batch
+  // Load results in batches of 50 run IDs — all batches in parallel
   const runIds = allRuns.map(r => r.id);
-  allResults = [];
   const PAGE = 1000;
   const BATCH = 50; // keep URL length safe
-  for (let i = 0; i < runIds.length; i += BATCH) {
-    const ids = runIds.slice(i, i + BATCH).join(',');
+
+  async function fetchBatch(ids) {
+    const rows = [];
     let offset = 0;
     while (true) {
-      const rows = await supaFetch(
+      const chunk = await supaFetch(
         `/rest/v1/checklist_results?select=run_id,dispositivo,numero_item,nombre_item,seccion,estado&run_id=in.(${ids})&limit=${PAGE}&offset=${offset}`
       );
-      allResults = allResults.concat(rows || []);
-      if (!rows || rows.length < PAGE) break;
+      rows.push(...(chunk || []));
+      if (!chunk || chunk.length < PAGE) break;
       offset += PAGE;
     }
+    return rows;
   }
+
+  const batches = [];
+  for (let i = 0; i < runIds.length; i += BATCH) {
+    batches.push(runIds.slice(i, i + BATCH).join(','));
+  }
+  const batchResults = await Promise.all(batches.map(ids => fetchBatch(ids)));
+  allResults = batchResults.flat();
 }
 
 // ── Dedup: per (run_id, numero_item, dispositivo), FAIL wins ──
