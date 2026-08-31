@@ -391,6 +391,11 @@ function renderPage() {
 
     <div class="charts-grid-2">
       <div class="chart-card">
+        <div class="chart-title">FAILs por dispositivo</div>
+        <div class="chart-desc">% FAIL del total de checks por dispositivo · click para filtrar ítems</div>
+        <div class="chart-wrap" style="height:${Math.max(200, deviceStats.length*34)}px"><canvas id="chartDevices"></canvas></div>
+      </div>
+      <div class="chart-card">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
           <div>
             <div class="chart-title" id="itemsChartTitle">Top ítems con más FAILs${selectedDevice ? ' — '+selectedDevice : ''}</div>
@@ -399,11 +404,6 @@ function renderPage() {
           ${selectedDevice ? `<button id="clearDeviceFilter" style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid #e34948;background:rgba(227,73,72,0.12);color:#e34948;cursor:pointer;font-family:inherit;white-space:nowrap">✕ ${selectedDevice}</button>` : ''}
         </div>
         <div class="chart-wrap" style="height:${Math.max(200, itemStats.length*34)}px"><canvas id="chartItems"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">FAILs por dispositivo</div>
-        <div class="chart-desc">% FAIL del total de checks por dispositivo · click para filtrar ítems</div>
-        <div class="chart-wrap" style="height:${Math.max(200, deviceStats.length*34)}px"><canvas id="chartDevices"></canvas></div>
       </div>
     </div>
 
