@@ -258,6 +258,7 @@ function dedup(results) {
 // ── Range filter ──
 function setRange(days) {
   activeDays = days;
+  selectedDevice = null; // reset filtro al cambiar rango
   document.querySelectorAll('.filter-btn').forEach(b => {
     b.classList.toggle('active', parseInt(b.dataset.days) === days);
   });
@@ -273,6 +274,27 @@ function filteredRuns() {
 }
 
 // ── Main render ──
+let selectedDevice = null; // filtro activo en chartDevices
+
+function computeItemStats(results, deviceFilter) {
+  const src = deviceFilter ? results.filter(r => r.dispositivo === deviceFilter) : results;
+  const itemMap = new Map();
+  for (const r of src) {
+    const key = r.nombre_item || r.numero_item;
+    if (!key) continue;
+    if (!itemMap.has(key)) itemMap.set(key, { name: key, pass:0, fail:0, total:0 });
+    const it = itemMap.get(key);
+    it.total++;
+    if (r.estado === 'PASS') it.pass++;
+    if (r.estado === 'FAIL') it.fail++;
+  }
+  return [...itemMap.values()]
+    .map(it => ({ ...it, failPct: Math.round(it.fail/it.total*100) }))
+    .filter(it => it.total >= 3)
+    .sort((a,b) => b.failPct - a.failPct)
+    .slice(0, 10);
+}
+
 function renderPage() {
   const runs = filteredRuns();
   if (!runs.length) {
@@ -320,22 +342,8 @@ function renderPage() {
   const bestDevice = [...deviceStats].sort((a,b) => a.failPct - b.failPct)[0];
   const worstDevice = deviceStats[0];
 
-  // Per-item: % fail (top 10 worst)
-  const itemMap = new Map();
-  for (const r of results) {
-    const key = r.nombre_item || r.numero_item;
-    if (!key) continue;
-    if (!itemMap.has(key)) itemMap.set(key, { name: key, pass:0, fail:0, total:0 });
-    const it = itemMap.get(key);
-    it.total++;
-    if (r.estado === 'PASS') it.pass++;
-    if (r.estado === 'FAIL') it.fail++;
-  }
-  const itemStats = [...itemMap.values()]
-    .map(it => ({ ...it, failPct: Math.round(it.fail/it.total*100) }))
-    .filter(it => it.total >= 3)
-    .sort((a,b) => b.failPct - a.failPct)
-    .slice(0, 10);
+  // Per-item: % fail (top 10 worst) — respeta filtro de dispositivo activo
+  const itemStats = computeItemStats(results, selectedDevice);
 
   const worstItem = itemStats[0];
 
@@ -383,13 +391,18 @@ function renderPage() {
 
     <div class="charts-grid-2">
       <div class="chart-card">
-        <div class="chart-title">Top ítems con más FAILs</div>
-        <div class="chart-desc">% FAIL sobre total de checks · mínimo 3 apariciones</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <div>
+            <div class="chart-title" id="itemsChartTitle">Top ítems con más FAILs${selectedDevice ? ' — '+selectedDevice : ''}</div>
+            <div class="chart-desc">% FAIL sobre total de checks · mínimo 3 apariciones</div>
+          </div>
+          ${selectedDevice ? `<button id="clearDeviceFilter" style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid #e34948;background:rgba(227,73,72,0.12);color:#e34948;cursor:pointer;font-family:inherit;white-space:nowrap">✕ ${selectedDevice}</button>` : ''}
+        </div>
         <div class="chart-wrap" style="height:${Math.max(200, itemStats.length*34)}px"><canvas id="chartItems"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-title">FAILs por dispositivo</div>
-        <div class="chart-desc">% FAIL del total de checks por dispositivo</div>
+        <div class="chart-desc">% FAIL del total de checks por dispositivo · click para filtrar ítems</div>
         <div class="chart-wrap" style="height:${Math.max(200, deviceStats.length*34)}px"><canvas id="chartDevices"></canvas></div>
       </div>
     </div>
@@ -530,6 +543,27 @@ function renderPage() {
       }
     }
   });
+
+  // ── Click en dispositivo → filtra ítems ──
+  document.getElementById('chartDevices').style.cursor = 'pointer';
+  document.getElementById('chartDevices').onclick = function(evt) {
+    const points = chartInstances['chartDevices'].getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+    if (!points.length) return;
+    const dev = deviceStats[points[0].index].dev;
+    selectedDevice = (selectedDevice === dev) ? null : dev;
+    renderPage();
+  };
+  // Resaltar barra activa
+  if (selectedDevice) {
+    const ci = chartInstances['chartDevices'];
+    ci.data.datasets[0].backgroundColor = deviceStats.map(d =>
+      d.dev === selectedDevice ? '#e34948' : 'rgba(227,73,72,0.35)'
+    );
+    ci.update();
+  }
+  // Botón limpiar filtro
+  const clearBtn = document.getElementById('clearDeviceFilter');
+  if (clearBtn) clearBtn.onclick = () => { selectedDevice = null; renderPage(); };
 
   // ── 4. Operators ──
   mkChart('chartOps', {
