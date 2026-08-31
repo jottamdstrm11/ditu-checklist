@@ -83,7 +83,7 @@ input[type=text]:focus{outline:none;border-color:var(--cliente-color)}
 <h1 id="dispTitle">⚙️ Admin — Dispositivos</h1>
 <p class="subtitle" id="dispSubtitle">Edita nombre, versión y estado de cada dispositivo. Los cambios se reflejan inmediatamente en el formulario de checklist.</p>
 
-<div class="card">
+<div class="card" id="mainCard" style="opacity:0;transition:opacity .15s">
   <table id="devTable">
     <thead>
       <tr>
@@ -100,7 +100,7 @@ input[type=text]:focus{outline:none;border-color:var(--cliente-color)}
   </table>
 </div>
 
-<div class="footer">
+<div class="footer" id="mainFooter" style="opacity:0;transition:opacity .15s">
   <button class="btn-add" onclick="addRow()">+ Agregar dispositivo</button>
   <button class="btn-save" id="saveBtn" onclick="saveAll()">💾 Guardar cambios</button>
 </div>
@@ -201,6 +201,8 @@ function render(){
         <td><input type="text" value="${esc(d.version??'')}" placeholder="Versión (ej: Android 15)" oninput="devices[${i}].version=this.value" style="max-width:260px"></td>
       </tr>
     `:'').join('');
+    document.getElementById('mainCard').style.opacity='1';
+    document.getElementById('mainFooter').style.opacity='1';
     return;
   }
   tb.innerHTML=devices.map((d,i)=>`
@@ -222,6 +224,8 @@ function render(){
       </td>
     </tr>
   `).join('');
+  document.getElementById('mainCard').style.opacity='1';
+  document.getElementById('mainFooter').style.opacity='1';
 }
 
 function esc(s){return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
