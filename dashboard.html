@@ -1329,13 +1329,14 @@ async function fetchSummaryRows() {
     if (page.length < PAGE) break;
     offset += PAGE;
   }
-  // Deduplicar por (run_id, dispositivo, numero_item, nombre_item):
-  // si un operador cambió el estado varias veces, FAIL gana; si no, el último estado.
+  // Deduplicar por (run_id, numero_item, dispositivo):
+  // mismo criterio que analytics.html → FAIL gana sobre cualquier otro estado.
+  const priority = { 'FAIL':3, 'UNABLE TO TEST':2, 'N/A':1, 'PASS':0 };
   const cellMap = new Map();
   for (const row of all) {
-    const key = `${row.run_id}|${row.dispositivo || ''}|${row.numero_item ?? ''}|${row.nombre_item ?? ''}`;
+    const key = `${row.run_id}|${row.numero_item ?? ''}|${row.dispositivo || ''}`;
     const prev = cellMap.get(key);
-    if (!prev || row.estado === 'FAIL') cellMap.set(key, row);
+    if (!prev || (priority[row.estado]??-1) > (priority[prev.estado]??-1)) cellMap.set(key, row);
   }
   return Array.from(cellMap.values());
 }
@@ -1484,12 +1485,13 @@ async function loadStatsInBackground(runs) {
         offset += PAGE;
       }
 
-      // Deduplicar: FAIL gana sobre cualquier otro estado anterior
+      // Deduplicar: mismo criterio que analytics.html → FAIL gana (prioridad numérica)
+      const priority = { 'FAIL':3, 'UNABLE TO TEST':2, 'N/A':1, 'PASS':0 };
       const cellMap = new Map();
       for (const row of batchResults) {
-        const key = `${row.run_id}|${row.dispositivo || ''}|${row.numero_item ?? ''}|${row.nombre_item ?? ''}`;
+        const key = `${row.run_id}|${row.numero_item ?? ''}|${row.dispositivo || ''}`;
         const prev = cellMap.get(key);
-        if (!prev || row.estado === 'FAIL') cellMap.set(key, row);
+        if (!prev || (priority[row.estado]??-1) > (priority[prev.estado]??-1)) cellMap.set(key, row);
       }
       const deduped = Array.from(cellMap.values());
       totalLoaded += deduped.length;
@@ -2318,14 +2320,14 @@ async function renderMatrix() {
     const entry = runsStats.find(s => s.id === rid);
     if (!entry) return;
 
-    // Deduplicar: misma clave (dispositivo|numero_item|nombre_item) → el estado ganador
+    // Deduplicar: misma clave que analytics.html → (numero_item|dispositivo), FAIL gana
+    const cellPriority = { 'FAIL':3, 'UNABLE TO TEST':2, 'N/A':1, 'PASS':0 };
     const cellMap = new Map();
     rows.forEach(r => {
-      const key = `${r.dispositivo || ''}|${r.numero_item ?? ''}|${r.nombre_item ?? ''}`;
-      if (!cellMap.has(key)) {
+      const key = `${r.numero_item ?? ''}|${r.dispositivo || ''}`;
+      const prev = cellMap.get(key);
+      if (prev === undefined || (cellPriority[r.estado]??-1) > (cellPriority[prev]??-1)) {
         cellMap.set(key, r.estado);
-      } else if (r.estado === 'FAIL') {
-        cellMap.set(key, 'FAIL'); // FAIL siempre gana (igual que en buildRunMatrix)
       }
     });
 
