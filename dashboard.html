@@ -902,6 +902,12 @@
     <button class="btn" onclick="loadData()">↺ Actualizar</button>
   </div>
 
+  <!-- Banner modo demo — visible solo cuando Supabase falla -->
+  <div id="demoBanner" style="display:none;background:#332B16;border:1px solid #E3B159;border-radius:10px;padding:13px 18px;margin-bottom:16px;font-size:13px;font-weight:600;align-items:center;gap:12px;color:#E3B159;">
+    <span style="font-size:18px;flex:none">⚠️</span>
+    <span>Sin conexión a Supabase — los datos que ves son de <strong>ejemplo</strong> y no son reales. Recarga la página para reintentar.</span>
+  </div>
+
   <!-- Historial de Checklists -->
   <p class="section-label">Historial de checklists</p>
   <div class="card" style="margin-bottom:28px;">
@@ -1350,6 +1356,8 @@ async function loadData() {
   const badge = document.getElementById('dataSourceBadge');
   badge.textContent = 'CARGANDO…';
   badge.className   = 'data-source-badge demo';
+  const demoBannerEl = document.getElementById('demoBanner');
+  if (demoBannerEl) demoBannerEl.style.display = 'none';
 
   // Reset UI state immediately
   const fDesde = document.getElementById('f-desde');
@@ -1432,6 +1440,8 @@ async function loadData() {
     runsStats = Object.values(demoRuns).sort((a,b) => b.fecha.localeCompare(a.fecha));
     badge.textContent = 'DEMO (sin conexión)';
     badge.className   = 'data-source-badge demo';
+    const demoBanner = document.getElementById('demoBanner');
+    if (demoBanner) demoBanner.style.display = 'flex';
 
     histPage = 1;
     renderHistorial();
@@ -2092,7 +2102,10 @@ function renderHistorial() {
         <td style="white-space:nowrap;font-variant-numeric:tabular-nums">${escHtml(s.fecha || '—')}</td>
         <td style="color:var(--text-secondary);white-space:nowrap">${escHtml(s.hora_franja || '—')}</td>
         <td style="font-weight:600">${escHtml(s.operador || '—')}</td>
-        <td style="color:var(--text-secondary)">${escHtml(tipoLabel)}</td>
+        <td style="color:var(--text-secondary)">
+          ${escHtml(tipoLabel)}
+          ${isIncomplete ? '<span style="display:inline-block;margin-left:6px;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:#3d3010;color:#fbbf24;letter-spacing:.03em;text-transform:uppercase;vertical-align:middle">Incompleto</span>' : ''}
+        </td>
         <td style="text-align:right;font-variant-numeric:tabular-nums">
           ${tot !== null
             ? `<span style="color:var(--text-muted)">${tot.toLocaleString('es-CL')}</span>`
