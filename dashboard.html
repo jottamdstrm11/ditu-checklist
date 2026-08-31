@@ -2102,10 +2102,7 @@ function renderHistorial() {
         <td style="white-space:nowrap;font-variant-numeric:tabular-nums">${escHtml(s.fecha || '—')}</td>
         <td style="color:var(--text-secondary);white-space:nowrap">${escHtml(s.hora_franja || '—')}</td>
         <td style="font-weight:600">${escHtml(s.operador || '—')}</td>
-        <td style="color:var(--text-secondary)">
-          ${escHtml(tipoLabel)}
-          ${isIncomplete ? '<span style="display:inline-block;margin-left:6px;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:#3d3010;color:#fbbf24;letter-spacing:.03em;text-transform:uppercase;vertical-align:middle">Incompleto</span>' : ''}
-        </td>
+        <td style="color:var(--text-secondary)">${escHtml(tipoLabel)}</td>
         <td style="text-align:right;font-variant-numeric:tabular-nums">
           ${tot !== null
             ? `<span style="color:var(--text-muted)">${tot.toLocaleString('es-CL')}</span>`
