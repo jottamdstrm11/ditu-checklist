@@ -1396,7 +1396,15 @@ async function loadData() {
 
     histPage = 1;
     renderHistorial();
+    // Guardar filtros activos antes de repoblar los selects
+    const savedOperador = document.getElementById('f-operador')?.value || '';
+    const savedTipo = document.getElementById('f-tipo')?.value || '';
     populateFilterDropdowns();
+    // Restaurar filtros después de repoblar
+    const opEl = document.getElementById('f-operador');
+    if (opEl && savedOperador) opEl.value = savedOperador;
+    const tipoEl = document.getElementById('f-tipo');
+    if (tipoEl && savedTipo) tipoEl.value = savedTipo;
     applyFilters();
     document.getElementById('last-updated').textContent = new Date().toLocaleString('es-CL');
 
@@ -1427,7 +1435,15 @@ async function loadData() {
 
     histPage = 1;
     renderHistorial();
+    // Guardar filtros activos antes de repoblar los selects
+    const savedOperador2 = document.getElementById('f-operador')?.value || '';
+    const savedTipo2 = document.getElementById('f-tipo')?.value || '';
     populateFilterDropdowns();
+    // Restaurar filtros después de repoblar
+    const opEl2 = document.getElementById('f-operador');
+    if (opEl2 && savedOperador2) opEl2.value = savedOperador2;
+    const tipoEl2 = document.getElementById('f-tipo');
+    if (tipoEl2 && savedTipo2) tipoEl2.value = savedTipo2;
     applyFilters();
     document.getElementById('last-updated').textContent = new Date().toLocaleString('es-CL');
   }
@@ -1649,8 +1665,10 @@ function sortRows() {
 // ── Stats tiles ────────────────────────────────────────────────
 function updateStats() {
   const counts = { PASS: 0, FAIL: 0, 'N/A': 0, 'UNABLE TO TEST': 0 };
-  // Stats always from allRows (unfiltered) to show global picture
-  allRows.forEach(r => { if (counts[r.estado] !== undefined) counts[r.estado]++; });
+  // Usar filtered para respetar el filtro de operador/tipo activo
+  // (filtered == allRows cuando no hay filtros activos)
+  const src = filtered.length > 0 ? filtered : allRows;
+  src.forEach(r => { if (counts[r.estado] !== undefined) counts[r.estado]++; });
   const total = Object.values(counts).reduce((a,b) => a+b, 0);
 
   const pct = v => total ? `${((v/total)*100).toFixed(1)} %` : '0 %';
