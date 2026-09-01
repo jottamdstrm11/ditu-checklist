@@ -1322,7 +1322,7 @@ async function fetchSummaryRows() {
     : (currentClienteId ? '&run_id=eq.00000000-0000-0000-0000-000000000000' : '');
   while (true) {
     const page = await supaFetch(
-      `/rest/v1/checklist_results?select=run_id,dispositivo,numero_item,nombre_item,estado${runFilter}&limit=${PAGE}&offset=${offset}`
+      `/rest/v1/checklist_results?select=run_id,dispositivo,numero_item,nombre_item,estado${runFilter}&order=id&limit=${PAGE}&offset=${offset}`
     );
     all = all.concat(page);
     if (page.length < PAGE) break;
@@ -1476,7 +1476,7 @@ async function loadStatsInBackground(runs) {
       let batchResults = [], offset = 0;
       while (true) {
         const page = await supaFetch(
-          `/rest/v1/checklist_results?select=run_id,dispositivo,numero_item,nombre_item,estado&run_id=in.(${batchIds.join(',')})&limit=${PAGE}&offset=${offset}`
+          `/rest/v1/checklist_results?select=run_id,dispositivo,numero_item,nombre_item,estado&run_id=in.(${batchIds.join(',')})&order=id&limit=${PAGE}&offset=${offset}`
         );
         batchResults = batchResults.concat(page);
         if (page.length < PAGE) break;

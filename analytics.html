@@ -232,7 +232,7 @@ async function loadAll() {
     let offset = 0;
     while (true) {
       const chunk = await supaFetch(
-        `/rest/v1/checklist_results?select=run_id,dispositivo,numero_item,nombre_item,seccion,estado&run_id=in.(${ids})&limit=${PAGE}&offset=${offset}`
+        `/rest/v1/checklist_results?select=run_id,dispositivo,numero_item,nombre_item,seccion,estado&run_id=in.(${ids})&order=id&limit=${PAGE}&offset=${offset}`
       );
       rows.push(...(chunk || []));
       if (!chunk || chunk.length < PAGE) break;
