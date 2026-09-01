@@ -145,6 +145,18 @@ input.num-input{width:70px}
 <h1>📋 Admin — Ítems de checklist</h1>
 <p class="subtitle" id="adminSubtitle">Agrega, edita o desactiva ítems de verificación.</p>
 
+<!-- Tabs monitoreo/soporte (solo para clientes con ambos tipos) -->
+<div id="tipoTabsBar" style="display:none;margin-bottom:10px;gap:6px;display:none">
+  <button id="tabMon" onclick="setTipoTab('monitoreo')"
+    style="padding:7px 18px;border-radius:20px;border:none;font-size:12px;font-weight:700;cursor:pointer;background:var(--cliente-color);color:#fff;transition:.2s">
+    📡 Monitoreo
+  </button>
+  <button id="tabSop" onclick="setTipoTab('soporte')"
+    style="padding:7px 18px;border-radius:20px;border:1px solid #3a3d55;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:#9ca0bc;transition:.2s">
+    🎧 Soporte
+  </button>
+</div>
+
 <div class="toolbar">
   <input class="search" id="searchBox" type="text" placeholder="Buscar ítem..." oninput="render()">
   <select class="sec-filter" id="secFilter" onchange="render()">
@@ -245,6 +257,27 @@ let allItems=[];
 let dirty=new Set(); // ids with pending changes
 let toDelete=new Set();
 let toInsert=[];
+let currentTipoTab='monitoreo'; // tab activo cuando el cliente usa monitoreo/soporte
+
+function setTipoTab(tipo){
+  currentTipoTab=tipo;
+  // Actualizar estilo de tabs
+  const tabMon=document.getElementById('tabMon');
+  const tabSop=document.getElementById('tabSop');
+  if(tabMon&&tabSop){
+    if(tipo==='monitoreo'){
+      tabMon.style.background='var(--cliente-color)';tabMon.style.color='#fff';tabMon.style.border='none';
+      tabSop.style.background='transparent';tabSop.style.color='#9ca0bc';tabSop.style.border='1px solid #3a3d55';
+    }else{
+      tabSop.style.background='var(--cliente-color)';tabSop.style.color='#fff';tabSop.style.border='none';
+      tabMon.style.background='transparent';tabMon.style.color='#9ca0bc';tabMon.style.border='1px solid #3a3d55';
+    }
+  }
+  // Sincronizar selector tipo en formulario de nuevo ítem
+  const nt=document.getElementById('newTipo');if(nt)nt.value=tipo;
+  document.getElementById('secFilter').value='';
+  render();
+}
 let currentClienteId=null;
 let currentClienteNombre='';
 (()=>{
@@ -273,14 +306,15 @@ let currentClienteNombre='';
 async function load(){
   document.getElementById('content').innerHTML='<p class="empty">Cargando...</p>';
   const cf=currentClienteId?`&cliente_id=eq.${currentClienteId}`:'';
-  // Excluir tipo='soporte' (duplicados del esquema anterior) pero incluir tipo=null o cualquier otro valor
-  const r=await fetch(SUPA_URL+`/rest/v1/checklist_items?select=*&or=(tipo.neq.soporte,tipo.is.null)&order=seccion,numero_item${cf}`,{headers:H});
+  const r=await fetch(SUPA_URL+`/rest/v1/checklist_items?select=*&order=seccion,numero_item${cf}`,{headers:H});
   if(!r.ok){console.error('load error',r.status,await r.text());return;}
   allItems=await r.json();
-  // Mostrar selector tipo solo para clientes que usan monitoreo/soporte (ej: Ditu)
+  // Mostrar tabs monitoreo/soporte para clientes que usan ambos tipos (ej: Ditu)
   const usaTipos=currentClienteNombre.toLowerCase().includes('ditu');
   const tg=document.getElementById('tipoGroup');
   if(tg)tg.style.display=usaTipos?'':'none';
+  const tipoTabsBar=document.getElementById('tipoTabsBar');
+  if(tipoTabsBar)tipoTabsBar.style.display=usaTipos?'flex':'none';
   // Populate add-form section dropdown from existing sections
   updateSecDropdown();
   render();
@@ -307,7 +341,16 @@ function render(){
   const q=(document.getElementById('searchBox').value||'').toLowerCase();
   const secF=document.getElementById('secFilter').value;
 
-  const items=allItems.filter(i=>!toDelete.has(i.id));
+  // Filtrar por tipo si el cliente usa tabs monitoreo/soporte
+  const usaTiposRender=document.getElementById('tipoTabsBar')&&document.getElementById('tipoTabsBar').style.display!=='none';
+  const items=allItems.filter(i=>{
+    if(toDelete.has(i.id))return false;
+    if(usaTiposRender){
+      const t=i.tipo||'monitoreo';
+      return t===currentTipoTab;
+    }
+    return true;
+  });
   // Ordenar secciones por el numero_item más bajo de cada sección (no alfabéticamente)
   const secsSet=[...new Set([...items.map(i=>i.seccion),...toInsert.map(i=>i.seccion)].filter(Boolean))];
   const secs=secsSet.sort((a,b)=>{
@@ -322,7 +365,7 @@ function render(){
   sf.innerHTML='<option value="">Todas las secciones</option>'+
     secs.map(s=>`<option value="${s}"${s===prev?'selected':''}>${s}</option>`).join('');
 
-  const pending=toInsert.filter(i=>!toDelete.has(i.id));
+  const pending=toInsert.filter(i=>!toDelete.has(i.id)&&(!usaTiposRender||(i.tipo||'monitoreo')===currentTipoTab));
 
   let html='';
   const allSecs=secF?[secF]:secs;
