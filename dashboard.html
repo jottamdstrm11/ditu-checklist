@@ -291,7 +291,7 @@
     #deviceChart { max-height: 320px; }
     #statusPieChart { max-height: 240px; }
     #trendChart { max-height: 280px; }
-    #franjaChart { max-height: 280px; }
+    /* franjaChart removed */
 
     /* ─── Filters ────────────────────────────────────────────── */
     .filters-bar {
@@ -1008,10 +1008,11 @@
       </div>
     </div>
     <div class="card">
-      <div class="card-title">Resultados por franja horaria</div>
-      <div class="chart-wrap">
-        <canvas id="franjaChart"></canvas>
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+        Top ítems con más fallos
+        <span style="font-size:11px;color:var(--text-muted);font-weight:400">según filtros activos</span>
       </div>
+      <div id="topItemsList" style="padding:4px 0"></div>
     </div>
   </div>
 
@@ -1082,7 +1083,7 @@ let currentView = 'lista'; // 'lista' | 'matriz'
 let deviceChartInst = null;
 let pieChartInst    = null;
 let trendChartInst  = null;
-let franjaChartInst = null;
+// franjaChartInst removed — replaced by renderTopItems()
 
 // ── Color helpers ──────────────────────────────────────────────
 const ESTADO_COLORS = {
@@ -1502,6 +1503,7 @@ async function loadStatsInBackground(runs) {
           dispositivo: r.dispositivo ?? '', created_at: run.fecha ?? '',
           operador: run.operador ?? '', tipo: run.tipo ?? '',
           hora_franja: run.hora_franja ?? '',
+          numero_item: r.numero_item ?? '', nombre_item: r.nombre_item ?? '',
         });
       });
 
@@ -1810,7 +1812,6 @@ function updateCharts() {
 
 // ── Trend + Franja charts ──────────────────────────────────────
 function updateTrendCharts() {
-  const FRANJAS = ['01:00','04:00','07:00','10:00','13:00','16:00','19:00','22:00'];
   const chartDefaults = {
     color: '#c3c2b7',
     plugins: { legend: { labels: { color: '#c3c2b7', font: { size: 11 }, boxWidth: 12, padding: 14 } } },
@@ -1894,49 +1895,54 @@ function updateTrendCharts() {
   if (trendChartInst) trendChartInst.destroy();
   trendChartInst = new Chart(document.getElementById('trendChart'), trendCfg);
 
-  // ── 2. Franja horaria breakdown ─────────────────────────────
-  const byFranja = {};
-  FRANJAS.forEach(f => byFranja[f] = { PASS: 0, FAIL: 0, 'N/A': 0, 'UNABLE TO TEST': 0 });
-  filtered.forEach(r => {
-    const f = r.hora_franja;
-    if (byFranja[f]) byFranja[f][r.estado] = (byFranja[f][r.estado] ?? 0) + 1;
+  // ── 2. Top ítems con más FAIL ─────────────────────────────
+  renderTopItems();
+}
+
+// ── Top ítems más fallidos ─────────────────────────────────────
+function renderTopItems() {
+  const container = document.getElementById('topItemsList');
+  if (!container) return;
+
+  const src = (filtered && filtered.length > 0) ? filtered : allRows;
+
+  // Agrupar por nombre_item (fallback a numero_item)
+  const itemMap = new Map();
+  src.forEach(r => {
+    const key = r.nombre_item || r.numero_item || '(sin nombre)';
+    if (!itemMap.has(key)) itemMap.set(key, { total: 0, fail: 0, nombre: key });
+    const entry = itemMap.get(key);
+    entry.total++;
+    if (r.estado === 'FAIL') entry.fail++;
   });
 
-  // Only show franjas that have data
-  const activeFranjas = FRANJAS.filter(f => Object.values(byFranja[f]).some(v => v > 0));
-  if (!activeFranjas.length) {
-    if (franjaChartInst) { franjaChartInst.destroy(); franjaChartInst = null; }
+  const top = [...itemMap.values()]
+    .filter(i => i.fail > 0)
+    .sort((a, b) => b.fail - a.fail || b.total - a.total)
+    .slice(0, 9);
+
+  if (!top.length) {
+    container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:28px 0;font-size:12px">Sin fallos registrados</div>';
     return;
   }
 
-  const ESTADOS = ['PASS','FAIL','N/A','UNABLE TO TEST'];
-  const franjaDatasets = ESTADOS.map(estado => ({
-    label: estado,
-    data: activeFranjas.map(f => byFranja[f][estado] || 0),
-    backgroundColor: ESTADO_BG[estado],
-    borderColor: ESTADO_COLORS[estado],
-    borderWidth: 1,
-    borderRadius: 0,
-  }));
-
-  const franjaCfg = {
-    type: 'bar',
-    data: { labels: activeFranjas, datasets: franjaDatasets },
-    options: {
-      responsive: true, maintainAspectRatio: true,
-      plugins: {
-        legend: { position: 'top', labels: { color: '#c3c2b7', font: { size: 10 }, boxWidth: 10, padding: 12 } },
-        tooltip: { ...tooltipStyle, callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}` } }
-      },
-      scales: {
-        x: { stacked: true, ticks: { color: '#7c82a0', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
-        y: { stacked: true, ticks: { color: '#7c82a0', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.07)' } }
-      }
-    }
-  };
-
-  if (franjaChartInst) franjaChartInst.destroy();
-  franjaChartInst = new Chart(document.getElementById('franjaChart'), franjaCfg);
+  const maxFail = top[0].fail;
+  container.innerHTML = top.map((item, i) => {
+    const pct = item.total ? Math.round(item.fail / item.total * 100) : 0;
+    const barW = maxFail ? Math.round(item.fail / maxFail * 100) : 0;
+    const color = pct >= 20 ? 'var(--fail-color)' : pct >= 10 ? '#eda100' : '#c3c2b7';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(80,100,200,0.08)">
+      <span style="width:16px;text-align:right;color:var(--text-muted);font-size:11px;flex-shrink:0;font-variant-numeric:tabular-nums">${i + 1}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(item.nombre)}">${escHtml(item.nombre)}</div>
+        <div style="margin-top:4px;height:3px;background:rgba(80,100,200,0.12);border-radius:2px;overflow:hidden">
+          <div style="height:100%;width:${barW}%;background:${color};border-radius:2px;transition:width .4s"></div>
+        </div>
+      </div>
+      <span style="flex-shrink:0;font-size:13px;font-weight:700;color:${color};min-width:28px;text-align:right;font-variant-numeric:tabular-nums">${item.fail}</span>
+      <span style="flex-shrink:0;font-size:10px;color:var(--text-muted);min-width:42px;text-align:right">${pct}% fail</span>
+    </div>`;
+  }).join('');
 }
 
 // ── Table render ───────────────────────────────────────────────
