@@ -396,6 +396,62 @@ function applyNavRole(rol){
 }
 const FRANJAS=['01:00','04:00','07:00','10:00','13:00','16:00','19:00','22:00'];
 let selectedType='soporte',selectedFranja='',DEVICES=[],ITEMS={},results={};
+let observations={};  // ya estaba declarado más abajo — centralizado aquí
+
+// ── Auto-guardado en localStorage ─────────────────────────────────────
+function draftKey(){
+  // Incluir usuario para evitar que en PCs compartidos un usuario vea el draft de otro
+  const u=(currentUser||'').replace(/[^a-z0-9]/gi,'_').slice(0,20);
+  return`ditu_draft_${currentClienteId||'x'}_${u}_${selectedType}_${selectedFranja}`;
+}
+function saveDraft(){
+  try{
+    localStorage.setItem(draftKey(),JSON.stringify({savedAt:Date.now(),results,observations,selectedType,selectedFranja}));
+  }catch(_){}
+}
+function clearDraft(){try{localStorage.removeItem(draftKey());}catch(_){}}
+function checkDraft(){
+  try{
+    const raw=localStorage.getItem(draftKey());
+    if(!raw)return;
+    const d=JSON.parse(raw);
+    // Ignorar borradores de más de 20 horas
+    if(Date.now()-d.savedAt>20*60*60*1000){localStorage.removeItem(draftKey());return;}
+    const mins=Math.round((Date.now()-d.savedAt)/60000);
+    const label=mins<1?'hace menos de 1 min':mins===1?'hace 1 min':`hace ${mins} min`;
+    const filled=Object.values(d.results||{}).filter(v=>v).length;
+    showDraftBanner(filled,label,d);
+  }catch(_){}
+}
+function showDraftBanner(filled,label,d){
+  const banner=document.createElement('div');
+  banner.id='draftBanner';
+  banner.style.cssText='position:fixed;top:56px;left:0;right:0;z-index:9999;background:#1a2a10;border-bottom:2px solid #4caf50;padding:10px 20px;display:flex;align-items:center;gap:12px;font-size:13px;color:#c8f0a0;box-shadow:0 2px 12px rgba(0,0,0,.4)';
+  banner.innerHTML=`<span>💾 Tienes un borrador guardado (${filled} celdas · ${label})</span>
+    <button onclick="restoreDraft()" style="padding:5px 14px;border-radius:6px;border:none;background:#4caf50;color:#fff;font-weight:700;cursor:pointer;font-size:12px">Restaurar</button>
+    <button onclick="document.getElementById('draftBanner').remove();clearDraft()" style="padding:5px 10px;border-radius:6px;border:1px solid #4a6a30;background:transparent;color:#c8f0a0;cursor:pointer;font-size:12px">Descartar</button>`;
+  document.body.appendChild(banner);
+  window._pendingDraft=d;
+}
+function restoreDraft(){
+  if(!window._pendingDraft)return;
+  const d=window._pendingDraft;
+  results=d.results||{};
+  observations=d.observations||{};
+  buildTable();updateProgress();
+  document.getElementById('draftBanner')?.remove();
+  showSavedIndicator('✅ Borrador restaurado');
+}
+function showSavedIndicator(msg){
+  let el=document.getElementById('savedIndicator');
+  if(!el){
+    el=document.createElement('div');el.id='savedIndicator';
+    el.style.cssText='position:fixed;bottom:64px;right:16px;z-index:9998;background:#1e2a1e;border:1px solid #4caf50;border-radius:8px;padding:6px 12px;font-size:11px;color:#8fdf8f;pointer-events:none;transition:opacity .5s';
+    document.body.appendChild(el);
+  }
+  el.textContent=msg||'💾 Guardado';el.style.opacity='1';
+  clearTimeout(el._t);el._t=setTimeout(()=>{el.style.opacity='0';},2500);
+}
 
 async function supa(p){const r=await fetch(SUPA_URL+p,{headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}});return r.json();}
 
@@ -479,6 +535,7 @@ async function startChecklist(){
     (selectedType==='soporte'?'🟣 Soporte':'🔵 Monitoreo')+' · Franja '+selectedFranja+' · '+
     new Date().toLocaleDateString('es-CO',{day:'2-digit',month:'short'});
   results={};observations={};buildTable();show('screenChecklist');updateProgress();
+  checkDraft();
 }
 
 function buildTable(){
@@ -524,18 +581,20 @@ function cycleStatus(si,ii,devKey,btn){
   btn.className='s-btn'+(next?' '+next:'');
   btn.textContent=next==='NA'?'N/A':next==='UTT'?'UTT':next||'—';
   updateProgress();
+  saveDraft();
 }
 function passAll(si){
   const sec=(ITEMS[selectedType]||[])[si];if(!sec)return;
   sec.items.forEach((_,ii)=>DEVICES.forEach(d=>{results[`${si}_${ii}_${d.clave}`]='PASS';}));
-  buildTable();updateProgress();
+  buildTable();updateProgress();saveDraft();
 }
 function updateProgress(){
   const data=ITEMS[selectedType]||[];
   const total=data.reduce((a,s)=>a+s.items.length*DEVICES.length,0);
   const filled=Object.values(results).filter(v=>v).length;
-  const pct=total>0?Math.round(filled/total*100):0;
   const remaining=total-filled;
+  // Nunca mostrar 100% si todavía falta alguna celda
+  const pct=total>0?(remaining>0?Math.min(99,Math.round(filled/total*100)):100):0;
   document.getElementById('progressFill').style.width=pct+'%';
   document.getElementById('headerPct').textContent=filled+'/'+total+' · '+pct+'%';
   const bp=document.getElementById('bottomProgress');
@@ -544,11 +603,42 @@ function updateProgress(){
   const sendBtn=document.getElementById('sendBtn');
   if(sendBtn){
     if(remaining>0){
-      sendBtn.disabled=true;
-      sendBtn.textContent=`Faltan ${remaining} verificacion${remaining!==1?'es':''}`;
+      sendBtn.disabled=false;
+      sendBtn.innerHTML=`⚠️ Faltan ${remaining} · <u style="font-size:11px">ver cuáles →</u>`;
+      sendBtn.style.background='#5a4a00';sendBtn.style.borderColor='#c8a000';
+      sendBtn.onclick=scrollToFirstEmpty;
     } else {
       sendBtn.disabled=false;
       sendBtn.innerHTML='✅ Enviar Checklist';
+      sendBtn.style.background='';sendBtn.style.borderColor='';
+      sendBtn.onclick=enviarChecklist;
+    }
+  }
+}
+
+function scrollToFirstEmpty(){
+  const data=ITEMS[selectedType]||[];
+  for(let si=0;si<data.length;si++){
+    for(let ii=0;ii<data[si].items.length;ii++){
+      for(const d of DEVICES){
+        const k=`${si}_${ii}_${d.clave}`;
+        if(!results[k]){
+          // Encontrar el botón de esa celda y resaltarlo
+          const rows=document.querySelectorAll('#tableContainer .item-row');
+          let rowIdx=0;
+          for(let s2=0;s2<si;s2++)rowIdx+=data[s2].items.length;
+          rowIdx+=ii;
+          const row=rows[rowIdx];
+          if(row){
+            row.scrollIntoView({behavior:'smooth',block:'center'});
+            // Flash de resaltado en la fila
+            row.style.transition='background .2s';
+            row.style.background='rgba(200,160,0,0.18)';
+            setTimeout(()=>{row.style.background='';},1800);
+          }
+          return;
+        }
+      }
     }
   }
 }
@@ -597,12 +687,15 @@ async function enviarChecklist(){
       }
     }
 
+    clearDraft();
     const total=rows.length,pass=rows.filter(r=>r.estado==='PASS').length;
     document.getElementById('successMsg').textContent=`${total} verificaciones · ${pass} PASS (${total>0?Math.round(pass/total*100):0}%) · ${op}`;
     show('screenSuccess');
   }catch(e){
-    alert('Error: '+e.message);
+    alert('No se pudo enviar el checklist.\n\nDetalle: '+e.message+'\n\nTus datos no se perdieron — puedes intentarlo de nuevo.');
     btn.disabled=false;btn.innerHTML='✅ Enviar Checklist';
+    btn.style.background='';btn.style.borderColor='';
+    btn.onclick=enviarChecklist;
   }
 }
 function resetForm(){results={};observations={};checkReady();show('screenSetup');}
@@ -632,6 +725,7 @@ function saveObsModal(){
       _obsBtn.className=val?'obs-btn has-comment':'obs-btn';
     }
   }
+  saveDraft();
   closeObsModal();
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeObsModal();});
