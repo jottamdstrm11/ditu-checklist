@@ -115,10 +115,20 @@ body{font-family:'Encode Sans Expanded','Helvetica Neue',Arial,sans-serif;font-s
       <div class="page-title">Analytics</div>
       <div class="page-subtitle" id="clienteSubtitle">Cargando...</div>
     </div>
-    <div class="filter-row">
+    <div class="filter-row" style="flex-wrap:wrap;gap:8px">
       <button class="filter-btn" data-days="30" onclick="setRange(30)">Últimos 30 días</button>
       <button class="filter-btn active" data-days="90" onclick="setRange(90)">Últimos 90 días</button>
       <button class="filter-btn" data-days="0" onclick="setRange(0)">Todo</button>
+      <select id="an-tipo" onchange="selectedDevice=null;renderPage()" style="background:#0E1126;border:1px solid rgba(80,100,200,0.3);color:#fff;padding:5px 12px;border-radius:6px;font-size:12px;outline:none;color-scheme:dark;cursor:pointer">
+        <option value="">Todos los tipos</option>
+        <option value="monitoreo">Monitoreo</option>
+        <option value="soporte">Soporte</option>
+      </select>
+      <select id="an-franja" onchange="selectedDevice=null;renderPage()" style="background:#0E1126;border:1px solid rgba(80,100,200,0.3);color:#fff;padding:5px 12px;border-radius:6px;font-size:12px;outline:none;color-scheme:dark;cursor:pointer">
+        <option value="">Todas las franjas</option>
+        <option>01:00</option><option>04:00</option><option>07:00</option><option>10:00</option>
+        <option>13:00</option><option>16:00</option><option>19:00</option><option>22:00</option>
+      </select>
     </div>
   </div>
 
@@ -272,11 +282,18 @@ function setRange(days) {
 }
 
 function filteredRuns() {
-  if (!activeDays) return allRuns;
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - activeDays);
-  const cutStr = cutoff.toISOString().slice(0,10);
-  return allRuns.filter(r => (r.fecha || '') >= cutStr);
+  const tipoSel   = document.getElementById('an-tipo')?.value || '';
+  const franjaSel = document.getElementById('an-franja')?.value || '';
+  return allRuns.filter(r => {
+    if (activeDays) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - activeDays);
+      if ((r.fecha || '') < cutoff.toISOString().slice(0,10)) return false;
+    }
+    if (tipoSel   && r.tipo        !== tipoSel)   return false;
+    if (franjaSel && r.hora_franja !== franjaSel) return false;
+    return true;
+  });
 }
 
 // ── Main render ──

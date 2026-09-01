@@ -898,6 +898,11 @@
       <option value="monitoreo">Monitoreo</option>
       <option value="soporte">Soporte</option>
     </select>
+    <select id="f-franja" onchange="applyFilters()" style="background:#0E1126;border:1px solid rgba(80,100,200,0.3);color:#fff;padding:5px 10px;border-radius:6px;font-size:12px;outline:none;color-scheme:dark">
+      <option value="">Todas las franjas</option>
+      <option>01:00</option><option>04:00</option><option>07:00</option><option>10:00</option>
+      <option>13:00</option><option>16:00</option><option>19:00</option><option>22:00</option>
+    </select>
     <span id="tipoTagSingle" style="display:none;font-size:11px;font-weight:700;color:#fff;background:var(--cliente-color,#7B2FBE);border-radius:6px;padding:5px 12px;letter-spacing:.04em;text-transform:uppercase"></span>
     <button class="btn" onclick="loadData()">↺ Actualizar</button>
   </div>
@@ -1573,6 +1578,7 @@ function applyFilters() {
   const hasta      = document.getElementById('f-hasta')?.value || '';
   const operador   = document.getElementById('f-operador')?.value || '';
   const tipo       = document.getElementById('f-tipo')?.value || '';
+  const franja     = document.getElementById('f-franja')?.value || '';
 
   filtered = allRows.filter(r => {
     if (selectedRunId && r.run_id !== selectedRunId) return false;
@@ -1582,6 +1588,7 @@ function applyFilters() {
     if (seccion  && r.seccion !== seccion) return false;
     if (operador && r.operador !== operador) return false;
     if (tipo     && r.tipo !== tipo) return false;
+    if (franja   && r.hora_franja !== franja) return false;
     // Date range — compare as ISO strings (lexicographic = chronological for YYYY-MM-DD)
     const d = (r.created_at ?? '').slice(0, 10);
     if (desde && d < desde) return false;
@@ -1600,7 +1607,7 @@ function applyFilters() {
 }
 
 function clearFilters() {
-  ['f-nombre','f-estado','f-dispositivo','f-seccion','f-desde','f-hasta','f-operador','f-tipo'].forEach(id => {
+  ['f-nombre','f-estado','f-dispositivo','f-seccion','f-desde','f-hasta','f-operador','f-tipo','f-franja'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = '';
   });
   selectedRunId = null;
