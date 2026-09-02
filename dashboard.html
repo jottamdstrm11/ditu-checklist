@@ -2038,12 +2038,14 @@ function setHistDateCustom(val) {
 function getHistFiltered() {
   const operador = document.getElementById('f-operador')?.value || '';
   const tipo     = document.getElementById('f-tipo')?.value     || '';
+  const franja   = document.getElementById('f-franja')?.value   || '';
 
   let base = runsStats;
 
-  // Aplicar filtros globales de operador y tipo al historial
+  // Aplicar filtros globales de operador, tipo y franja al historial
   if (operador) base = base.filter(s => s.operador === operador);
-  if (tipo)     base = base.filter(s => (s.tipo || '') === tipo);
+  if (tipo)     base = base.filter(s => (s.tipo        || '') === tipo);
+  if (franja)   base = base.filter(s => (s.hora_franja || '') === franja);
 
   // Aplicar filtro de fecha
   if (!histDateFilter) return base;
