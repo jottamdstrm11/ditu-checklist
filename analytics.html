@@ -413,10 +413,15 @@ function renderPage() {
     </div>
 
     <div class="charts-grid-2">
-      <div class="chart-card">
+      <div class="chart-card" style="${!selectedDevice ? 'border-color:rgba(227,73,72,0.45);' : ''}">
         <div class="chart-title">FAILs por dispositivo</div>
-        <div class="chart-desc">% FAIL del total de checks por dispositivo · click para filtrar ítems</div>
-        <div class="chart-wrap" style="height:${Math.max(200, deviceStats.length*34)}px"><canvas id="chartDevices"></canvas></div>
+        <div class="chart-desc" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span>% FAIL del total de checks por dispositivo</span>
+          <span style="background:rgba(227,73,72,0.14);border:1px solid rgba(227,73,72,0.45);border-radius:5px;padding:2px 9px;font-size:10px;font-weight:700;color:#e34948;letter-spacing:.03em;white-space:nowrap">
+            👆 Haz clic en una barra →
+          </span>
+        </div>
+        <div class="chart-wrap" style="height:${Math.max(200, deviceStats.length*34)}px;cursor:pointer" title="Haz clic en un dispositivo para explorar sus ítems con más FAILs"><canvas id="chartDevices"></canvas></div>
       </div>
       <div class="chart-card">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
@@ -426,7 +431,13 @@ function renderPage() {
           </div>
           ${selectedDevice ? `<button id="clearDeviceFilter" style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid #e34948;background:rgba(227,73,72,0.12);color:#e34948;cursor:pointer;font-family:inherit;white-space:nowrap">✕ ${selectedDevice}</button>` : ''}
         </div>
-        <div class="chart-wrap" style="height:${Math.max(200, itemStats.length*34)}px"><canvas id="chartItems"></canvas></div>
+        ${selectedDevice
+          ? `<div class="chart-wrap" style="height:${Math.max(200, itemStats.length*34)}px"><canvas id="chartItems"></canvas></div>`
+          : `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:240px;gap:14px;border:2px dashed rgba(80,100,200,0.18);border-radius:10px;margin-top:12px">
+               <span style="font-size:40px;opacity:.4">👈</span>
+               <span style="font-size:13px;color:#7c82a0;text-align:center;line-height:1.7">Selecciona un dispositivo en el gráfico<br>de la izquierda para ver<br>cuáles ítems fallan más en él</span>
+             </div>`
+        }
       </div>
     </div>
 

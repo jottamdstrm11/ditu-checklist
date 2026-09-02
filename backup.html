@@ -138,6 +138,12 @@ input[type=checkbox]{accent-color:var(--cliente-color);width:15px;height:15px;cu
           <option value="soporte">Soporte</option>
         </select>
       </div>
+      <div class="form-group">
+        <label>Dispositivo</label>
+        <select id="filterDevice">
+          <option value="">Todos los dispositivos</option>
+        </select>
+      </div>
       <button class="btn btn-primary" id="loadBtn" onclick="loadRuns()">🔍 Buscar</button>
     </div>
   </div>
@@ -232,9 +238,30 @@ let currentClienteNombre='ditu';
   document.getElementById('dateTo').value=localDate(now);
   document.getElementById('dateFrom').value=localDate(past);
   loadDbUsage();
+  loadDevices();
 })();
 
 async function logout(){await sb.auth.signOut();window.location.href='./login.html';}
+
+// ── Dispositivos del cliente ─────────────────────────────────────────
+async function loadDevices(){
+  if(!currentClienteId)return;
+  try{
+    const r=await fetch(SUPA_URL+`/rest/v1/checklist_devices?cliente_id=eq.${currentClienteId}&select=nombre&activo=eq.true&order=nombre.asc`,{headers:H});
+    if(!r.ok)return;
+    const devices=await r.json();
+    const sel=document.getElementById('filterDevice');
+    if(!sel)return;
+    const current=sel.value;
+    sel.innerHTML='<option value="">Todos los dispositivos</option>';
+    devices.forEach(d=>{
+      const opt=document.createElement('option');
+      opt.value=d.nombre;opt.textContent=d.nombre;
+      if(d.nombre===current)opt.selected=true;
+      sel.appendChild(opt);
+    });
+  }catch(e){console.warn('No se pudo cargar dispositivos',e);}
+}
 
 let runs=[], results=[];
 
@@ -391,30 +418,35 @@ async function exportXLSX(){
   exportBtn.disabled=true;exportBtn.innerHTML='<span class="spinner"></span> Cargando datos...';
   try{
   const selRuns=runs.filter(r=>sel.includes(r.id));
-  const selResults=await fetchResultsForRuns(sel);
+  const allSelResults=await fetchResultsForRuns(sel);
+
+  // Filtro de dispositivo (aplica a todas las hojas de exportación)
+  const exportDevice=document.getElementById('filterDevice')?.value||'';
+  const selResults=exportDevice
+    ?allSelResults.filter(r=>r.dispositivo===exportDevice)
+    :allSelResults;
 
   const wb=XLSX.utils.book_new();
 
   // ── Sheet 1: Resumen de runs ─────────────────────────────────────
   const resumenData=[
-    ['Fecha','Franja','Operador','Tipo','Total Tests','PASS','FAIL','N/A','UNABLE TO TEST','% Aprobado'],
+    ['Fecha','Franja','Operador','Tipo','Dispositivo','Total Tests','PASS','FAIL','N/A','UNABLE TO TEST','% Aprobado'],
     ...selRuns.map(run=>{
       const res=selResults.filter(r=>r.run_id===run.id);
+      if(!res.length&&exportDevice)return null; // skip runs with no data for this device
       const pass=res.filter(r=>r.estado==='PASS').length;
       const fail=res.filter(r=>r.estado==='FAIL').length;
       const na=res.filter(r=>r.estado==='N/A').length;
       const utt=res.filter(r=>r.estado==='UNABLE TO TEST').length;
       const pct=res.length?(pass/res.length):0;
-      return[run.fecha,run.hora_franja||'',run.operador||'',run.tipo,res.length,pass,fail,na,utt,pct];
-    })
+      return[run.fecha,run.hora_franja||'',run.operador||'',run.tipo,exportDevice||'(todos)',res.length,pass,fail,na,utt,pct];
+    }).filter(Boolean)
   ];
   const ws1=XLSX.utils.aoa_to_sheet(resumenData);
-  // Column widths
-  ws1['!cols']=[{wch:12},{wch:8},{wch:24},{wch:12},{wch:12},{wch:8},{wch:8},{wch:8},{wch:16},{wch:12}];
-  // Format % col
+  ws1['!cols']=[{wch:12},{wch:8},{wch:24},{wch:12},{wch:22},{wch:12},{wch:8},{wch:8},{wch:8},{wch:16},{wch:12}];
   const range1=XLSX.utils.decode_range(ws1['!ref']);
   for(let R=1;R<=range1.e.r;R++){
-    const cell=ws1[XLSX.utils.encode_cell({r:R,c:9})];
+    const cell=ws1[XLSX.utils.encode_cell({r:R,c:10})];
     if(cell)cell.z='0%';
   }
   XLSX.utils.book_append_sheet(wb,ws1,'Resumen');
@@ -432,7 +464,6 @@ async function exportXLSX(){
     const pct_ok=res.length?(pass/res.length):0;
     return{dev,runs_count,total:res.length,pass,fail,na,utt,pct_fail,pct_ok};
   });
-  // Sort: más fallas primero (dispositivos problemáticos al tope)
   dispRows.sort((a,b)=>b.pct_fail-a.pct_fail);
   const dispData=[
     ['Dispositivo','Runs probados','Total checks','PASS','FAIL','N/A','UNABLE TO TEST','% FAIL','% Aprobado'],
@@ -442,20 +473,16 @@ async function exportXLSX(){
   ws2['!cols']=[{wch:22},{wch:14},{wch:14},{wch:8},{wch:8},{wch:8},{wch:16},{wch:10},{wch:12}];
   const range2=XLSX.utils.decode_range(ws2['!ref']);
   for(let R=1;R<=range2.e.r;R++){
-    const cellF=ws2[XLSX.utils.encode_cell({r:R,c:7})];
-    if(cellF)cellF.z='0%';
-    const cellP=ws2[XLSX.utils.encode_cell({r:R,c:8})];
-    if(cellP)cellP.z='0%';
+    const cellF=ws2[XLSX.utils.encode_cell({r:R,c:7})];if(cellF)cellF.z='0%';
+    const cellP=ws2[XLSX.utils.encode_cell({r:R,c:8})];if(cellP)cellP.z='0%';
   }
   XLSX.utils.book_append_sheet(wb,ws2,'Por Dispositivo');
 
   // ── Sheet 3: Detalle completo (ordenado por fecha y franja) ──────
-  // Build a sort key per run_id so we don't recompute it per row
   const runSortKey={};
   selRuns.forEach(r=>{runSortKey[r.id]=(r.fecha||'')+'|'+(r.hora_franja||'');});
   const sortedResults=[...selResults].sort((a,b)=>{
-    const ka=runSortKey[a.run_id]||'';
-    const kb=runSortKey[b.run_id]||'';
+    const ka=runSortKey[a.run_id]||'';const kb=runSortKey[b.run_id]||'';
     return ka<kb?-1:ka>kb?1:0;
   });
   const detalleData=[
@@ -470,12 +497,54 @@ async function exportXLSX(){
   ws3['!cols']=[{wch:12},{wch:8},{wch:22},{wch:11},{wch:20},{wch:8},{wch:36},{wch:18},{wch:16},{wch:40}];
   XLSX.utils.book_append_sheet(wb,ws3,'Detalle');
 
+  // ── Sheet 4: Vista Checklist (matriz por run: ítems × dispositivos) ──
+  // Muestra el checklist completo tal como fue llenado, una tabla por run
+  const checklistRows=[];
+  const runsConDatos=selRuns.filter(run=>selResults.some(r=>r.run_id===run.id));
+  for(const run of runsConDatos){
+    const runRes=selResults.filter(r=>r.run_id===run.id);
+    // Dispositivos para este run
+    const runDevs=exportDevice?[exportDevice]:[...new Set(runRes.map(r=>r.dispositivo).filter(Boolean))].sort();
+    // Cabecera del run (fila de título)
+    checklistRows.push([`📅 ${run.fecha}   🕐 ${run.hora_franja||'—'}   👤 ${run.operador||'—'}   📋 ${run.tipo}`,...Array(runDevs.length+2).fill('')]);
+    // Cabecera de columnas
+    checklistRows.push(['Sección','Nº','Ítem',...runDevs]);
+    // Obtener ítems únicos ordenados por número
+    const itemsSeen=new Set();const itemsList=[];
+    const sortedRunRes=[...runRes].sort((a,b)=>{
+      const na=parseFloat(String(a.numero_item||'0').replace(',','.'))||0;
+      const nb=parseFloat(String(b.numero_item||'0').replace(',','.'))||0;
+      if(na!==nb)return na-nb;
+      return (a.seccion||'').localeCompare(b.seccion||'');
+    });
+    for(const row of sortedRunRes){
+      const key=(row.seccion||'')+'§'+(row.numero_item||'')+'§'+(row.nombre_item||'');
+      if(!itemsSeen.has(key)){itemsSeen.add(key);itemsList.push({s:row.seccion||'',n:row.numero_item||'',nm:row.nombre_item||''});}
+    }
+    for(const item of itemsList){
+      const estados=runDevs.map(dev=>{
+        const r=runRes.find(x=>x.dispositivo===dev&&x.numero_item===item.n&&x.nombre_item===item.nm);
+        return r?r.estado:'—';
+      });
+      checklistRows.push([item.s,item.n,item.nm,...estados]);
+    }
+    // Fila en blanco entre runs
+    checklistRows.push([]);
+  }
+  if(checklistRows.length){
+    const ws4=XLSX.utils.aoa_to_sheet(checklistRows);
+    // Ancho base + 16px por dispositivo
+    ws4['!cols']=[{wch:20},{wch:6},{wch:38},...Array(20).fill({wch:16})];
+    XLSX.utils.book_append_sheet(wb,ws4,'Vista Checklist');
+  }
+
   const from=document.getElementById('dateFrom').value;
   const to=document.getElementById('dateTo').value;
   const tipo=document.getElementById('filterTipo').value;
   const tipoLabel=tipo?'_'+(tipo.charAt(0).toUpperCase()+tipo.slice(1)):'';
+  const devLabel=exportDevice?'_'+(exportDevice.replace(/\s+/g,'_')):'';
   const clienteSlug=currentClienteNombre.replace(/\s+/g,'_');
-  XLSX.writeFile(wb,`Backup_${clienteSlug}${tipoLabel}_${from}_${to}.xlsx`);
+  XLSX.writeFile(wb,`Backup_${clienteSlug}${tipoLabel}${devLabel}_${from}_${to}.xlsx`);
   }finally{exportBtn.disabled=false;exportBtn.textContent='📥 Exportar seleccionados a Excel';}
 }
 
