@@ -238,29 +238,30 @@ let currentClienteNombre='ditu';
   document.getElementById('dateTo').value=localDate(now);
   document.getElementById('dateFrom').value=localDate(past);
   loadDbUsage();
-  loadDevices();
 })();
 
 async function logout(){await sb.auth.signOut();window.location.href='./login.html';}
 
-// ── Dispositivos del cliente ─────────────────────────────────────────
-async function loadDevices(){
-  if(!currentClienteId)return;
-  try{
-    const r=await fetch(SUPA_URL+`/rest/v1/checklist_devices?cliente_id=eq.${currentClienteId}&select=nombre&activo=eq.true&order=nombre.asc`,{headers:H});
-    if(!r.ok)return;
-    const devices=await r.json();
-    const sel=document.getElementById('filterDevice');
-    if(!sel)return;
-    const current=sel.value;
-    sel.innerHTML='<option value="">Todos los dispositivos</option>';
-    devices.forEach(d=>{
-      const opt=document.createElement('option');
-      opt.value=d.nombre;opt.textContent=d.nombre;
-      if(d.nombre===current)opt.selected=true;
-      sel.appendChild(opt);
-    });
-  }catch(e){console.warn('No se pudo cargar dispositivos',e);}
+// ── Poblar dropdown de dispositivos desde los resultados encontrados ──
+function updateDeviceFilter(runIds){
+  // Trae solo dispositivo (columna liviana) para los runs encontrados
+  // y deduplica en el cliente — mucho más confiable que una tabla separada
+  const sel=document.getElementById('filterDevice');
+  if(!sel||!runIds.length)return;
+  const prev=sel.value; // preservar selección si ya había una
+  fetch(SUPA_URL+`/rest/v1/checklist_results?run_id=in.(${runIds.join(',')})&select=dispositivo&limit=5000`,{headers:H})
+    .then(r=>r.json())
+    .then(rows=>{
+      const names=[...new Set(rows.map(r=>r.dispositivo).filter(Boolean))].sort();
+      sel.innerHTML='<option value="">Todos los dispositivos</option>';
+      names.forEach(n=>{
+        const o=document.createElement('option');
+        o.value=n;o.textContent=n;
+        if(n===prev)o.selected=true;
+        sel.appendChild(o);
+      });
+    })
+    .catch(()=>{});
 }
 
 let runs=[], results=[];
@@ -345,6 +346,8 @@ async function loadRuns(){
     renderRuns();
     renderStats(totalCount);
     document.getElementById('resultsSection').style.display='block';
+    // Poblar dropdown de dispositivos con los que realmente están en estos runs
+    updateDeviceFilter(ids);
   }finally{
     btn.disabled=false;btn.textContent='🔍 Buscar';
   }
