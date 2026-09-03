@@ -668,7 +668,11 @@
     .view-toggle-btn.active { background: var(--brand-accent); color: #fff; }
     .view-toggle-btn:not(.active):hover { background: rgba(227,24,55,0.12); color: var(--text-secondary); }
 
-    .matrix-wrap { overflow-x: auto; }
+    .matrix-wrap {
+      overflow-x: auto;
+      overflow-y: auto;
+      max-height: calc(100vh - 180px); /* contenedor scroll propio → sticky funciona */
+    }
     .matrix-table {
       width: 100%;
       border-collapse: collapse;
@@ -684,9 +688,9 @@
       border-bottom: 1px solid var(--brand-border);
       white-space: nowrap;
       text-align: center;
-      /* Sticky header — se queda visible mientras scrolleas */
+      /* Sticky header — relativo al contenedor matrix-wrap (que tiene overflow-y: auto) */
       position: sticky;
-      top: 44px; /* justo debajo del sitenav sticky */
+      top: 0;
       z-index: 10;
       background: var(--brand-bg);
     }
@@ -721,6 +725,7 @@
     .matrix-table td.obs-col {
       text-align: left;
       color: var(--text-secondary);
+      max-width: 220px;
       font-size: 0.72rem;
       max-width: 220px;
       word-break: break-word;
@@ -2308,7 +2313,7 @@ async function renderMatrix() {
             const lbl = cell.estado === 'UNABLE TO TEST' ? 'UTT' : cell.estado;
             return `<td><span class="m-badge ${cls}">${lbl}</span></td>`;
           }).join('')}
-          <td class="obs-col">${escHtml(allObs)}</td>
+          <td class="obs-col"><div style="max-height:4.5em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical">${escHtml(allObs)}</div></td>
         </tr>`;
       });
     });
@@ -2452,10 +2457,10 @@ async function renderMatrix() {
         <div class="table-wrap">
           <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
             <thead><tr>
-              <th style="text-align:right;width:40px;background:var(--brand-bg);padding:7px 8px;border-bottom:2px solid var(--brand-accent);position:sticky;top:44px;z-index:10">#</th>
-              <th style="text-align:left;min-width:160px;background:var(--brand-bg);padding:7px 8px;border-bottom:2px solid var(--brand-accent);position:sticky;top:44px;z-index:10">Ítem de verificación</th>
-              ${devicesSet.map(d => `<th style="text-align:center;background:var(--brand-bg);padding:7px 8px;border-bottom:2px solid var(--brand-accent);white-space:nowrap;position:sticky;top:44px;z-index:10" title="${escHtml(d)}">${d.length>9?d.slice(0,9)+'…':escHtml(d)}</th>`).join('')}
-              <th style="background:var(--brand-bg);padding:7px 8px;border-bottom:2px solid var(--brand-accent);position:sticky;top:44px;z-index:10">Observaciones</th>
+              <th style="text-align:right;width:40px;background:var(--brand-bg);padding:7px 8px;border-bottom:2px solid var(--brand-accent)">#</th>
+              <th style="text-align:left;min-width:160px;background:var(--brand-bg);padding:7px 8px;border-bottom:2px solid var(--brand-accent)">Ítem de verificación</th>
+              ${devicesSet.map(d => `<th style="text-align:center;background:var(--brand-bg);padding:7px 8px;border-bottom:2px solid var(--brand-accent);white-space:nowrap" title="${escHtml(d)}">${d.length>9?d.slice(0,9)+'…':escHtml(d)}</th>`).join('')}
+              <th style="background:var(--brand-bg);padding:7px 8px;border-bottom:2px solid var(--brand-accent)">Observaciones</th>
             </tr></thead>
             <tbody>${tbodyHtml}</tbody>
           </table>
