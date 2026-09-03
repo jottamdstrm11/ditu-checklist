@@ -725,7 +725,11 @@
     .matrix-table td.obs-col {
       text-align: left;
       color: var(--text-secondary);
-      max-width: 220px;
+      max-width: 260px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.72rem;
+      line-height: 1.4;
       font-size: 0.72rem;
       max-width: 220px;
       word-break: break-word;
@@ -2313,7 +2317,7 @@ async function renderMatrix() {
             const lbl = cell.estado === 'UNABLE TO TEST' ? 'UTT' : cell.estado;
             return `<td><span class="m-badge ${cls}">${lbl}</span></td>`;
           }).join('')}
-          <td class="obs-col"><div style="max-height:4.5em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical">${escHtml(allObs)}</div></td>
+          <td class="obs-col" title="${escHtml(allObs)}">${escHtml(allObs)}</td>
         </tr>`;
       });
     });
