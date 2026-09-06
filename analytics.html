@@ -253,6 +253,7 @@ let allResults = [];
 let activeDays = 90;
 let activeTab = 'resumen';
 let selectedDecisionItem = null; // Nivel 3 selected item
+let selectedDevice = null;        // Nivel 2 device drilldown
 
 const chartInstances = {};
 
@@ -382,6 +383,7 @@ function dedup(results) {
 // ── Tab switching ──
 function switchTab(tab) {
   activeTab = tab;
+  selectedDevice = null; // reset drilldown on tab change
   document.querySelectorAll('.tab-btn').forEach((b,i) => {
     const tabs = ['resumen','incidencias','decision'];
     b.classList.toggle('active', tabs[i] === tab);
@@ -393,6 +395,7 @@ function switchTab(tab) {
 function setRange(days) {
   activeDays = days;
   selectedDecisionItem = null;
+  selectedDevice = null;
   document.querySelectorAll('.filter-btn').forEach(b => {
     b.classList.toggle('active', parseInt(b.dataset.days||'-1') === days);
   });
@@ -637,47 +640,79 @@ function buildResumen({ totalRuns, totalChecks, passCount, failCount, naCount, u
 // NIVEL 2 — INCIDENCIAS
 // ─────────────────────────────────────────────────────
 function buildIncidencias({ results, deviceStats, itemStats, platformStats, failCount }) {
-  const topItems = itemStats.slice(0, 10);
-  const maxFail  = topItems[0]?.fail || 1;
 
   const platformColors = {
     'iOS':'#34d399','Android':'#60a5fa','Android TV':'#a78bfa',
     'Smart TV':'#f59e0b','Web':'#97D700','Streaming':'#e34948','Otro':'#7c82a0'
   };
 
+  // Items a mostrar: filtrados por dispositivo seleccionado o globales
+  let drillItems;
+  let drillFailTotal;
+  if (selectedDevice) {
+    // Items de este dispositivo específico
+    const devResults = results.filter(r => r.dispositivo === selectedDevice);
+    const devFails   = devResults.filter(r => r.estado === 'FAIL').length;
+    drillFailTotal = devFails;
+    const dMap = new Map();
+    for (const r of devResults) {
+      const key = r.nombre_item || r.numero_item;
+      if (!key) continue;
+      if (!dMap.has(key)) dMap.set(key, { name: key, fail:0, total:0 });
+      const it = dMap.get(key);
+      it.total++;
+      if (r.estado === 'FAIL') it.fail++;
+    }
+    drillItems = [...dMap.values()]
+      .map(it => ({ ...it,
+        failRate: it.total ? Math.round(it.fail/it.total*100) : 0,
+        pctOfFails: devFails ? Math.round(it.fail/devFails*100) : 0
+      }))
+      .filter(it => it.fail > 0)
+      .sort((a,b) => b.fail - a.fail)
+      .slice(0, 10);
+  } else {
+    drillItems = itemStats.slice(0, 10);
+    drillFailTotal = failCount;
+  }
+
+  const maxFail = drillItems[0]?.fail || 1;
+  const pctLabel = selectedDevice
+    ? `% de los FAILs de <strong>${escHtml(selectedDevice)}</strong>`
+    : '% del total de FAILs globales';
+
   return `
     <div class="section-heading">
       <div class="section-num">2</div>
       <div class="section-title">¿Dónde está el problema?</div>
-      <div class="section-desc">Análisis de incidencias por ítem, plataforma y dispositivo</div>
+      <div class="section-desc">Haz clic en un dispositivo para ver qué ítems fallan en él</div>
     </div>
 
     <div class="charts-grid-2" style="margin-bottom:18px">
-      <!-- Top ítems con FAILs -->
-      <div class="chart-card">
-        <div class="chart-title">Top ítems con más FAILs</div>
-        <div class="chart-desc">Ordenados por cantidad absoluta de fallos en el período</div>
-        <div class="prop-list" id="itemPropList">
-          ${topItems.map(it => `
-            <div class="prop-item">
-              <div class="prop-item-header">
-                <span class="prop-item-name" title="${escHtml(it.name)}">${escHtml(truncate(it.name, 42))}</span>
-                <span class="prop-item-vals">${it.fail} FAILs · <strong style="color:#e34948">${it.pctOfFails}%</strong> del total</span>
-              </div>
-              <div class="prop-bar-track">
-                <div class="prop-bar-fill prop-bar-fail" style="width:${Math.round(it.fail/maxFail*100)}%"></div>
-              </div>
-            </div>
-          `).join('')}
+
+      <!-- FAILs por dispositivo — CLICKABLE -->
+      <div class="chart-card" style="${selectedDevice ? 'border-color:rgba(142,101,216,0.5)' : ''}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+          <div class="chart-title">FAILs por dispositivo</div>
+          ${selectedDevice ? `<button onclick="clearDevice()" style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid #8E65D8;background:rgba(142,101,216,0.15);color:#c3a0ff;cursor:pointer;font-family:inherit;white-space:nowrap">✕ ${escHtml(selectedDevice)}</button>` : ''}
+        </div>
+        <div class="chart-desc">
+          % FAIL del total de checks ·
+          <span style="background:rgba(142,101,216,0.15);border:1px solid rgba(142,101,216,0.4);border-radius:5px;padding:1px 8px;font-size:10px;font-weight:700;color:#c3a0ff">
+            👆 Clic para explorar ítems
+          </span>
+        </div>
+        <div class="chart-wrap" style="height:${Math.max(200, deviceStats.length*34)}px;cursor:pointer">
+          <canvas id="chartDevices"></canvas>
         </div>
       </div>
 
       <!-- FAILs por plataforma -->
       <div class="chart-card">
         <div class="chart-title">FAILs por plataforma</div>
-        <div class="chart-desc">Inferida del nombre de dispositivo · ${failCount} fallos totales</div>
+        <div class="chart-desc">Inferida del dispositivo · ${failCount} fallos totales en el período</div>
         ${platformStats.length ? `
-          <div class="prop-list">
+          <div class="prop-list" style="margin-top:4px">
             ${platformStats.map(p => `
               <div class="prop-item">
                 <div class="prop-item-header">
@@ -697,16 +732,42 @@ function buildIncidencias({ results, deviceStats, itemStats, platformStats, fail
       </div>
     </div>
 
-    <div class="charts-grid-1">
-      <div class="chart-card">
-        <div class="chart-title">FAILs por dispositivo</div>
-        <div class="chart-desc">% de FAIL sobre el total de checks por dispositivo</div>
-        <div class="chart-wrap" style="height:${Math.max(200, deviceStats.length*32)}px">
-          <canvas id="chartDevices"></canvas>
+    <!-- Top ítems (global o filtrado por dispositivo) -->
+    <div class="chart-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+        <div class="chart-title">
+          Top ítems con más FAILs
+          ${selectedDevice ? `<span style="color:var(--purple);font-weight:400"> — ${escHtml(selectedDevice)}</span>` : ''}
         </div>
+        <span style="font-size:10px;color:var(--muted)">${pctLabel}</span>
       </div>
+      <div class="chart-desc" style="margin-bottom:14px">
+        ${selectedDevice
+          ? `Ítems que más fallan en <strong style="color:#fff">${escHtml(selectedDevice)}</strong> · ${drillFailTotal} FAILs en este dispositivo`
+          : 'Ordenados por cantidad absoluta de FAILs en el período'}
+      </div>
+      ${drillItems.length ? `
+        <div class="prop-list">
+          ${drillItems.map(it => `
+            <div class="prop-item">
+              <div class="prop-item-header">
+                <span class="prop-item-name" title="${escHtml(it.name)}">${escHtml(truncate(it.name, 52))}</span>
+                <span class="prop-item-vals">${it.fail} FAILs · <strong style="color:#e34948">${it.pctOfFails}%</strong></span>
+              </div>
+              <div class="prop-bar-track">
+                <div class="prop-bar-fill prop-bar-fail" style="width:${Math.round(it.fail/maxFail*100)}%"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      ` : '<div class="empty-msg">Sin ítems con FAIL para este dispositivo</div>'}
     </div>
   `;
+}
+
+function clearDevice() {
+  selectedDevice = null;
+  renderPage();
 }
 
 // ─────────────────────────────────────────────────────
@@ -925,15 +986,24 @@ function mountCharts(tab, { results, runStats, deviceStats, itemStats, platformS
   }
 
   if (tab === 'incidencias') {
-    // Devices horizontal bar (% fail)
-    mkChart('chartDevices', {
+    // Devices horizontal bar (% fail) — CLICKABLE drilldown
+    const devBgColors = deviceStats.map(d => {
+      if (selectedDevice) return d.dev === selectedDevice ? '#8E65D8' : 'rgba(142,101,216,0.25)';
+      return d.failPct >= 20 ? 'rgba(227,73,72,0.85)' : 'rgba(227,73,72,0.55)';
+    });
+    const devBorderColors = deviceStats.map(d => {
+      if (selectedDevice) return d.dev === selectedDevice ? '#8E65D8' : 'rgba(142,101,216,0.25)';
+      return '#e34948';
+    });
+
+    const devChart = mkChart('chartDevices', {
       type: 'bar',
       data: {
         labels: deviceStats.map(d => d.dev),
         datasets: [{
           data: deviceStats.map(d => d.failPct),
-          backgroundColor: deviceStats.map(d => d.failPct >= 20 ? 'rgba(227,73,72,0.85)' : 'rgba(227,73,72,0.50)'),
-          borderColor: '#e34948',
+          backgroundColor: devBgColors,
+          borderColor: devBorderColors,
           borderWidth: 1,
           borderRadius: 4,
           borderSkipped: 'left',
@@ -944,7 +1014,9 @@ function mountCharts(tab, { results, runStats, deviceStats, itemStats, platformS
         responsive: true, maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x}% FAIL · ${deviceStats[ctx.dataIndex].failCount} FAILs de ${deviceStats[ctx.dataIndex].total} checks` } }
+          tooltip: { callbacks: {
+            label: ctx => ` ${ctx.parsed.x}% FAIL · ${deviceStats[ctx.dataIndex].failCount} FAILs de ${deviceStats[ctx.dataIndex].total} checks`
+          }}
         },
         scales: {
           x: { min: 0, max: 100, grid: { color: gridColor }, ticks: { callback: v => v+'%' } },
@@ -952,6 +1024,18 @@ function mountCharts(tab, { results, runStats, deviceStats, itemStats, platformS
         }
       }
     });
+
+    // Click handler — toggle drilldown
+    const devCanvas = document.getElementById('chartDevices');
+    if (devCanvas && devChart) {
+      devCanvas.onclick = function(evt) {
+        const pts = devChart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+        if (!pts.length) return;
+        const dev = deviceStats[pts[0].index].dev;
+        selectedDevice = (selectedDevice === dev) ? null : dev;
+        renderPage();
+      };
+    }
   }
 }
 
