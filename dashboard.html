@@ -2634,11 +2634,12 @@ async function saveEditModal() {
       }
     }
 
-    // Invalidar caché del run para que al recargar muestre datos frescos
+    // Invalidar caché del run y re-renderizar la tabla (actualiza badge + obs column)
     const runId = [...selectedRunIds][0] || selectedRunId;
     if (runId) delete runDetailsCache[runId];
 
     closeEditModal();
+    renderMatrix().catch(e => console.error('renderMatrix post-edit error:', e));
   } catch(e) {
     alert('Error al guardar: ' + e.message);
   } finally {
