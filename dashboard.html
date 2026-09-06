@@ -1378,6 +1378,7 @@ let currentClienteId = null;
 
 // ── Auth ─────────────────────────────────────────────────────────────
 let currentRol = 'operador';
+let currentUser = '';
 function applyNavRole(rol){
   currentRol = rol;
   const isAdmin=rol==='superadmin'||rol==='admin';
@@ -1396,11 +1397,12 @@ function applyNavRole(rol){
 (async()=>{
   const{data:{session}}=await _sbc.auth.getSession();
   if(!session){window.location.href='./login.html';return;}
+  currentUser = session.user.email;
   document.getElementById('userEmail').textContent=session.user.email;
   try{
     const res=await fetch(SUPA_URL+'/rest/v1/profiles?id=eq.'+session.user.id+'&select=nombre,rol',
       {headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+session.access_token}});
-    if(res.ok){const[p]=await res.json();if(p){applyNavRole(p.rol||'operador');if(p.nombre)document.getElementById('userEmail').textContent=p.nombre;}}
+    if(res.ok){const[p]=await res.json();if(p){applyNavRole(p.rol||'operador');if(p.nombre){currentUser=p.nombre;document.getElementById('userEmail').textContent=p.nombre;}}}
     else applyNavRole('operador');
   }catch(_){applyNavRole('operador');}
 })();
