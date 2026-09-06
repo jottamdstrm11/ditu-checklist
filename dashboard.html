@@ -2603,14 +2603,19 @@ async function saveEditModal() {
     const obs = document.getElementById('editObsText').value.trim();
     const now  = new Date().toISOString();
     const body = { estado: _editEstado, observacion: obs, editado_por: currentUser, editado_en: now };
+    const { data: { session: _sess } } = await _sbc.auth.getSession();
+    const _token = _sess ? _sess.access_token : SUPA_KEY;
     const r = await fetch(
       `${SUPA_URL}/rest/v1/checklist_results?id=eq.${encodeURIComponent(_editResultId)}`,
       { method: 'PATCH',
-        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
-                   'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + _token,
+                   'Content-Type': 'application/json', 'Prefer': 'return=representation',
+                   'Accept': 'application/json' },
         body: JSON.stringify(body) }
     );
     if (!r.ok) throw new Error('HTTP ' + r.status);
+    const updated = await r.json();
+    if (!updated || updated.length === 0) throw new Error('Sin permiso para editar este resultado (RLS)');
 
     // Actualizar badge en el DOM sin recargar
     const badge = document.getElementById('badge-' + _editResultId);
