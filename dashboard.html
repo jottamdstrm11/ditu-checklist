@@ -2400,8 +2400,8 @@ async function renderMatrix() {
             const editedDot = cell.editado_por
               ? `<span class="cell-edited-dot" title="Editado por ${escHtml(cell.editado_por)}"></span>` : '';
             const editBtn = isAdmin && cell.id
-              ? `<button class="cell-edit-btn" onclick="openEditModal('${escHtml(cell.id)}','${escHtml(item.t)}','${escHtml(d)}','${escHtml(cell.estado)}',${JSON.stringify(cell.obs||'')})">✏️</button>` : '';
-            return `<td><div class="matrix-cell-wrap"><span class="m-badge ${cls}" id="badge-${escHtml(cell.id||'')}\">${lbl}</span>${editedDot}${editBtn}</div></td>`;
+              ? `<button class="cell-edit-btn" onclick="openEditModal('${escHtml(cell.id)}','${escHtml(item.t)}','${escHtml(d)}','${escHtml(cell.estado)}',${JSON.stringify(cell.obs||'').replace(/"/g,'&quot;')})">✏️</button>` : '';
+            return `<td><div class="matrix-cell-wrap"><span class="m-badge ${cls}" id="badge-${escHtml(cell.id||'')}">${lbl}</span>${editedDot}${editBtn}</div></td>`;
           }).join('')}
           <td class="obs-col" title="${escHtml(allObs)}">${escHtml(allObs)}</td>
         </tr>`;
