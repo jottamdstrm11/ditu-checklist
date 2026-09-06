@@ -42,46 +42,124 @@ body{font-family:'Encode Sans Expanded','Helvetica Neue',Arial,sans-serif;font-s
 .cliente-dot{width:8px;height:8px;border-radius:50%;background:var(--cliente-color,#7B2FBE);flex-shrink:0}
 
 /* ── Layout ── */
-.page{max-width:1280px;margin:0 auto;padding:24px 20px 48px}
+.page{max-width:1300px;margin:0 auto;padding:20px 20px 60px}
 
-/* ── Page header ── */
-.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:12px;flex-wrap:wrap}
-.page-title{font-size:20px;font-weight:900;color:#fff;letter-spacing:-.3px}
-.page-subtitle{font-size:12px;color:var(--muted);margin-top:2px}
-.filter-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.filter-btn{background:#141A32;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 13px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;letter-spacing:.03em}
+/* ── Global filter bar ── */
+.global-filter-bar{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:10px 16px;margin-bottom:20px;
+}
+.gfb-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-right:4px;white-space:nowrap}
+.filter-btn{background:#0E1126;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 13px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;letter-spacing:.03em}
 .filter-btn:hover{color:var(--text);border-color:var(--purple)}
 .filter-btn.active{color:#fff;background:var(--purple);border-color:var(--purple)}
+.gfb-sep{width:1px;height:20px;background:var(--border);margin:0 4px;flex-shrink:0}
+.gfb-select{background:#0E1126;border:1px solid var(--border);color:#fff;padding:5px 12px;border-radius:8px;font-size:11px;outline:none;color-scheme:dark;cursor:pointer;font-family:inherit;font-weight:600}
+
+/* ── Page header ── */
+.page-header{margin-bottom:16px}
+.page-title{font-size:20px;font-weight:900;color:#fff;letter-spacing:-.3px}
+.page-subtitle{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* ── Tabs ── */
+.tab-nav{display:flex;gap:2px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:0}
+.tab-btn{
+  font-family:inherit;font-size:12px;font-weight:700;
+  background:none;border:none;color:var(--muted);
+  padding:8px 18px 10px;cursor:pointer;position:relative;
+  border-radius:8px 8px 0 0;transition:.15s;letter-spacing:.02em;
+}
+.tab-btn:hover{color:var(--text);background:rgba(80,100,200,0.08)}
+.tab-btn.active{color:#fff;background:var(--card)}
+.tab-btn.active::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:var(--purple);border-radius:2px 2px 0 0}
+.tab-badge{display:inline-block;background:rgba(142,101,216,0.25);color:#c3a0ff;border-radius:10px;font-size:9px;font-weight:700;padding:1px 7px;margin-left:5px;letter-spacing:.04em}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
 
 /* ── KPI tiles ── */
-.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:24px}
-.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;position:relative;overflow:hidden}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-bottom:24px}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden}
 .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,var(--purple))}
 .kpi-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
-.kpi-value{font-size:32px;font-weight:900;color:#fff;line-height:1;letter-spacing:-1px}
+.kpi-value{font-size:30px;font-weight:900;color:#fff;line-height:1;letter-spacing:-1px}
 .kpi-sub{font-size:11px;color:var(--muted);margin-top:6px}
 .kpi-good{--accent:var(--pass)}
 .kpi-bad{--accent:var(--fail)}
 .kpi-info{--accent:var(--purple)}
 .kpi-warn{--accent:var(--utt)}
+.kpi-green{--accent:var(--green)}
 
-/* ── Charts ── */
-.charts-grid-1{margin-bottom:20px}
-.charts-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px}
-@media(max-width:720px){.charts-grid-2{grid-template-columns:1fr}}
-
+/* ── Charts grid ── */
+.charts-grid-1{margin-bottom:18px}
+.charts-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+.charts-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:18px}
+@media(max-width:900px){.charts-grid-2,.charts-grid-3{grid-template-columns:1fr}}
 .chart-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px}
 .chart-title{font-size:13px;font-weight:700;color:#fff;margin-bottom:4px}
 .chart-desc{font-size:11px;color:var(--muted);margin-bottom:16px}
 .chart-wrap{position:relative}
+
+/* ── Section heading ── */
+.section-heading{
+  display:flex;align-items:center;gap:10px;margin-bottom:16px;margin-top:6px;
+}
+.section-num{
+  width:24px;height:24px;border-radius:50%;background:var(--purple);
+  color:#fff;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.section-title{font-size:14px;font-weight:900;color:#fff;letter-spacing:-.2px}
+.section-desc{font-size:11px;color:var(--muted);margin-left:auto}
+
+/* ── Proportion bar list ── */
+.prop-list{display:flex;flex-direction:column;gap:10px}
+.prop-item{display:flex;flex-direction:column;gap:4px}
+.prop-item-header{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.prop-item-name{font-size:11px;font-weight:600;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prop-item-vals{font-size:10px;color:var(--muted);white-space:nowrap;flex-shrink:0}
+.prop-bar-track{height:6px;background:rgba(80,100,200,0.12);border-radius:3px;overflow:hidden}
+.prop-bar-fill{height:100%;border-radius:3px;transition:width .4s}
+.prop-bar-fail{background:var(--fail)}
+.prop-bar-platform{background:var(--purple)}
+
+/* ── Decisión / Nivel 3 ── */
+.decision-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:18px}
+.decision-panel h3{font-size:13px;font-weight:700;color:#fff;margin-bottom:6px}
+.decision-panel p{font-size:11px;color:var(--muted);margin-bottom:16px}
+.decision-select-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:20px}
+.decision-select{
+  flex:1;min-width:200px;background:#0E1126;border:1px solid var(--border);color:#fff;
+  padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;
+  outline:none;color-scheme:dark;cursor:pointer;font-family:inherit;
+}
+.decision-select:focus{border-color:var(--purple)}
+.narrative-box{
+  background:#0E1126;border:1px solid var(--border);border-radius:10px;
+  padding:18px 20px;margin-bottom:18px;
+}
+.narrative-period{font-size:10px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.narrative-text{font-size:14px;color:var(--text);line-height:1.8;font-weight:400}
+.narrative-text strong{color:#fff;font-weight:700}
+.priority-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  border-radius:8px;padding:4px 12px;font-size:11px;font-weight:700;margin-bottom:18px;
+}
+.priority-high{background:rgba(227,73,72,0.15);border:1px solid rgba(227,73,72,0.5);color:#f87171}
+.priority-medium{background:rgba(237,161,0,0.15);border:1px solid rgba(237,161,0,0.5);color:#fbbf24}
+.priority-low{background:rgba(27,175,122,0.15);border:1px solid rgba(27,175,122,0.5);color:#34d399}
+.decision-kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+.d-kpi{background:#0E1126;border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center}
+.d-kpi-val{font-size:28px;font-weight:900;color:#fff;line-height:1;margin-bottom:4px}
+.d-kpi-label{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.d-kpi-sub{font-size:10px;color:var(--dim);margin-top:2px}
+.empty-decision{text-align:center;padding:60px 20px;color:var(--muted);font-size:13px}
+.empty-decision span{font-size:40px;display:block;margin-bottom:12px;opacity:.4}
 
 /* ── Loading/empty ── */
 .loading-overlay{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;gap:14px;color:var(--muted);font-size:13px}
 .spinner{width:28px;height:28px;border:3px solid rgba(255,255,255,.1);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .empty-msg{text-align:center;color:var(--muted);padding:40px;font-size:12px}
-
-/* ── Footer note ── */
 .footnote{font-size:10px;color:var(--dim);margin-top:8px;text-align:right}
 </style>
 </head>
@@ -111,25 +189,47 @@ body{font-family:'Encode Sans Expanded','Helvetica Neue',Arial,sans-serif;font-s
 <div class="page">
 
   <div class="page-header">
-    <div>
-      <div class="page-title">Analytics</div>
-      <div class="page-subtitle" id="clienteSubtitle">Cargando...</div>
-    </div>
-    <div class="filter-row" style="flex-wrap:wrap;gap:8px">
-      <button class="filter-btn" data-days="30" onclick="setRange(30)">Últimos 30 días</button>
-      <button class="filter-btn active" data-days="90" onclick="setRange(90)">Últimos 90 días</button>
-      <button class="filter-btn" data-days="0" onclick="setRange(0)">Todo</button>
-      <select id="an-tipo" onchange="selectedDevice=null;renderPage()" style="background:#0E1126;border:1px solid rgba(80,100,200,0.3);color:#fff;padding:5px 12px;border-radius:6px;font-size:12px;outline:none;color-scheme:dark;cursor:pointer">
-        <option value="">Todos los tipos</option>
-        <option value="monitoreo">Monitoreo</option>
-        <option value="soporte">Soporte</option>
-      </select>
-      <select id="an-franja" onchange="selectedDevice=null;renderPage()" style="background:#0E1126;border:1px solid rgba(80,100,200,0.3);color:#fff;padding:5px 12px;border-radius:6px;font-size:12px;outline:none;color-scheme:dark;cursor:pointer">
-        <option value="">Todas las franjas</option>
-        <option>01:00</option><option>04:00</option><option>07:00</option><option>10:00</option>
-        <option>13:00</option><option>16:00</option><option>19:00</option><option>22:00</option>
-      </select>
-    </div>
+    <div class="page-title">Analytics</div>
+    <div class="page-subtitle" id="clienteSubtitle">Cargando...</div>
+  </div>
+
+  <!-- Global filter bar -->
+  <div class="global-filter-bar">
+    <span class="gfb-label">Período</span>
+    <button class="filter-btn" data-days="7"  onclick="setRange(7)">7 días</button>
+    <button class="filter-btn" data-days="28" onclick="setRange(28)">4 semanas</button>
+    <button class="filter-btn active" data-days="90" onclick="setRange(90)">90 días</button>
+    <button class="filter-btn" data-days="0"  onclick="setRange(0)">Todo</button>
+    <span class="gfb-sep"></span>
+    <span class="gfb-label">Tipo</span>
+    <select id="an-tipo" class="gfb-select" onchange="renderPage()">
+      <option value="">Todos</option>
+      <option value="monitoreo">Monitoreo</option>
+      <option value="soporte">Soporte</option>
+    </select>
+    <span class="gfb-label" style="margin-left:4px">Franja</span>
+    <select id="an-franja" class="gfb-select" onchange="renderPage()">
+      <option value="">Todas</option>
+      <option>01:00</option><option>04:00</option><option>07:00</option><option>10:00</option>
+      <option>13:00</option><option>16:00</option><option>19:00</option><option>22:00</option>
+    </select>
+    <span id="periodLabel" style="margin-left:auto;font-size:10px;color:var(--dim)"></span>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('resumen')">
+      <svg style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:-2px;margin-right:4px" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Nivel 1 — Resumen
+    </button>
+    <button class="tab-btn" onclick="switchTab('incidencias')">
+      <svg style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:-2px;margin-right:4px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Nivel 2 — Incidencias
+    </button>
+    <button class="tab-btn" onclick="switchTab('decision')">
+      <svg style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:-2px;margin-right:4px" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Nivel 3 — Decisión <span class="tab-badge">PO</span>
+    </button>
   </div>
 
   <div id="mainContent">
@@ -151,9 +251,23 @@ let currentClienteColor = '#7B2FBE';
 let allRuns = [];
 let allResults = [];
 let activeDays = 90;
+let activeTab = 'resumen';
+let selectedDecisionItem = null; // Nivel 3 selected item
 
-// ── Charts instances (to destroy on re-render) ──
 const chartInstances = {};
+
+// ── Platform inference ──
+function inferPlataforma(dispositivo) {
+  if (!dispositivo) return 'Otro';
+  const d = dispositivo.toLowerCase();
+  if (d.includes('ipad') || d.includes('iphone')) return 'iOS';
+  if (d.includes('android tv') || (d.includes('tv') && d.includes('sony'))) return 'Android TV';
+  if (d.includes('samsung tv') || d.includes('hisense') || d.includes('lg tv')) return 'Smart TV';
+  if (d.includes('android') || d.includes('galaxy')) return 'Android';
+  if (d === 'web' || d.includes('web')) return 'Web';
+  if (d.includes('roku')) return 'Streaming';
+  return 'Otro';
+}
 
 // ── Auth & boot ──
 (async () => {
@@ -162,7 +276,6 @@ const chartInstances = {};
 
   document.getElementById('userEmail').textContent = session.user.email;
 
-  // Role
   try {
     const r = await fetch(`${SUPA_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=nombre,rol`,
       { headers:{ apikey:SUPA_KEY, Authorization:'Bearer '+session.access_token } });
@@ -175,7 +288,6 @@ const chartInstances = {};
     }
   } catch(_) {}
 
-  // Cliente
   const raw = sessionStorage.getItem('ditu_cliente');
   if (!raw) { window.location.href = './select_cliente.html'; return; }
   const c = JSON.parse(raw);
@@ -189,17 +301,17 @@ const chartInstances = {};
   if (dot) dot.style.background = currentClienteColor;
   const nom = document.getElementById('clienteNombre');
   if (nom) nom.textContent = c.nombre;
-  document.getElementById('clienteSubtitle').textContent = `Métricas históricas · ${c.nombre}`;
+  document.getElementById('clienteSubtitle').textContent = `Análisis de calidad · ${c.nombre}`;
 
   await loadAll();
   renderPage();
 })();
 
 function applyNavRole(rol) {
-  const isAdmin=rol==='superadmin'||rol==='admin';
-  const isOperadorOrAbove=isAdmin||rol==='operador';
-  const isSuperAdmin=rol==='superadmin';
-  const isViewer=rol==='viewer';
+  const isAdmin = rol==='superadmin'||rol==='admin';
+  const isOperadorOrAbove = isAdmin||rol==='operador';
+  const isSuperAdmin = rol==='superadmin';
+  const isViewer = rol==='viewer';
   const navCl=document.getElementById('navChecklist');if(navCl)navCl.style.display=isViewer?'none':'';
   ['navItems','navBackup'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isAdmin?'':'none';});
   ['navDispositivos'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isOperadorOrAbove?'':'none';});
@@ -226,16 +338,12 @@ async function supaFetch(path) {
 
 async function loadAll() {
   const clienteFilter = currentClienteId ? `&cliente_id=eq.${currentClienteId}` : '';
-
-  // Load all runs
   allRuns = await supaFetch(`/rest/v1/checklist_runs?select=*&order=fecha.asc,hora_franja.asc${clienteFilter}`);
-
   if (!allRuns.length) { allResults = []; return; }
 
-  // Load results in batches of 50 run IDs — all batches in parallel
   const runIds = allRuns.map(r => r.id);
   const PAGE = 1000;
-  const BATCH = 50; // keep URL length safe
+  const BATCH = 50;
 
   async function fetchBatch(ids) {
     const rows = [];
@@ -259,7 +367,7 @@ async function loadAll() {
   allResults = batchResults.flat();
 }
 
-// ── Dedup: per (run_id, numero_item, dispositivo), FAIL wins ──
+// ── Dedup ──
 function dedup(results) {
   const priority = { 'FAIL':3, 'UNABLE TO TEST':2, 'N/A':1, 'PASS':0 };
   const map = new Map();
@@ -271,12 +379,22 @@ function dedup(results) {
   return [...map.values()];
 }
 
+// ── Tab switching ──
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    const tabs = ['resumen','incidencias','decision'];
+    b.classList.toggle('active', tabs[i] === tab);
+  });
+  renderPage();
+}
+
 // ── Range filter ──
 function setRange(days) {
   activeDays = days;
-  selectedDevice = null; // reset filtro al cambiar rango
+  selectedDecisionItem = null;
   document.querySelectorAll('.filter-btn').forEach(b => {
-    b.classList.toggle('active', parseInt(b.dataset.days) === days);
+    b.classList.toggle('active', parseInt(b.dataset.days||'-1') === days);
   });
   renderPage();
 }
@@ -296,30 +414,41 @@ function filteredRuns() {
   });
 }
 
-// ── Main render ──
-let selectedDevice = null; // filtro activo en chartDevices
-
-function computeItemStats(results, deviceFilter) {
-  const src = deviceFilter ? results.filter(r => r.dispositivo === deviceFilter) : results;
-  const itemMap = new Map();
-  for (const r of src) {
-    const key = r.nombre_item || r.numero_item;
-    if (!key) continue;
-    if (!itemMap.has(key)) itemMap.set(key, { name: key, pass:0, fail:0, total:0 });
-    const it = itemMap.get(key);
-    it.total++;
-    if (r.estado === 'PASS') it.pass++;
-    if (r.estado === 'FAIL') it.fail++;
-  }
-  return [...itemMap.values()]
-    .map(it => ({ ...it, failPct: Math.round(it.fail/it.total*100) }))
-    .filter(it => it.total >= 3)
-    .sort((a,b) => b.failPct - a.failPct)
-    .slice(0, 10);
+function periodLabel() {
+  if (!activeDays) return 'Todo el historial';
+  if (activeDays === 7)  return 'Últimos 7 días';
+  if (activeDays === 28) return 'Últimas 4 semanas';
+  if (activeDays === 90) return 'Últimos 90 días';
+  return `Últimos ${activeDays} días`;
 }
 
+// ── Chart helper ──
+Chart.defaults.color = '#7c82a0';
+Chart.defaults.font.family = "'Encode Sans Expanded','Helvetica Neue',Arial,sans-serif";
+Chart.defaults.font.size = 11;
+
+function mkChart(id, config) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+  const el = document.getElementById(id);
+  if (!el) return;
+  chartInstances[id] = new Chart(el, config);
+  return chartInstances[id];
+}
+
+const gridColor = 'rgba(80,100,200,0.10)';
+const surface = '#141A32';
+
+function truncate(str, max) {
+  return str && str.length > max ? str.slice(0, max-1) + '…' : str;
+}
+
+// ── Main render ──
 function renderPage() {
   const runs = filteredRuns();
+  const lbl = periodLabel();
+  const lblEl = document.getElementById('periodLabel');
+  if (lblEl) lblEl.textContent = lbl;
+
   if (!runs.length) {
     document.getElementById('mainContent').innerHTML =
       '<div class="empty-msg">No hay runs en el período seleccionado.</div>';
@@ -329,48 +458,84 @@ function renderPage() {
   const runSet = new Set(runs.map(r => r.id));
   const results = dedup(allResults.filter(r => runSet.has(r.run_id)));
 
-  // ── Aggregate ──
-  const totalRuns = runs.length;
-  const totalChecks = results.length;
-  const passCount = results.filter(r => r.estado === 'PASS').length;
-  const failCount = results.filter(r => r.estado === 'FAIL').length;
-  const avgPassPct = totalChecks ? Math.round(passCount / totalChecks * 100) : 0;
+  // ── Core aggregates ──
+  const totalRuns    = runs.length;
+  const totalChecks  = results.length;
+  const passCount    = results.filter(r => r.estado === 'PASS').length;
+  const failCount    = results.filter(r => r.estado === 'FAIL').length;
+  const naCount      = results.filter(r => r.estado === 'N/A').length;
+  const uttCount     = results.filter(r => r.estado === 'UNABLE TO TEST').length;
+  const failPct      = totalChecks ? Math.round(failCount / totalChecks * 100) : 0;
+  const passPct      = totalChecks ? Math.round(passCount / totalChecks * 100) : 0;
 
-  // Per-run stats
+  const allDevices    = [...new Set(results.map(r => r.dispositivo).filter(Boolean))];
+  const allItems      = [...new Set(results.map(r => r.nombre_item || r.numero_item).filter(Boolean))];
+  const devsWithFail  = allDevices.filter(dev => results.some(r => r.dispositivo === dev && r.estado === 'FAIL'));
+
+  // Per-run stats (for trend chart)
   const runStats = runs.map(run => {
     const rr = results.filter(r => r.run_id === run.id);
     const p = rr.filter(r => r.estado === 'PASS').length;
     const f = rr.filter(r => r.estado === 'FAIL').length;
     const total = rr.length;
     return {
-      id: run.id,
       label: (run.fecha||'').slice(5) + ' ' + (run.hora_franja||'').slice(0,5),
-      fecha: run.fecha,
-      hora_franja: run.hora_franja,
       operador: run.operador,
       passRate: total ? Math.round(p/total*100) : null,
-      failRate: total ? Math.round(f/total*100) : null,
       pass: p, fail: f, total
     };
   }).filter(r => r.total > 0);
 
-  // Per-device: % fail
-  const devices = [...new Set(results.map(r => r.dispositivo).filter(Boolean))];
-  const deviceStats = devices.map(dev => {
+  // Per-device stats
+  const deviceStats = allDevices.map(dev => {
     const rr = results.filter(r => r.dispositivo === dev);
     const f = rr.filter(r => r.estado === 'FAIL').length;
-    return { dev, failPct: rr.length ? Math.round(f/rr.length*100) : 0, total: rr.length };
-  }).sort((a,b) => b.failPct - a.failPct);
+    return {
+      dev,
+      failCount: f,
+      failPct: rr.length ? Math.round(f/rr.length*100) : 0,
+      total: rr.length,
+      platform: inferPlataforma(dev)
+    };
+  }).sort((a,b) => b.failCount - a.failCount);
 
-  const bestDevice = [...deviceStats].sort((a,b) => a.failPct - b.failPct)[0];
-  const worstDevice = deviceStats[0];
+  // Per-platform stats
+  const platformMap = new Map();
+  for (const r of results) {
+    if (r.estado !== 'FAIL') continue;
+    const p = inferPlataforma(r.dispositivo);
+    platformMap.set(p, (platformMap.get(p)||0) + 1);
+  }
+  const platformStats = [...platformMap.entries()]
+    .map(([p, f]) => ({ platform: p, failCount: f, pctOfFails: failCount ? Math.round(f/failCount*100) : 0 }))
+    .sort((a,b) => b.failCount - a.failCount);
 
-  // Per-item: % fail (top 10 worst) — respeta filtro de dispositivo activo
-  const itemStats = computeItemStats(results, selectedDevice);
+  // Per-item stats (absolute FAILs + % of total FAILs + fail rate)
+  const itemMap = new Map();
+  for (const r of results) {
+    const key = r.nombre_item || r.numero_item;
+    if (!key) continue;
+    if (!itemMap.has(key)) itemMap.set(key, { name: key, pass:0, fail:0, total:0, byPlatform:{} });
+    const it = itemMap.get(key);
+    it.total++;
+    if (r.estado === 'PASS') it.pass++;
+    if (r.estado === 'FAIL') {
+      it.fail++;
+      const plat = inferPlataforma(r.dispositivo);
+      it.byPlatform[plat] = (it.byPlatform[plat]||0) + 1;
+    }
+  }
+  const itemStats = [...itemMap.values()]
+    .map(it => ({
+      ...it,
+      failRate: it.total ? Math.round(it.fail/it.total*100) : 0,
+      pctOfFails: failCount ? Math.round(it.fail/failCount*100) : 0,
+      topPlatform: Object.entries(it.byPlatform).sort((a,b)=>b[1]-a[1])[0] || null
+    }))
+    .filter(it => it.total >= 3)
+    .sort((a,b) => b.fail - a.fail); // sorted by absolute count
 
-  const worstItem = itemStats[0];
-
-  // Per-operator: run count
+  // Per-operator
   const opMap = new Map();
   for (const run of runs) {
     const op = run.operador || 'Sin nombre';
@@ -378,293 +543,421 @@ function renderPage() {
   }
   const opStats = [...opMap.entries()].sort((a,b)=>b[1]-a[1]);
 
-  // ── Render HTML ──
-  document.getElementById('mainContent').innerHTML = `
+  const worstDevice = deviceStats[0];
+  const worstItem   = itemStats[0];
+
+  // ── Build HTML by active tab ──
+  let html = '';
+
+  if (activeTab === 'resumen') {
+    html = buildResumen({ totalRuns, totalChecks, passCount, failCount, naCount, uttCount,
+      failPct, passPct, allDevices, allItems, devsWithFail, worstDevice, worstItem,
+      runStats, opStats, platformStats });
+  } else if (activeTab === 'incidencias') {
+    html = buildIncidencias({ results, deviceStats, itemStats, platformStats, failCount, totalChecks });
+  } else if (activeTab === 'decision') {
+    html = buildDecision({ itemStats, failCount, totalChecks, lbl, results });
+  }
+
+  document.getElementById('mainContent').innerHTML = html;
+  requestAnimationFrame(() => mountCharts(activeTab, { results, runStats, deviceStats, itemStats, platformStats, opStats, passCount, failCount, naCount, uttCount }));
+}
+
+// ─────────────────────────────────────────────────────
+// NIVEL 1 — RESUMEN
+// ─────────────────────────────────────────────────────
+function buildResumen({ totalRuns, totalChecks, passCount, failCount, naCount, uttCount,
+    failPct, passPct, allDevices, allItems, devsWithFail, worstDevice, worstItem, runStats, opStats }) {
+
+  return `
+    <div class="section-heading">
+      <div class="section-num">1</div>
+      <div class="section-title">¿Qué está pasando?</div>
+      <div class="section-desc">Estado general del período</div>
+    </div>
+
     <div class="kpi-row">
       <div class="kpi-card kpi-info">
-        <div class="kpi-label">Total Runs</div>
-        <div class="kpi-value">${totalRuns}</div>
-        <div class="kpi-sub">${totalChecks.toLocaleString()} checks únicos</div>
-      </div>
-      <div class="kpi-card ${avgPassPct >= 85 ? 'kpi-good' : avgPassPct >= 60 ? 'kpi-warn' : 'kpi-bad'}">
-        <div class="kpi-label">Tasa de PASS promedio</div>
-        <div class="kpi-value">${avgPassPct}<span style="font-size:16px;font-weight:400;color:var(--muted)">%</span></div>
-        <div class="kpi-sub">${passCount.toLocaleString()} PASS · ${failCount.toLocaleString()} FAIL</div>
+        <div class="kpi-label">Total de checks</div>
+        <div class="kpi-value">${totalChecks.toLocaleString()}</div>
+        <div class="kpi-sub">${totalRuns} runs completados</div>
       </div>
       <div class="kpi-card kpi-bad">
-        <div class="kpi-label">Dispositivo con más fallos</div>
-        <div class="kpi-value" style="font-size:18px;line-height:1.3">${worstDevice ? worstDevice.dev : '—'}</div>
-        <div class="kpi-sub">${worstDevice ? worstDevice.failPct+'% FAIL' : ''}</div>
+        <div class="kpi-label">Total FAILs</div>
+        <div class="kpi-value">${failCount.toLocaleString()}</div>
+        <div class="kpi-sub">${failPct}% del total de checks</div>
       </div>
-      <div class="kpi-card kpi-bad">
-        <div class="kpi-label">Ítem más fallido</div>
-        <div class="kpi-value" style="font-size:13px;font-weight:700;line-height:1.4;margin-top:4px">${worstItem ? truncate(worstItem.name,40) : '—'}</div>
-        <div class="kpi-sub">${worstItem ? worstItem.failPct+'% FAIL en '+worstItem.total+' checks' : ''}</div>
+      <div class="kpi-card ${passPct >= 85 ? 'kpi-good' : passPct >= 70 ? 'kpi-warn' : 'kpi-bad'}">
+        <div class="kpi-label">Tasa de PASS</div>
+        <div class="kpi-value">${passPct}<span style="font-size:16px;font-weight:400;color:var(--muted)">%</span></div>
+        <div class="kpi-sub">${passCount.toLocaleString()} checks aprobados</div>
+      </div>
+      <div class="kpi-card kpi-info">
+        <div class="kpi-label">Ítems evaluados</div>
+        <div class="kpi-value">${allItems.length}</div>
+        <div class="kpi-sub">funcionalidades distintas</div>
+      </div>
+      <div class="kpi-card kpi-info">
+        <div class="kpi-label">Dispositivos</div>
+        <div class="kpi-value">${allDevices.length}</div>
+        <div class="kpi-sub">${devsWithFail.length} con al menos un FAIL</div>
+      </div>
+      <div class="kpi-card kpi-warn">
+        <div class="kpi-label">N/A + Sin probar</div>
+        <div class="kpi-value">${(naCount+uttCount).toLocaleString()}</div>
+        <div class="kpi-sub">N/A: ${naCount.toLocaleString()} · UTT: ${uttCount.toLocaleString()}</div>
       </div>
     </div>
 
     <div class="charts-grid-1">
       <div class="chart-card">
-        <div class="chart-title">Tasa de PASS por run</div>
-        <div class="chart-desc">Evolución cronológica — cada punto es un run completado</div>
-        <div class="chart-wrap" style="height:240px"><canvas id="chartTrend"></canvas></div>
-        <div class="footnote">Runs sin datos excluidos</div>
+        <div class="chart-title">Evolución de la tasa de PASS</div>
+        <div class="chart-desc">Cada punto es un run completado, ordenado cronológicamente</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="chartTrend"></canvas></div>
+        <div class="footnote">Runs sin resultados excluidos</div>
       </div>
     </div>
 
     <div class="charts-grid-2">
-      <div class="chart-card" style="${!selectedDevice ? 'border-color:rgba(227,73,72,0.45);' : ''}">
-        <div class="chart-title">FAILs por dispositivo</div>
-        <div class="chart-desc" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span>% FAIL del total de checks por dispositivo</span>
-          <span style="background:rgba(227,73,72,0.14);border:1px solid rgba(227,73,72,0.45);border-radius:5px;padding:2px 9px;font-size:10px;font-weight:700;color:#e34948;letter-spacing:.03em;white-space:nowrap">
-            👆 Haz clic en una barra →
-          </span>
-        </div>
-        <div class="chart-wrap" style="height:${Math.max(200, deviceStats.length*34)}px;cursor:pointer" title="Haz clic en un dispositivo para explorar sus ítems con más FAILs"><canvas id="chartDevices"></canvas></div>
-      </div>
       <div class="chart-card">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-          <div>
-            <div class="chart-title" id="itemsChartTitle">Top ítems con más FAILs${selectedDevice ? ' — '+selectedDevice : ''}</div>
-            <div class="chart-desc">% FAIL sobre total de checks · mínimo 3 apariciones</div>
-          </div>
-          ${selectedDevice ? `<button id="clearDeviceFilter" style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid #e34948;background:rgba(227,73,72,0.12);color:#e34948;cursor:pointer;font-family:inherit;white-space:nowrap">✕ ${selectedDevice}</button>` : ''}
-        </div>
-        ${selectedDevice
-          ? `<div class="chart-wrap" style="height:${Math.max(200, itemStats.length*34)}px"><canvas id="chartItems"></canvas></div>`
-          : `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:240px;gap:14px;border:2px dashed rgba(80,100,200,0.18);border-radius:10px;margin-top:12px">
-               <span style="font-size:40px;opacity:.4">👈</span>
-               <span style="font-size:13px;color:#7c82a0;text-align:center;line-height:1.7">Selecciona un dispositivo en el gráfico<br>de la izquierda para ver<br>cuáles ítems fallan más en él</span>
-             </div>`
-        }
+        <div class="chart-title">Distribución de estados</div>
+        <div class="chart-desc">Del total de checks únicos en el período</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="chartStatus"></canvas></div>
       </div>
-    </div>
-
-    <div class="charts-grid-2">
       <div class="chart-card">
         <div class="chart-title">Runs por operador</div>
         <div class="chart-desc">Cantidad de checklists completados</div>
         <div class="chart-wrap" style="height:220px"><canvas id="chartOps"></canvas></div>
       </div>
+    </div>
+  `;
+}
+
+// ─────────────────────────────────────────────────────
+// NIVEL 2 — INCIDENCIAS
+// ─────────────────────────────────────────────────────
+function buildIncidencias({ results, deviceStats, itemStats, platformStats, failCount }) {
+  const topItems = itemStats.slice(0, 10);
+  const maxFail  = topItems[0]?.fail || 1;
+
+  const platformColors = {
+    'iOS':'#34d399','Android':'#60a5fa','Android TV':'#a78bfa',
+    'Smart TV':'#f59e0b','Web':'#97D700','Streaming':'#e34948','Otro':'#7c82a0'
+  };
+
+  return `
+    <div class="section-heading">
+      <div class="section-num">2</div>
+      <div class="section-title">¿Dónde está el problema?</div>
+      <div class="section-desc">Análisis de incidencias por ítem, plataforma y dispositivo</div>
+    </div>
+
+    <div class="charts-grid-2" style="margin-bottom:18px">
+      <!-- Top ítems con FAILs -->
       <div class="chart-card">
-        <div class="chart-title">Distribución de estados</div>
-        <div class="chart-desc">Del total de checks en el período</div>
-        <div class="chart-wrap" style="height:220px"><canvas id="chartStatus"></canvas></div>
+        <div class="chart-title">Top ítems con más FAILs</div>
+        <div class="chart-desc">Ordenados por cantidad absoluta de fallos en el período</div>
+        <div class="prop-list" id="itemPropList">
+          ${topItems.map(it => `
+            <div class="prop-item">
+              <div class="prop-item-header">
+                <span class="prop-item-name" title="${escHtml(it.name)}">${escHtml(truncate(it.name, 42))}</span>
+                <span class="prop-item-vals">${it.fail} FAILs · <strong style="color:#e34948">${it.pctOfFails}%</strong> del total</span>
+              </div>
+              <div class="prop-bar-track">
+                <div class="prop-bar-fill prop-bar-fail" style="width:${Math.round(it.fail/maxFail*100)}%"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- FAILs por plataforma -->
+      <div class="chart-card">
+        <div class="chart-title">FAILs por plataforma</div>
+        <div class="chart-desc">Inferida del nombre de dispositivo · ${failCount} fallos totales</div>
+        ${platformStats.length ? `
+          <div class="prop-list">
+            ${platformStats.map(p => `
+              <div class="prop-item">
+                <div class="prop-item-header">
+                  <span class="prop-item-name">
+                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${platformColors[p.platform]||'#7c82a0'};margin-right:6px;vertical-align:middle"></span>
+                    ${escHtml(p.platform)}
+                  </span>
+                  <span class="prop-item-vals">${p.failCount} FAILs · <strong style="color:${platformColors[p.platform]||'#7c82a0'}">${p.pctOfFails}%</strong></span>
+                </div>
+                <div class="prop-bar-track">
+                  <div class="prop-bar-fill" style="width:${p.pctOfFails}%;background:${platformColors[p.platform]||'#7c82a0'}"></div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : '<div class="empty-msg">Sin datos de FAIL</div>'}
+      </div>
+    </div>
+
+    <div class="charts-grid-1">
+      <div class="chart-card">
+        <div class="chart-title">FAILs por dispositivo</div>
+        <div class="chart-desc">% de FAIL sobre el total de checks por dispositivo</div>
+        <div class="chart-wrap" style="height:${Math.max(200, deviceStats.length*32)}px">
+          <canvas id="chartDevices"></canvas>
+        </div>
       </div>
     </div>
   `;
-
-  // ── Chart defaults ──
-  Chart.defaults.color = '#7c82a0';
-  Chart.defaults.font.family = "'Encode Sans Expanded','Helvetica Neue',Arial,sans-serif";
-  Chart.defaults.font.size = 11;
-
-  const gridColor = 'rgba(80,100,200,0.10)';
-  const surface = '#141A32';
-
-  // Helper: destroy previous instance
-  function mkChart(id, config) {
-    if (chartInstances[id]) chartInstances[id].destroy();
-    chartInstances[id] = new Chart(document.getElementById(id), config);
-  }
-
-  // ── 1. Trend line ──
-  const trendLabels = runStats.map(r => r.label);
-  const trendData   = runStats.map(r => r.passRate);
-  mkChart('chartTrend', {
-    type: 'line',
-    data: {
-      labels: trendLabels,
-      datasets: [{
-        data: trendData,
-        borderColor: '#97D700',
-        backgroundColor: 'rgba(151,215,0,0.10)',
-        borderWidth: 2,
-        pointRadius: trendData.length <= 30 ? 5 : 3,
-        pointHoverRadius: 7,
-        pointBackgroundColor: '#97D700',
-        fill: true,
-        tension: 0.3,
-        spanGaps: true,
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => ` ${ctx.parsed.y}% PASS`,
-            title: ctx => ctx[0].label,
-          }
-        }
-      },
-      scales: {
-        x: {
-          grid: { color: gridColor },
-          ticks: { maxTicksLimit: 12, maxRotation: 35 }
-        },
-        y: {
-          min: 0, max: 100,
-          grid: { color: gridColor },
-          ticks: { callback: v => v+'%', stepSize: 20 }
-        }
-      }
-    }
-  });
-
-  // ── 2. Failing items (horizontal bar) ──
-  mkChart('chartItems', {
-    type: 'bar',
-    data: {
-      labels: itemStats.map(it => truncate(it.name, 35)),
-      datasets: [{
-        data: itemStats.map(it => it.failPct),
-        backgroundColor: 'rgba(227,73,72,0.80)',
-        borderColor: '#e34948',
-        borderWidth: 1,
-        borderRadius: 4,
-        borderSkipped: 'left',
-      }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x}% FAIL` } }
-      },
-      scales: {
-        x: {
-          min: 0, max: 100,
-          grid: { color: gridColor },
-          ticks: { callback: v => v+'%' }
-        },
-        y: { grid: { display: false }, ticks: { font: { size: 10 } } }
-      }
-    }
-  });
-
-  // ── 3. Devices (horizontal bar) ──
-  mkChart('chartDevices', {
-    type: 'bar',
-    data: {
-      labels: deviceStats.map(d => d.dev),
-      datasets: [{
-        data: deviceStats.map(d => d.failPct),
-        backgroundColor: 'rgba(227,73,72,0.80)',
-        borderColor: '#e34948',
-        borderWidth: 1,
-        borderRadius: 4,
-        borderSkipped: 'left',
-      }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x}% FAIL — ${deviceStats[ctx.dataIndex].total} checks` } }
-      },
-      scales: {
-        x: {
-          min: 0, max: 100,
-          grid: { color: gridColor },
-          ticks: { callback: v => v+'%' }
-        },
-        y: { grid: { display: false }, ticks: { font: { size: 10 } } }
-      }
-    }
-  });
-
-  // ── Click en dispositivo → filtra ítems ──
-  document.getElementById('chartDevices').style.cursor = 'pointer';
-  document.getElementById('chartDevices').onclick = function(evt) {
-    const points = chartInstances['chartDevices'].getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
-    if (!points.length) return;
-    const dev = deviceStats[points[0].index].dev;
-    selectedDevice = (selectedDevice === dev) ? null : dev;
-    renderPage();
-  };
-  // Resaltar barra activa
-  if (selectedDevice) {
-    const ci = chartInstances['chartDevices'];
-    ci.data.datasets[0].backgroundColor = deviceStats.map(d =>
-      d.dev === selectedDevice ? '#e34948' : 'rgba(227,73,72,0.35)'
-    );
-    ci.update();
-  }
-  // Botón limpiar filtro
-  const clearBtn = document.getElementById('clearDeviceFilter');
-  if (clearBtn) clearBtn.onclick = () => { selectedDevice = null; renderPage(); };
-
-  // ── 4. Operators ──
-  mkChart('chartOps', {
-    type: 'bar',
-    data: {
-      labels: opStats.map(o => o[0]),
-      datasets: [{
-        data: opStats.map(o => o[1]),
-        backgroundColor: 'rgba(142,101,216,0.80)',
-        borderColor: '#8E65D8',
-        borderWidth: 1,
-        borderRadius: 4,
-        borderSkipped: 'bottom',
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} runs` } }
-      },
-      scales: {
-        x: { grid: { display: false } },
-        y: { grid: { color: gridColor }, ticks: { stepSize: 1 } }
-      }
-    }
-  });
-
-  // ── 5. Status donut ──
-  const naCount  = results.filter(r => r.estado === 'N/A').length;
-  const uttCount = results.filter(r => r.estado === 'UNABLE TO TEST').length;
-  mkChart('chartStatus', {
-    type: 'doughnut',
-    data: {
-      labels: ['PASS', 'FAIL', 'N/A', 'UNABLE TO TEST'],
-      datasets: [{
-        data: [passCount, failCount, naCount, uttCount],
-        backgroundColor: ['#1baf7a','#e34948','#898781','#eda100'],
-        borderColor: surface,
-        borderWidth: 2,
-        hoverOffset: 6,
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      cutout: '62%',
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: { boxWidth: 10, padding: 14, font: { size: 11 } }
-        },
-        tooltip: {
-          callbacks: {
-            label: ctx => {
-              const v = ctx.parsed;
-              const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
-              return ` ${ctx.label}: ${v} (${Math.round(v/total*100)}%)`;
-            }
-          }
-        }
-      }
-    }
-  });
 }
 
-function truncate(str, max) {
-  return str && str.length > max ? str.slice(0, max-1) + '…' : str;
+// ─────────────────────────────────────────────────────
+// NIVEL 3 — DECISIÓN
+// ─────────────────────────────────────────────────────
+function buildDecision({ itemStats, failCount, totalChecks, lbl, results }) {
+  const itemsWithFails = itemStats.filter(it => it.fail > 0);
+  const opts = itemsWithFails.map(it =>
+    `<option value="${escHtml(it.name)}" ${selectedDecisionItem === it.name ? 'selected' : ''}>${escHtml(truncate(it.name, 60))} (${it.fail} FAILs)</option>`
+  ).join('');
+
+  const sel = selectedDecisionItem ? itemStats.find(it => it.name === selectedDecisionItem) : null;
+
+  let insightHtml = `
+    <div class="empty-decision">
+      <span>⚡</span>
+      Selecciona una funcionalidad para generar el análisis de decisión
+    </div>`;
+
+  if (sel) {
+    const pct = sel.pctOfFails;
+    const rate = sel.failRate;
+    const topPlat = sel.topPlatform ? sel.topPlatform[0] : null;
+    const topPlatCount = sel.topPlatform ? sel.topPlatform[1] : 0;
+    const topPlatPct = sel.fail ? Math.round(topPlatCount / sel.fail * 100) : 0;
+
+    // Priority logic
+    let priority = 'low', priorityLabel = '🟢 Prioridad baja', priorityClass = 'priority-low';
+    if (pct >= 20) { priority = 'high'; priorityLabel = '🔴 Prioridad alta'; priorityClass = 'priority-high'; }
+    else if (pct >= 10) { priority = 'medium'; priorityLabel = '🟡 Prioridad media'; priorityClass = 'priority-medium'; }
+
+    // Concentration
+    const concentrated = topPlat && topPlatPct >= 60;
+
+    // Narrative text
+    let narrative = `<strong>${escHtml(sel.name)}</strong> presentó <strong>${sel.fail} incidencias</strong> durante ${escHtml(lbl.toLowerCase())}, representando el <strong>${pct}% del total de fallos</strong> del período.`;
+
+    if (concentrated && topPlat) {
+      narrative += ` El <strong>${topPlatPct}%</strong> de estos fallos se concentra en <strong>${escHtml(topPlat)}</strong> (${topPlatCount} casos).`;
+    } else if (topPlat) {
+      narrative += ` El dispositivo/plataforma con mayor concentración es <strong>${escHtml(topPlat)}</strong> con ${topPlatCount} casos.`;
+    }
+
+    // Recommendation
+    let recommendation = '';
+    if (priority === 'high' && concentrated && topPlat) {
+      recommendation = `Investigar el comportamiento de <em>${escHtml(sel.name)}</em> en <strong>${escHtml(topPlat)}</strong> — concentración atípica y alta participación en el total de fallos.`;
+    } else if (priority === 'high') {
+      recommendation = `Este ítem requiere revisión urgente: representa más del 20% de todos los problemas del período.`;
+    } else if (priority === 'medium') {
+      recommendation = `Monitorear en los próximos runs — supera el umbral del 10% de fallos globales.`;
+    } else {
+      recommendation = `Impacto bajo por ahora. Continuar seguimiento normal.`;
+    }
+
+    // Device breakdown for this item
+    const devBreakdown = Object.entries(sel.byPlatform)
+      .sort((a,b) => b[1]-a[1])
+      .slice(0, 5)
+      .map(([plat, cnt]) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border2)">
+        <span style="font-size:12px;color:var(--text)">${escHtml(plat)}</span>
+        <span style="font-size:12px;color:#e34948;font-weight:700">${cnt} FAILs · ${sel.fail ? Math.round(cnt/sel.fail*100) : 0}%</span>
+      </div>`).join('');
+
+    insightHtml = `
+      <div class="priority-badge ${priorityClass}">${priorityLabel}</div>
+
+      <div class="decision-kpi-row">
+        <div class="d-kpi">
+          <div class="d-kpi-val" style="color:#e34948">${sel.fail}</div>
+          <div class="d-kpi-label">Incidencias</div>
+          <div class="d-kpi-sub">en el período</div>
+        </div>
+        <div class="d-kpi">
+          <div class="d-kpi-val" style="color:#f59e0b">${pct}<span style="font-size:14px">%</span></div>
+          <div class="d-kpi-label">De todos los FAILs</div>
+          <div class="d-kpi-sub">de ${failCount} totales</div>
+        </div>
+        <div class="d-kpi">
+          <div class="d-kpi-val" style="color:#7c82a0">${rate}<span style="font-size:14px">%</span></div>
+          <div class="d-kpi-label">Tasa de fallo</div>
+          <div class="d-kpi-sub">de ${sel.total} checks</div>
+        </div>
+      </div>
+
+      <div class="narrative-box">
+        <div class="narrative-period">${escHtml(lbl)}</div>
+        <div class="narrative-text">${narrative}</div>
+      </div>
+
+      <div class="chart-card" style="margin-bottom:16px">
+        <div class="chart-title">Recomendación</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.8;margin-top:8px">${recommendation}</div>
+      </div>
+
+      ${devBreakdown ? `
+        <div class="chart-card">
+          <div class="chart-title">FAILs por plataforma — ${escHtml(truncate(sel.name, 40))}</div>
+          <div class="chart-desc" style="margin-bottom:8px">Distribución de las ${sel.fail} incidencias</div>
+          ${devBreakdown}
+        </div>
+      ` : ''}
+    `;
+  }
+
+  return `
+    <div class="section-heading">
+      <div class="section-num">3</div>
+      <div class="section-title">¿Qué deberíamos hacer?</div>
+      <div class="section-desc">Dato → análisis → decisión</div>
+    </div>
+
+    <div class="decision-panel">
+      <h3>Análisis de funcionalidad</h3>
+      <p>Selecciona un ítem para obtener su narrativa completa, porcentaje de impacto y recomendación de acción.</p>
+      <div class="decision-select-row">
+        <select class="decision-select" id="decisionItemSelect" onchange="onDecisionItemChange(this.value)">
+          <option value="">— Selecciona una funcionalidad —</option>
+          ${opts}
+        </select>
+      </div>
+      ${insightHtml}
+    </div>
+  `;
+}
+
+function onDecisionItemChange(val) {
+  selectedDecisionItem = val || null;
+  renderPage();
+}
+
+// ─────────────────────────────────────────────────────
+// Mount charts after HTML render
+// ─────────────────────────────────────────────────────
+function mountCharts(tab, { results, runStats, deviceStats, itemStats, platformStats, opStats, passCount, failCount, naCount, uttCount }) {
+
+  if (tab === 'resumen') {
+    // Trend
+    mkChart('chartTrend', {
+      type: 'line',
+      data: {
+        labels: runStats.map(r => r.label),
+        datasets: [{
+          data: runStats.map(r => r.passRate),
+          borderColor: '#97D700',
+          backgroundColor: 'rgba(151,215,0,0.10)',
+          borderWidth: 2,
+          pointRadius: runStats.length <= 30 ? 4 : 2,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#97D700',
+          fill: true,
+          tension: 0.3,
+          spanGaps: true,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y}% PASS`, title: ctx => ctx[0].label } }
+        },
+        scales: {
+          x: { grid: { color: gridColor }, ticks: { maxTicksLimit: 12, maxRotation: 35 } },
+          y: { min: 0, max: 100, grid: { color: gridColor }, ticks: { callback: v => v+'%', stepSize: 20 } }
+        }
+      }
+    });
+
+    // Status donut
+    mkChart('chartStatus', {
+      type: 'doughnut',
+      data: {
+        labels: ['PASS', 'FAIL', 'N/A', 'UNABLE TO TEST'],
+        datasets: [{
+          data: [passCount, failCount, naCount, uttCount],
+          backgroundColor: ['#1baf7a','#e34948','#898781','#eda100'],
+          borderColor: surface,
+          borderWidth: 2,
+          hoverOffset: 6,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        cutout: '62%',
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 10, padding: 14, font: { size: 11 } } },
+          tooltip: { callbacks: { label: ctx => {
+            const v = ctx.parsed;
+            const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+            return ` ${ctx.label}: ${v} (${Math.round(v/total*100)}%)`;
+          }}}
+        }
+      }
+    });
+
+    // Operators
+    mkChart('chartOps', {
+      type: 'bar',
+      data: {
+        labels: opStats.map(o => o[0]),
+        datasets: [{
+          data: opStats.map(o => o[1]),
+          backgroundColor: 'rgba(142,101,216,0.80)',
+          borderColor: '#8E65D8',
+          borderWidth: 1,
+          borderRadius: 4,
+          borderSkipped: 'bottom',
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} runs` } } },
+        scales: { x: { grid: { display: false } }, y: { grid: { color: gridColor }, ticks: { stepSize: 1 } } }
+      }
+    });
+  }
+
+  if (tab === 'incidencias') {
+    // Devices horizontal bar (% fail)
+    mkChart('chartDevices', {
+      type: 'bar',
+      data: {
+        labels: deviceStats.map(d => d.dev),
+        datasets: [{
+          data: deviceStats.map(d => d.failPct),
+          backgroundColor: deviceStats.map(d => d.failPct >= 20 ? 'rgba(227,73,72,0.85)' : 'rgba(227,73,72,0.50)'),
+          borderColor: '#e34948',
+          borderWidth: 1,
+          borderRadius: 4,
+          borderSkipped: 'left',
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x}% FAIL · ${deviceStats[ctx.dataIndex].failCount} FAILs de ${deviceStats[ctx.dataIndex].total} checks` } }
+        },
+        scales: {
+          x: { min: 0, max: 100, grid: { color: gridColor }, ticks: { callback: v => v+'%' } },
+          y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+        }
+      }
+    });
+  }
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 </script>
 </body>
