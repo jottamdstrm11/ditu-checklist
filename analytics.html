@@ -500,7 +500,8 @@ function renderPage() {
       total: rr.length,
       platform: inferPlataforma(dev)
     };
-  }).sort((a,b) => b.failCount - a.failCount);
+  }).sort((a,b) => b.failCount - a.failCount)
+  .map(d => ({ ...d, pctOfFails: failCount ? Math.round(d.failCount/failCount*100) : 0 }));
 
   // Per-platform stats
   const platformMap = new Map();
@@ -526,6 +527,10 @@ function renderPage() {
       it.fail++;
       const plat = inferPlataforma(r.dispositivo);
       it.byPlatform[plat] = (it.byPlatform[plat]||0) + 1;
+      if (r.dispositivo) {
+        it.byDevice = it.byDevice || {};
+        it.byDevice[r.dispositivo] = (it.byDevice[r.dispositivo]||0) + 1;
+      }
     }
   }
   const itemStats = [...itemMap.values()]
@@ -533,7 +538,8 @@ function renderPage() {
       ...it,
       failRate: it.total ? Math.round(it.fail/it.total*100) : 0,
       pctOfFails: failCount ? Math.round(it.fail/failCount*100) : 0,
-      topPlatform: Object.entries(it.byPlatform).sort((a,b)=>b[1]-a[1])[0] || null
+      topPlatform: Object.entries(it.byPlatform).sort((a,b)=>b[1]-a[1])[0] || null,
+      topDevice: Object.entries(it.byDevice||{}).sort((a,b)=>b[1]-a[1])[0] || null
     }))
     .filter(it => it.total >= 3)
     .sort((a,b) => b.fail - a.fail); // sorted by absolute count
@@ -697,9 +703,9 @@ function buildIncidencias({ results, deviceStats, itemStats, platformStats, fail
           ${selectedDevice ? `<button onclick="clearDevice()" style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid #8E65D8;background:rgba(142,101,216,0.15);color:#c3a0ff;cursor:pointer;font-family:inherit;white-space:nowrap">✕ ${escHtml(selectedDevice)}</button>` : ''}
         </div>
         <div class="chart-desc">
-          % FAIL del total de checks ·
+          Cantidad absoluta de FAILs por dispositivo ·
           <span style="background:rgba(142,101,216,0.15);border:1px solid rgba(142,101,216,0.4);border-radius:5px;padding:1px 8px;font-size:10px;font-weight:700;color:#c3a0ff">
-            👆 Clic para explorar ítems
+            👆 Clic para ver qué ítems fallan
           </span>
         </div>
         <div class="chart-wrap" style="height:${Math.max(200, deviceStats.length*34)}px;cursor:pointer">
@@ -707,27 +713,25 @@ function buildIncidencias({ results, deviceStats, itemStats, platformStats, fail
         </div>
       </div>
 
-      <!-- FAILs por plataforma -->
+      <!-- FAILs por dispositivo — proportion bars -->
       <div class="chart-card">
-        <div class="chart-title">FAILs por plataforma</div>
-        <div class="chart-desc">Inferida del dispositivo · ${failCount} fallos totales en el período</div>
-        ${platformStats.length ? `
-          <div class="prop-list" style="margin-top:4px">
-            ${platformStats.map(p => `
-              <div class="prop-item">
+        <div class="chart-title">FAILs por dispositivo</div>
+        <div class="chart-desc">Participación de cada dispositivo en el total de ${failCount} FAILs del período</div>
+        ${deviceStats.filter(d => d.failCount > 0).length ? `
+          <div class="prop-list" style="margin-top:4px;max-height:${Math.max(280, deviceStats.length*48)}px;overflow-y:auto">
+            ${deviceStats.filter(d => d.failCount > 0).map(d => `
+              <div class="prop-item" style="${selectedDevice === d.dev ? 'padding:6px;background:rgba(142,101,216,0.08);border-radius:6px;' : ''}">
                 <div class="prop-item-header">
-                  <span class="prop-item-name">
-                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${platformColors[p.platform]||'#7c82a0'};margin-right:6px;vertical-align:middle"></span>
-                    ${escHtml(p.platform)}
-                  </span>
-                  <span class="prop-item-vals">${p.failCount} FAILs · <strong style="color:${platformColors[p.platform]||'#7c82a0'}">${p.pctOfFails}%</strong></span>
+                  <span class="prop-item-name" title="${escHtml(d.dev)}">${escHtml(d.dev)}</span>
+                  <span class="prop-item-vals">${d.failCount} FAILs · <strong style="color:#e34948">${d.pctOfFails}%</strong> <span style="color:var(--dim);font-size:9px">(${d.failPct}% tasa)</span></span>
                 </div>
                 <div class="prop-bar-track">
-                  <div class="prop-bar-fill" style="width:${p.pctOfFails}%;background:${platformColors[p.platform]||'#7c82a0'}"></div>
+                  <div class="prop-bar-fill" style="width:${d.pctOfFails}%;background:${selectedDevice === d.dev ? '#8E65D8' : '#e34948'}"></div>
                 </div>
               </div>
             `).join('')}
           </div>
+          <div class="footnote">% del total = participación en FAILs globales · tasa = % de checks que fallan en ese dispositivo</div>
         ` : '<div class="empty-msg">Sin datos de FAIL</div>'}
       </div>
     </div>
@@ -790,9 +794,10 @@ function buildDecision({ itemStats, failCount, totalChecks, lbl, results }) {
   if (sel) {
     const pct = sel.pctOfFails;
     const rate = sel.failRate;
-    const topPlat = sel.topPlatform ? sel.topPlatform[0] : null;
-    const topPlatCount = sel.topPlatform ? sel.topPlatform[1] : 0;
-    const topPlatPct = sel.fail ? Math.round(topPlatCount / sel.fail * 100) : 0;
+    // Use device-level breakdown (not platform grouping)
+    const topDevice = sel.topDevice ? sel.topDevice[0] : null;
+    const topDeviceCount = sel.topDevice ? sel.topDevice[1] : 0;
+    const topDevicePct = sel.fail ? Math.round(topDeviceCount / sel.fail * 100) : 0;
 
     // Priority logic
     let priority = 'low', priorityLabel = '🟢 Prioridad baja', priorityClass = 'priority-low';
@@ -800,21 +805,21 @@ function buildDecision({ itemStats, failCount, totalChecks, lbl, results }) {
     else if (pct >= 10) { priority = 'medium'; priorityLabel = '🟡 Prioridad media'; priorityClass = 'priority-medium'; }
 
     // Concentration
-    const concentrated = topPlat && topPlatPct >= 60;
+    const concentrated = topDevice && topDevicePct >= 60;
 
     // Narrative text
     let narrative = `<strong>${escHtml(sel.name)}</strong> presentó <strong>${sel.fail} incidencias</strong> durante ${escHtml(lbl.toLowerCase())}, representando el <strong>${pct}% del total de fallos</strong> del período.`;
 
-    if (concentrated && topPlat) {
-      narrative += ` El <strong>${topPlatPct}%</strong> de estos fallos se concentra en <strong>${escHtml(topPlat)}</strong> (${topPlatCount} casos).`;
-    } else if (topPlat) {
-      narrative += ` El dispositivo/plataforma con mayor concentración es <strong>${escHtml(topPlat)}</strong> con ${topPlatCount} casos.`;
+    if (concentrated && topDevice) {
+      narrative += ` El <strong>${topDevicePct}%</strong> de estos fallos se concentra en <strong>${escHtml(topDevice)}</strong> (${topDeviceCount} casos).`;
+    } else if (topDevice) {
+      narrative += ` El dispositivo con mayor concentración es <strong>${escHtml(topDevice)}</strong> con ${topDeviceCount} casos (${topDevicePct}% de los fallos de este ítem).`;
     }
 
     // Recommendation
     let recommendation = '';
-    if (priority === 'high' && concentrated && topPlat) {
-      recommendation = `Investigar el comportamiento de <em>${escHtml(sel.name)}</em> en <strong>${escHtml(topPlat)}</strong> — concentración atípica y alta participación en el total de fallos.`;
+    if (priority === 'high' && concentrated && topDevice) {
+      recommendation = `Investigar el comportamiento de <em>${escHtml(sel.name)}</em> en <strong>${escHtml(topDevice)}</strong> — concentración atípica y alta participación en el total de fallos.`;
     } else if (priority === 'high') {
       recommendation = `Este ítem requiere revisión urgente: representa más del 20% de todos los problemas del período.`;
     } else if (priority === 'medium') {
@@ -823,12 +828,12 @@ function buildDecision({ itemStats, failCount, totalChecks, lbl, results }) {
       recommendation = `Impacto bajo por ahora. Continuar seguimiento normal.`;
     }
 
-    // Device breakdown for this item
-    const devBreakdown = Object.entries(sel.byPlatform)
+    // Device breakdown for this item (device-level, not platform grouping)
+    const devBreakdown = Object.entries(sel.byDevice||sel.byPlatform)
       .sort((a,b) => b[1]-a[1])
-      .slice(0, 5)
-      .map(([plat, cnt]) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border2)">
-        <span style="font-size:12px;color:var(--text)">${escHtml(plat)}</span>
+      .slice(0, 8)
+      .map(([dev, cnt]) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border2)">
+        <span style="font-size:12px;color:var(--text)">${escHtml(dev)}</span>
         <span style="font-size:12px;color:#e34948;font-weight:700">${cnt} FAILs · ${sel.fail ? Math.round(cnt/sel.fail*100) : 0}%</span>
       </div>`).join('');
 
@@ -865,8 +870,8 @@ function buildDecision({ itemStats, failCount, totalChecks, lbl, results }) {
 
       ${devBreakdown ? `
         <div class="chart-card">
-          <div class="chart-title">FAILs por plataforma — ${escHtml(truncate(sel.name, 40))}</div>
-          <div class="chart-desc" style="margin-bottom:8px">Distribución de las ${sel.fail} incidencias</div>
+          <div class="chart-title">FAILs por dispositivo — ${escHtml(truncate(sel.name, 40))}</div>
+          <div class="chart-desc" style="margin-bottom:8px">Distribución de las ${sel.fail} incidencias por dispositivo específico</div>
           ${devBreakdown}
         </div>
       ` : ''}
@@ -996,12 +1001,13 @@ function mountCharts(tab, { results, runStats, deviceStats, itemStats, platformS
       return '#e34948';
     });
 
+    const maxDevFail = Math.max(...deviceStats.map(d => d.failCount), 1);
     const devChart = mkChart('chartDevices', {
       type: 'bar',
       data: {
         labels: deviceStats.map(d => d.dev),
         datasets: [{
-          data: deviceStats.map(d => d.failPct),
+          data: deviceStats.map(d => d.failCount),
           backgroundColor: devBgColors,
           borderColor: devBorderColors,
           borderWidth: 1,
@@ -1015,11 +1021,11 @@ function mountCharts(tab, { results, runStats, deviceStats, itemStats, platformS
         plugins: {
           legend: { display: false },
           tooltip: { callbacks: {
-            label: ctx => ` ${ctx.parsed.x}% FAIL · ${deviceStats[ctx.dataIndex].failCount} FAILs de ${deviceStats[ctx.dataIndex].total} checks`
+            label: ctx => ` ${ctx.parsed.x} FAILs · ${deviceStats[ctx.dataIndex].failPct}% tasa de fallo (${deviceStats[ctx.dataIndex].pctOfFails}% del total)`
           }}
         },
         scales: {
-          x: { min: 0, max: 100, grid: { color: gridColor }, ticks: { callback: v => v+'%' } },
+          x: { min: 0, max: maxDevFail, grid: { color: gridColor }, ticks: { stepSize: Math.ceil(maxDevFail/5) } },
           y: { grid: { display: false }, ticks: { font: { size: 10 } } }
         }
       }
