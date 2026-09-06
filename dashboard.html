@@ -573,6 +573,63 @@
     .run-action-btn.del { background: rgba(227,73,72,0.15); color: #e34948; }
     .run-action-btn.del:hover { background: rgba(227,73,72,0.25); }
 
+    /* ─── Edit cell button (admin) ──────────────────────────── */
+    .matrix-cell-wrap { position: relative; display: inline-flex; align-items: center; gap: 4px; }
+    .cell-edit-btn {
+      display: none;
+      background: rgba(99,102,241,0.18); border: 1px solid rgba(99,102,241,0.35);
+      color: #818cf8; border-radius: 4px; padding: 1px 5px; font-size: 10px;
+      cursor: pointer; transition: background .15s;
+    }
+    .cell-edit-btn:hover { background: rgba(99,102,241,0.35); }
+    td:hover .cell-edit-btn { display: inline-block; }
+    .cell-edited-dot {
+      display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+      background: #f59e0b; vertical-align: middle; margin-left: 3px;
+      cursor: default; flex-shrink: 0;
+    }
+
+    /* ─── Edit item modal ───────────────────────────────────── */
+    .edit-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.65);
+      z-index: 5000; display: none; align-items: center; justify-content: center;
+    }
+    .edit-overlay.show { display: flex; }
+    .edit-modal {
+      background: #141A32; border: 1px solid rgba(80,100,200,0.3);
+      border-radius: 16px; padding: 28px; width: 92%; max-width: 460px;
+      display: flex; flex-direction: column; gap: 18px;
+      box-shadow: 0 16px 48px rgba(0,0,0,.7);
+    }
+    .edit-modal-header { display: flex; flex-direction: column; gap: 4px; }
+    .edit-modal-title { font-size: 15px; font-weight: 800; color: #fff; }
+    .edit-modal-sub { font-size: 12px; color: var(--text-muted); }
+    .edit-status-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+    .edit-status-btn {
+      padding: 10px 4px; border-radius: 8px; border: 2px solid transparent;
+      font-size: 11px; font-weight: 700; cursor: pointer; text-align: center;
+      transition: border-color .15s, opacity .15s; opacity: .55;
+    }
+    .edit-status-btn.pass  { background: #1a4731; color: #4ade80; }
+    .edit-status-btn.fail  { background: #4a1a1a; color: #f87171; }
+    .edit-status-btn.na    { background: #2a2d3e; color: #7c82a0; }
+    .edit-status-btn.utt   { background: #3d3010; color: #fbbf24; }
+    .edit-status-btn.selected { border-color: currentColor; opacity: 1; }
+    .edit-modal label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; display: block; margin-bottom: 6px; }
+    .edit-modal textarea {
+      width: 100%; background: #0E1126; border: 1px solid rgba(80,100,200,0.25);
+      border-radius: 8px; color: #e8eaf0; padding: 10px 12px; font-size: 13px;
+      font-family: inherit; resize: none; height: 100px; outline: none;
+      transition: border-color .15s;
+    }
+    .edit-modal textarea:focus { border-color: rgba(99,102,241,0.6); }
+    .edit-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .edit-cancel { background: none; border: 1px solid rgba(80,100,200,0.25); color: var(--text-muted); border-radius: 8px; padding: 8px 18px; font-size: 13px; cursor: pointer; transition: .15s; }
+    .edit-cancel:hover { border-color: rgba(99,102,241,0.5); color: #fff; }
+    .edit-save { background: #6366f1; border: none; color: #fff; border-radius: 8px; padding: 8px 22px; font-size: 13px; font-weight: 700; cursor: pointer; transition: .15s; }
+    .edit-save:hover { background: #4f52d9; }
+    .edit-save:disabled { opacity: .45; cursor: not-allowed; }
+
     /* ─── Historial date filter ──────────────────────────────────── */
     .hist-filter-bar {
       display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -730,9 +787,6 @@
       word-break: break-word;
       font-size: 0.72rem;
       line-height: 1.4;
-      font-size: 0.72rem;
-      max-width: 220px;
-      word-break: break-word;
     }
     .matrix-section-row td {
       background: rgba(100,60,200,0.22);
@@ -1060,6 +1114,33 @@
   </div>
 
 </main>
+
+<!-- Edit item modal (admin only) -->
+<div class="edit-overlay" id="editOverlay" onclick="if(event.target===this)closeEditModal()">
+  <div class="edit-modal">
+    <div class="edit-modal-header">
+      <div class="edit-modal-title">✏️ Editar resultado</div>
+      <div class="edit-modal-sub" id="editModalSub">—</div>
+    </div>
+    <div>
+      <label>Estado</label>
+      <div class="edit-status-grid">
+        <button class="edit-status-btn pass" data-estado="PASS" onclick="selectEditStatus('PASS')">PASS</button>
+        <button class="edit-status-btn fail" data-estado="FAIL" onclick="selectEditStatus('FAIL')">FAIL</button>
+        <button class="edit-status-btn na"   data-estado="N/A"  onclick="selectEditStatus('N/A')">N/A</button>
+        <button class="edit-status-btn utt"  data-estado="UNABLE TO TEST" onclick="selectEditStatus('UNABLE TO TEST')">UTT</button>
+      </div>
+    </div>
+    <div>
+      <label>Observación</label>
+      <textarea id="editObsText" placeholder="Observación (opcional)…"></textarea>
+    </div>
+    <div class="edit-modal-actions">
+      <button class="edit-cancel" onclick="closeEditModal()">Cancelar</button>
+      <button class="edit-save" id="editSaveBtn" onclick="saveEditModal()">Guardar cambio</button>
+    </div>
+  </div>
+</div>
 
 <!-- Delete confirm modal -->
 <div class="modal-overlay" id="deleteModal" onclick="if(event.target===this)closeDeleteModal()">
@@ -2279,8 +2360,8 @@ async function renderMatrix() {
       const item = sectionsMap[sec].get(key);
       const dev = r.dispositivo;
       if (dev) {
-        if (!item.devs[dev]) item.devs[dev] = { estado: r.estado, obs: r.observacion || '' };
-        else if (r.estado === 'FAIL') item.devs[dev] = { estado: r.estado, obs: r.observacion || '' };
+        if (!item.devs[dev]) item.devs[dev] = { estado: r.estado, obs: r.observacion || '', id: r.id, editado_por: r.editado_por || null, editado_en: r.editado_en || null };
+        else if (r.estado === 'FAIL') item.devs[dev] = { estado: r.estado, obs: r.observacion || '', id: r.id, editado_por: r.editado_por || null, editado_en: r.editado_en || null };
       }
       // Track minimum numero_item for this section
       const num = parseFloat(r.numero_item) || 0;
@@ -2315,7 +2396,12 @@ async function renderMatrix() {
             if (!cell) return `<td><span class="m-badge empty">—</span></td>`;
             const cls = cell.estado === 'PASS' ? 'pass' : cell.estado === 'FAIL' ? 'fail' : cell.estado === 'N/A' ? 'na' : 'unable';
             const lbl = cell.estado === 'UNABLE TO TEST' ? 'UTT' : cell.estado;
-            return `<td><span class="m-badge ${cls}">${lbl}</span></td>`;
+            const isAdmin = currentRol === 'superadmin' || currentRol === 'admin';
+            const editedDot = cell.editado_por
+              ? `<span class="cell-edited-dot" title="Editado por ${escHtml(cell.editado_por)}"></span>` : '';
+            const editBtn = isAdmin && cell.id
+              ? `<button class="cell-edit-btn" onclick="openEditModal('${escHtml(cell.id)}','${escHtml(item.t)}','${escHtml(d)}','${escHtml(cell.estado)}',${JSON.stringify(cell.obs||'')})">✏️</button>` : '';
+            return `<td><div class="matrix-cell-wrap"><span class="m-badge ${cls}" id="badge-${escHtml(cell.id||'')}\">${lbl}</span>${editedDot}${editBtn}</div></td>`;
           }).join('')}
           <td class="obs-col" title="${escHtml(allObs)}">${escHtml(allObs)}</td>
         </tr>`;
@@ -2477,6 +2563,83 @@ async function renderMatrix() {
 
 // ── Delete run ─────────────────────────────────────────────────
 let pendingDeleteId = null;
+
+// ── Edit item modal ───────────────────────────────────────────────
+let _editResultId = null;
+let _editEstado   = null;
+
+function openEditModal(resultId, itemName, dispositivo, estadoActual, obsActual) {
+  _editResultId = resultId;
+  _editEstado   = estadoActual;
+  document.getElementById('editModalSub').textContent = `${itemName}  ·  ${dispositivo}`;
+  document.getElementById('editObsText').value = obsActual || '';
+  // Marcar el estado actual
+  document.querySelectorAll('.edit-status-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.estado === estadoActual);
+  });
+  document.getElementById('editOverlay').classList.add('show');
+  setTimeout(() => document.getElementById('editObsText').focus(), 80);
+}
+
+function selectEditStatus(estado) {
+  _editEstado = estado;
+  document.querySelectorAll('.edit-status-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.estado === estado);
+  });
+}
+
+function closeEditModal() {
+  document.getElementById('editOverlay').classList.remove('show');
+  _editResultId = null; _editEstado = null;
+}
+
+async function saveEditModal() {
+  if (!_editResultId || !_editEstado) return;
+  const btn = document.getElementById('editSaveBtn');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    const obs = document.getElementById('editObsText').value.trim();
+    const now  = new Date().toISOString();
+    const body = { estado: _editEstado, observacion: obs, editado_por: currentUser, editado_en: now };
+    const r = await fetch(
+      `${SUPA_URL}/rest/v1/checklist_results?id=eq.${encodeURIComponent(_editResultId)}`,
+      { method: 'PATCH',
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
+                   'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify(body) }
+    );
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+
+    // Actualizar badge en el DOM sin recargar
+    const badge = document.getElementById('badge-' + _editResultId);
+    if (badge) {
+      const cls = _editEstado === 'PASS' ? 'pass' : _editEstado === 'FAIL' ? 'fail' : _editEstado === 'N/A' ? 'na' : 'unable';
+      const lbl = _editEstado === 'UNABLE TO TEST' ? 'UTT' : _editEstado;
+      badge.className = `m-badge ${cls}`;
+      badge.textContent = lbl;
+      // Agregar punto amarillo de "editado" si no existe
+      const wrap = badge.closest('.matrix-cell-wrap');
+      if (wrap && !wrap.querySelector('.cell-edited-dot')) {
+        const dot = document.createElement('span');
+        dot.className = 'cell-edited-dot';
+        dot.title = `Editado por ${currentUser}`;
+        badge.after(dot);
+      }
+    }
+
+    // Invalidar caché del run para que al recargar muestre datos frescos
+    const runId = [...selectedRunIds][0] || selectedRunId;
+    if (runId) delete runDetailsCache[runId];
+
+    closeEditModal();
+  } catch(e) {
+    alert('Error al guardar: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar cambio';
+  }
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEditModal(); });
 
 function openDeleteModal(runId, label) {
   pendingDeleteId = runId;
