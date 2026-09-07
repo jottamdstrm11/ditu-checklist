@@ -224,7 +224,7 @@ body{font-family:'Encode Sans Expanded','Helvetica Neue',Arial,sans-serif;font-s
     </button>
     <button class="tab-btn" onclick="switchTab('incidencias')">
       <svg style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:-2px;margin-right:4px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      Nivel 2 — Incidencias
+      Nivel 2 — FAILs
     </button>
     <button class="tab-btn" onclick="switchTab('decision')">
       <svg style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:-2px;margin-right:4px" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
@@ -468,8 +468,12 @@ function renderPage() {
   const failCount    = results.filter(r => r.estado === 'FAIL').length;
   const naCount      = results.filter(r => r.estado === 'N/A').length;
   const uttCount     = results.filter(r => r.estado === 'UNABLE TO TEST').length;
-  const failPct      = totalChecks ? Math.round(failCount / totalChecks * 100) : 0;
+  // Denominadores diferenciados (FASE 1.1)
+  const evalCount    = passCount + failCount;   // checks evaluables: solo PASS + FAIL (excluye N/A y UTT)
+  const failPct      = totalChecks ? Math.round(failCount / totalChecks * 100) : 0;   // tasa sobre TODOS los checks
+  const failPctEval  = evalCount   ? Math.round(failCount / evalCount   * 100) : 0;   // tasa sobre checks EVALUABLES
   const passPct      = totalChecks ? Math.round(passCount / totalChecks * 100) : 0;
+  const passPctEval  = evalCount   ? Math.round(passCount / evalCount   * 100) : 0;   // tasa sobre checks EVALUABLES
 
   const allDevices    = [...new Set(results.map(r => r.dispositivo).filter(Boolean))];
   const allItems      = [...new Set(results.map(r => r.nombre_item || r.numero_item).filter(Boolean))];
@@ -492,12 +496,17 @@ function renderPage() {
   // Per-device stats
   const deviceStats = allDevices.map(dev => {
     const rr = results.filter(r => r.dispositivo === dev);
-    const f = rr.filter(r => r.estado === 'FAIL').length;
+    const f  = rr.filter(r => r.estado === 'FAIL').length;
+    const p  = rr.filter(r => r.estado === 'PASS').length;
+    const ev = p + f; // checks evaluables del dispositivo (excluye N/A y UTT)
     return {
       dev,
       failCount: f,
-      failPct: rr.length ? Math.round(f/rr.length*100) : 0,
-      total: rr.length,
+      passCount: p,
+      evalChecks: ev,                                                          // checks evaluables
+      total: rr.length,                                                        // todos los checks (incl. N/A y UTT)
+      failPct:     rr.length ? Math.round(f/rr.length*100) : 0,              // tasa sobre todos
+      failPctEval: ev        ? Math.round(f/ev*100)        : 0,              // tasa sobre evaluables (PASS+FAIL)
       platform: inferPlataforma(dev)
     };
   }).sort((a,b) => b.failCount - a.failCount)
@@ -534,13 +543,18 @@ function renderPage() {
     }
   }
   const itemStats = [...itemMap.values()]
-    .map(it => ({
-      ...it,
-      failRate: it.total ? Math.round(it.fail/it.total*100) : 0,
-      pctOfFails: failCount ? Math.round(it.fail/failCount*100) : 0,
-      topPlatform: Object.entries(it.byPlatform).sort((a,b)=>b[1]-a[1])[0] || null,
-      topDevice: Object.entries(it.byDevice||{}).sort((a,b)=>b[1]-a[1])[0] || null
-    }))
+    .map(it => {
+      const evalIt = it.pass + it.fail; // checks evaluables del ítem
+      return {
+        ...it,
+        evalChecks: evalIt,                                                              // checks evaluables del ítem
+        failRate:     evalIt    ? Math.round(it.fail/evalIt*100)    : 0,               // tasa sobre evaluables (PASS+FAIL)
+        failRateAll:  it.total  ? Math.round(it.fail/it.total*100)  : 0,              // tasa sobre todos (incl. N/A y UTT)
+        pctOfFails:   failCount ? Math.round(it.fail/failCount*100) : 0,
+        topPlatform: Object.entries(it.byPlatform).sort((a,b)=>b[1]-a[1])[0] || null,
+        topDevice:   Object.entries(it.byDevice||{}).sort((a,b)=>b[1]-a[1])[0] || null
+      };
+    })
     .filter(it => it.total >= 3)
     .sort((a,b) => b.fail - a.fail); // sorted by absolute count
 
@@ -559,13 +573,14 @@ function renderPage() {
   let html = '';
 
   if (activeTab === 'resumen') {
-    html = buildResumen({ totalRuns, totalChecks, passCount, failCount, naCount, uttCount,
-      failPct, passPct, allDevices, allItems, devsWithFail, worstDevice, worstItem,
+    html = buildResumen({ totalRuns, totalChecks, evalCount, passCount, failCount, naCount, uttCount,
+      failPct, failPctEval, passPct, passPctEval,
+      allDevices, allItems, devsWithFail, worstDevice, worstItem,
       runStats, opStats, platformStats });
   } else if (activeTab === 'incidencias') {
-    html = buildIncidencias({ results, deviceStats, itemStats, platformStats, failCount, totalChecks });
+    html = buildIncidencias({ results, deviceStats, itemStats, platformStats, failCount, totalChecks, evalCount });
   } else if (activeTab === 'decision') {
-    html = buildDecision({ itemStats, failCount, totalChecks, lbl, results });
+    html = buildDecision({ itemStats, failCount, totalChecks, evalCount, lbl, results });
   }
 
   document.getElementById('mainContent').innerHTML = html;
@@ -575,8 +590,9 @@ function renderPage() {
 // ─────────────────────────────────────────────────────
 // NIVEL 1 — RESUMEN
 // ─────────────────────────────────────────────────────
-function buildResumen({ totalRuns, totalChecks, passCount, failCount, naCount, uttCount,
-    failPct, passPct, allDevices, allItems, devsWithFail, worstDevice, worstItem, runStats, opStats }) {
+function buildResumen({ totalRuns, totalChecks, evalCount, passCount, failCount, naCount, uttCount,
+    failPct, failPctEval, passPct, passPctEval,
+    allDevices, allItems, devsWithFail, worstDevice, worstItem, runStats, opStats }) {
 
   return `
     <div class="section-heading">
@@ -589,17 +605,17 @@ function buildResumen({ totalRuns, totalChecks, passCount, failCount, naCount, u
       <div class="kpi-card kpi-info">
         <div class="kpi-label">Total de checks</div>
         <div class="kpi-value">${totalChecks.toLocaleString()}</div>
-        <div class="kpi-sub">${totalRuns} runs completados</div>
+        <div class="kpi-sub">${totalRuns} runs · ${evalCount.toLocaleString()} evaluables</div>
       </div>
       <div class="kpi-card kpi-bad">
-        <div class="kpi-label">Total FAILs</div>
+        <div class="kpi-label">Total FAILs registrados</div>
         <div class="kpi-value">${failCount.toLocaleString()}</div>
-        <div class="kpi-sub">${failPct}% del total de checks</div>
+        <div class="kpi-sub">${failPctEval}% de checks evaluables · ${failPct}% de todos</div>
       </div>
-      <div class="kpi-card ${passPct >= 85 ? 'kpi-good' : passPct >= 70 ? 'kpi-warn' : 'kpi-bad'}">
+      <div class="kpi-card ${passPctEval >= 85 ? 'kpi-good' : passPctEval >= 70 ? 'kpi-warn' : 'kpi-bad'}">
         <div class="kpi-label">Tasa de PASS</div>
-        <div class="kpi-value">${passPct}<span style="font-size:16px;font-weight:400;color:var(--muted)">%</span></div>
-        <div class="kpi-sub">${passCount.toLocaleString()} checks aprobados</div>
+        <div class="kpi-value">${passPctEval}<span style="font-size:16px;font-weight:400;color:var(--muted)">%</span></div>
+        <div class="kpi-sub">sobre checks evaluables · ${passCount.toLocaleString()} PASS</div>
       </div>
       <div class="kpi-card kpi-info">
         <div class="kpi-label">Ítems evaluados</div>
@@ -611,10 +627,15 @@ function buildResumen({ totalRuns, totalChecks, passCount, failCount, naCount, u
         <div class="kpi-value">${allDevices.length}</div>
         <div class="kpi-sub">${devsWithFail.length} con al menos un FAIL</div>
       </div>
+      <div class="kpi-card" style="--accent:var(--na,#898781)">
+        <div class="kpi-label">N/A</div>
+        <div class="kpi-value">${naCount.toLocaleString()}</div>
+        <div class="kpi-sub">No aplica al dispositivo</div>
+      </div>
       <div class="kpi-card kpi-warn">
-        <div class="kpi-label">N/A + Sin probar</div>
-        <div class="kpi-value">${(naCount+uttCount).toLocaleString()}</div>
-        <div class="kpi-sub">N/A: ${naCount.toLocaleString()} · UTT: ${uttCount.toLocaleString()}</div>
+        <div class="kpi-label">Unable to Test</div>
+        <div class="kpi-value">${uttCount.toLocaleString()}</div>
+        <div class="kpi-sub">Intentado pero no pudo probarse</div>
       </div>
     </div>
 
@@ -645,7 +666,7 @@ function buildResumen({ totalRuns, totalChecks, passCount, failCount, naCount, u
 // ─────────────────────────────────────────────────────
 // NIVEL 2 — INCIDENCIAS
 // ─────────────────────────────────────────────────────
-function buildIncidencias({ results, deviceStats, itemStats, platformStats, failCount }) {
+function buildIncidencias({ results, deviceStats, itemStats, platformStats, failCount, evalCount }) {
 
   const platformColors = {
     'iOS':'#34d399','Android':'#60a5fa','Android TV':'#a78bfa',
@@ -690,8 +711,8 @@ function buildIncidencias({ results, deviceStats, itemStats, platformStats, fail
   return `
     <div class="section-heading">
       <div class="section-num">2</div>
-      <div class="section-title">¿Dónde está el problema?</div>
-      <div class="section-desc">Haz clic en un dispositivo para ver qué ítems fallan en él</div>
+      <div class="section-title">¿Dónde están los FAILs?</div>
+      <div class="section-desc">Haz clic en un dispositivo para ver qué ítems registran más FAILs en él</div>
     </div>
 
     <div class="charts-grid-2" style="margin-bottom:18px">
@@ -723,7 +744,7 @@ function buildIncidencias({ results, deviceStats, itemStats, platformStats, fail
               <div class="prop-item" style="${selectedDevice === d.dev ? 'padding:6px;background:rgba(142,101,216,0.08);border-radius:6px;' : ''}">
                 <div class="prop-item-header">
                   <span class="prop-item-name" title="${escHtml(d.dev)}">${escHtml(d.dev)}</span>
-                  <span class="prop-item-vals">${d.failCount} FAILs · <strong style="color:#e34948">${d.pctOfFails}%</strong> <span style="color:var(--dim);font-size:9px">(${d.failPct}% tasa)</span></span>
+                  <span class="prop-item-vals">${d.failCount} FAILs · <strong style="color:#e34948">${d.pctOfFails}%</strong> del total <span style="color:var(--dim);font-size:9px">· tasa ${d.failPctEval}% (eval.)</span></span>
                 </div>
                 <div class="prop-bar-track">
                   <div class="prop-bar-fill" style="width:${d.pctOfFails}%;background:${selectedDevice === d.dev ? '#8E65D8' : '#e34948'}"></div>
@@ -731,7 +752,7 @@ function buildIncidencias({ results, deviceStats, itemStats, platformStats, fail
               </div>
             `).join('')}
           </div>
-          <div class="footnote">% del total = participación en FAILs globales · tasa = % de checks que fallan en ese dispositivo</div>
+          <div class="footnote">% del total = participación en FAILs globales · tasa eval. = FAILs / (PASS+FAIL) del dispositivo, excluye N/A y UTT</div>
         ` : '<div class="empty-msg">Sin datos de FAIL</div>'}
       </div>
     </div>
@@ -747,8 +768,8 @@ function buildIncidencias({ results, deviceStats, itemStats, platformStats, fail
       </div>
       <div class="chart-desc" style="margin-bottom:14px">
         ${selectedDevice
-          ? `Ítems que más fallan en <strong style="color:#fff">${escHtml(selectedDevice)}</strong> · ${drillFailTotal} FAILs en este dispositivo`
-          : 'Ordenados por cantidad absoluta de FAILs en el período'}
+          ? `Ítems con más FAILs registrados en <strong style="color:#fff">${escHtml(selectedDevice)}</strong> · ${drillFailTotal} FAILs totales en este dispositivo`
+          : 'Ordenados por cantidad absoluta de FAILs registrados en el período'}
       </div>
       ${drillItems.length ? `
         <div class="prop-list">
@@ -777,10 +798,10 @@ function clearDevice() {
 // ─────────────────────────────────────────────────────
 // NIVEL 3 — DECISIÓN
 // ─────────────────────────────────────────────────────
-function buildDecision({ itemStats, failCount, totalChecks, lbl, results }) {
+function buildDecision({ itemStats, failCount, totalChecks, evalCount, lbl, results }) {
   const itemsWithFails = itemStats.filter(it => it.fail > 0);
   const opts = itemsWithFails.map(it =>
-    `<option value="${escHtml(it.name)}" ${selectedDecisionItem === it.name ? 'selected' : ''}>${escHtml(truncate(it.name, 60))} (${it.fail} FAILs)</option>`
+    `<option value="${escHtml(it.name)}" ${selectedDecisionItem === it.name ? 'selected' : ''}>${escHtml(truncate(it.name, 60))} (${it.fail} FAILs registrados)</option>`
   ).join('');
 
   const sel = selectedDecisionItem ? itemStats.find(it => it.name === selectedDecisionItem) : null;
@@ -799,33 +820,33 @@ function buildDecision({ itemStats, failCount, totalChecks, lbl, results }) {
     const topDeviceCount = sel.topDevice ? sel.topDevice[1] : 0;
     const topDevicePct = sel.fail ? Math.round(topDeviceCount / sel.fail * 100) : 0;
 
-    // Priority logic
-    let priority = 'low', priorityLabel = '🟢 Prioridad baja', priorityClass = 'priority-low';
-    if (pct >= 20) { priority = 'high'; priorityLabel = '🔴 Prioridad alta'; priorityClass = 'priority-high'; }
-    else if (pct >= 10) { priority = 'medium'; priorityLabel = '🟡 Prioridad media'; priorityClass = 'priority-medium'; }
+    // Clasificación por concentración de FAILs (umbral provisional, no equivale a prioridad de negocio)
+    let priority = 'low', priorityLabel = '🟢 Concentración baja', priorityClass = 'priority-low';
+    if (pct >= 20) { priority = 'high'; priorityLabel = '🔴 Alta concentración de FAILs'; priorityClass = 'priority-high'; }
+    else if (pct >= 10) { priority = 'medium'; priorityLabel = '🟡 Concentración media de FAILs'; priorityClass = 'priority-medium'; }
 
     // Concentration
     const concentrated = topDevice && topDevicePct >= 60;
 
-    // Narrative text
-    let narrative = `<strong>${escHtml(sel.name)}</strong> presentó <strong>${sel.fail} incidencias</strong> durante ${escHtml(lbl.toLowerCase())}, representando el <strong>${pct}% del total de fallos</strong> del período.`;
+    // Narrative text (FAILs registrados, no "incidencias")
+    let narrative = `<strong>${escHtml(sel.name)}</strong> acumuló <strong>${sel.fail} FAILs registrados</strong> durante ${escHtml(lbl.toLowerCase())}, representando el <strong>${pct}% del total de FAILs</strong> del período. Tasa de fallo: <strong>${rate}%</strong> sobre ${sel.evalChecks} checks evaluables (PASS+FAIL).`;
 
     if (concentrated && topDevice) {
-      narrative += ` El <strong>${topDevicePct}%</strong> de estos fallos se concentra en <strong>${escHtml(topDevice)}</strong> (${topDeviceCount} casos).`;
+      narrative += ` El <strong>${topDevicePct}%</strong> de estos FAILs se concentra en <strong>${escHtml(topDevice)}</strong> (${topDeviceCount} FAILs).`;
     } else if (topDevice) {
-      narrative += ` El dispositivo con mayor concentración es <strong>${escHtml(topDevice)}</strong> con ${topDeviceCount} casos (${topDevicePct}% de los fallos de este ítem).`;
+      narrative += ` El dispositivo con mayor concentración es <strong>${escHtml(topDevice)}</strong> con ${topDeviceCount} FAILs (${topDevicePct}% de los FAILs de este ítem).`;
     }
 
-    // Recommendation
+    // Recomendación operativa (sin afirmar prioridad de negocio)
     let recommendation = '';
     if (priority === 'high' && concentrated && topDevice) {
-      recommendation = `Investigar el comportamiento de <em>${escHtml(sel.name)}</em> en <strong>${escHtml(topDevice)}</strong> — concentración atípica y alta participación en el total de fallos.`;
+      recommendation = `Se recomienda revisar el comportamiento de <em>${escHtml(sel.name)}</em> en <strong>${escHtml(topDevice)}</strong>: concentración atípica (&gt;60% de los FAILs en un solo dispositivo) con alta participación en el total. <em>Nota: esta clasificación es provisional y está basada en frecuencia de FAILs, no en severidad ni impacto de negocio.</em>`;
     } else if (priority === 'high') {
-      recommendation = `Este ítem requiere revisión urgente: representa más del 20% de todos los problemas del período.`;
+      recommendation = `Este ítem supera el umbral del 20% de concentración de FAILs en el período — puede requerir revisión. <em>Nota: esta clasificación es provisional y basada únicamente en frecuencia de FAILs registrados.</em>`;
     } else if (priority === 'medium') {
-      recommendation = `Monitorear en los próximos runs — supera el umbral del 10% de fallos globales.`;
+      recommendation = `Monitorear en los próximos runs — supera el umbral del 10% de FAILs globales. <em>Nota: clasificación provisional por concentración.</em>`;
     } else {
-      recommendation = `Impacto bajo por ahora. Continuar seguimiento normal.`;
+      recommendation = `Baja concentración de FAILs en el período. Continuar seguimiento normal.`;
     }
 
     // Device breakdown for this item (device-level, not platform grouping)
@@ -843,18 +864,18 @@ function buildDecision({ itemStats, failCount, totalChecks, lbl, results }) {
       <div class="decision-kpi-row">
         <div class="d-kpi">
           <div class="d-kpi-val" style="color:#e34948">${sel.fail}</div>
-          <div class="d-kpi-label">Incidencias</div>
+          <div class="d-kpi-label">FAILs registrados</div>
           <div class="d-kpi-sub">en el período</div>
         </div>
         <div class="d-kpi">
           <div class="d-kpi-val" style="color:#f59e0b">${pct}<span style="font-size:14px">%</span></div>
-          <div class="d-kpi-label">De todos los FAILs</div>
-          <div class="d-kpi-sub">de ${failCount} totales</div>
+          <div class="d-kpi-label">Del total de FAILs</div>
+          <div class="d-kpi-sub">de ${failCount} FAILs globales</div>
         </div>
         <div class="d-kpi">
           <div class="d-kpi-val" style="color:#7c82a0">${rate}<span style="font-size:14px">%</span></div>
           <div class="d-kpi-label">Tasa de fallo</div>
-          <div class="d-kpi-sub">de ${sel.total} checks</div>
+          <div class="d-kpi-sub">sobre ${sel.evalChecks} checks eval. (PASS+FAIL)</div>
         </div>
       </div>
 
@@ -871,7 +892,7 @@ function buildDecision({ itemStats, failCount, totalChecks, lbl, results }) {
       ${devBreakdown ? `
         <div class="chart-card">
           <div class="chart-title">FAILs por dispositivo — ${escHtml(truncate(sel.name, 40))}</div>
-          <div class="chart-desc" style="margin-bottom:8px">Distribución de las ${sel.fail} incidencias por dispositivo específico</div>
+          <div class="chart-desc" style="margin-bottom:8px">Distribución de los ${sel.fail} FAILs registrados por dispositivo</div>
           ${devBreakdown}
         </div>
       ` : ''}
@@ -887,7 +908,7 @@ function buildDecision({ itemStats, failCount, totalChecks, lbl, results }) {
 
     <div class="decision-panel">
       <h3>Análisis de funcionalidad</h3>
-      <p>Selecciona un ítem para obtener su narrativa completa, porcentaje de impacto y recomendación de acción.</p>
+      <p>Selecciona un ítem para ver sus FAILs registrados, concentración relativa y orientación operativa. Los umbrales de clasificación son provisionales y están basados en frecuencia, no en severidad de negocio.</p>
       <div class="decision-select-row">
         <select class="decision-select" id="decisionItemSelect" onchange="onDecisionItemChange(this.value)">
           <option value="">— Selecciona una funcionalidad —</option>
