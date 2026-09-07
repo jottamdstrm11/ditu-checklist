@@ -1276,7 +1276,7 @@ function generateReport() {
   }
   function hmTextColor(rate) { return rate === null ? '#3a3f5c' : rate > 30 ? '#ffb3b3' : rate > 0 ? '#e8eaf0' : '#4ade80'; }
 
-  const heatmapHeaderCells = hmItems.map(it => `<th title="${escHtml(it.name)}" style="font-size:9px;font-weight:600;color:#7c82a0;padding:5px 4px;text-align:center;max-width:80px;word-break:break-word;border-bottom:1px solid #2a2e45;cursor:help">${escHtml(it.name.length>22 ? it.name.slice(0,20)+'…' : it.name)}</th>`).join('');
+  const heatmapHeaderCells = hmItems.map(it => `<th title="${escHtml(it.name)}"><div class="rot-label">${escHtml(it.name)}</div></th>`).join('');
   const heatmapRows = hmDevices.map(({dev}) =>
     `<tr>
       <td style="font-size:10px;font-weight:600;color:#c3a0ff;padding:5px 8px 5px 0;white-space:nowrap">${escHtml(dev)}</td>
@@ -1287,7 +1287,7 @@ function generateReport() {
         const rate = ev ? Math.round(c.f/ev*100) : null;
         const bg = hmColor(rate);
         const tc = hmTextColor(rate);
-        return `<td style="text-align:center;padding:4px;background:${bg};border-radius:4px;font-size:10px;font-weight:700;color:${tc}">${rate !== null ? rate+'%' : '—'}</td>`;
+        return `<td class="hm-cell" style="text-align:center;padding:4px;background:${bg};border-radius:4px;font-size:10px;font-weight:700;color:${tc}">${rate !== null ? rate+'%' : '—'}</td>`;
       }).join('')}
     </tr>`
   ).join('');
@@ -1351,11 +1351,13 @@ function generateReport() {
     .cover *{color:#fff!important}
     .no-print{display:none!important}
     .card{background:#f8f8f8!important;border:1px solid #ddd!important}
-    table td,table th{background:#fff!important}
+    table td:not(.hm-cell),table th:not(.hm-th){background:#fff!important}
     h2{color:#8E65D8!important}
     .section-rule{background:#8E65D8!important}
     .kpi-val{color:#111!important}
     .sem-badge{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+    .hm-cell{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+    .rot-label{color:#333!important}
   }
   .cover{background:#8E65D8;padding:36px 40px 32px;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:24px}
   .cover-left{flex:1}
@@ -1382,8 +1384,11 @@ function generateReport() {
   .summary-sentence{font-size:13px;line-height:1.7;color:#c3c8e0;background:#0E1126;border-left:3px solid #8E65D8;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:14px}
   .conclusion-box{background:#0E1126;border:1px solid #8E65D8;border-radius:10px;padding:16px 20px}
   .conclusion-box p{font-size:13px;line-height:1.75;color:#c3c8e0}
-  .hm-table{table-layout:fixed;border-spacing:3px;border-collapse:separate}
-  .hm-table th{word-break:break-word;max-width:80px}
+  .hm-table{table-layout:fixed;border-spacing:2px;border-collapse:separate}
+  .hm-table thead tr{height:90px}
+  .hm-table thead th{vertical-align:bottom;padding:0;width:38px;min-width:38px;position:relative;border:none!important;background:transparent}
+  .hm-table thead th.dev-col{width:110px;min-width:110px}
+  .rot-label{display:block;transform:rotate(-45deg);transform-origin:0 100%;white-space:nowrap;position:absolute;bottom:5px;left:50%;font-size:9px;font-weight:600;color:#7c82a0;letter-spacing:.04em;max-width:130px;overflow:hidden;text-overflow:ellipsis}
   .print-btn{position:fixed;bottom:24px;right:24px;background:#97D700;color:#0a0c12;border:none;border-radius:10px;padding:12px 22px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(151,215,0,.4)}
   .print-btn:hover{background:#b0f200}
   .footnote{font-size:9px;color:#4a4f6a;margin-top:8px;text-align:right}
@@ -1462,7 +1467,7 @@ function generateReport() {
   <div class="card" style="overflow-x:auto">
     <table class="hm-table">
       <thead><tr>
-        <th style="width:110px"></th>
+        <th class="dev-col"></th>
         ${heatmapHeaderCells}
       </tr></thead>
       <tbody>${heatmapRows}</tbody>
