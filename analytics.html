@@ -1276,7 +1276,7 @@ function generateReport() {
   }
   function hmTextColor(rate) { return rate === null ? '#3a3f5c' : rate > 30 ? '#ffb3b3' : rate > 0 ? '#e8eaf0' : '#4ade80'; }
 
-  const heatmapHeaderCells = hmItems.map(it => `<th style="font-size:9px;font-weight:600;color:#7c82a0;padding:5px 4px;text-align:center;max-width:80px;word-break:break-word;border-bottom:1px solid #2a2e45">${escHtml(it.name.length>22 ? it.name.slice(0,20)+'…' : it.name)}</th>`).join('');
+  const heatmapHeaderCells = hmItems.map(it => `<th title="${escHtml(it.name)}" style="font-size:9px;font-weight:600;color:#7c82a0;padding:5px 4px;text-align:center;max-width:80px;word-break:break-word;border-bottom:1px solid #2a2e45;cursor:help">${escHtml(it.name.length>22 ? it.name.slice(0,20)+'…' : it.name)}</th>`).join('');
   const heatmapRows = hmDevices.map(({dev}) =>
     `<tr>
       <td style="font-size:10px;font-weight:600;color:#c3a0ff;padding:5px 8px 5px 0;white-space:nowrap">${escHtml(dev)}</td>
