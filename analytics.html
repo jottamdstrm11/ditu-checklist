@@ -33,6 +33,8 @@ body{font-family:'Encode Sans Expanded','Helvetica Neue',Arial,sans-serif;font-s
 .user-chip{font-size:11px;color:#7c82a0}
 .logout-btn{background:none;border:1px solid #2e3350;color:#7c82a0;border-radius:7px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit;transition:.15s}
 .logout-btn:hover{color:#f87171;border-color:#f87171}
+.report-btn{background:#97D700;border:none;color:#0a0c12;border-radius:7px;padding:5px 13px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;display:flex;align-items:center;gap:5px;letter-spacing:.03em}
+.report-btn:hover{background:#b0f200;}
 .nav-role-badge{font-size:10px;padding:3px 9px;border-radius:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;display:none}
 .nav-role-badge.superadmin{background:#4f46e5;color:#fff}
 .nav-role-badge.admin{background:#1e2035;color:#c3a0ff;border:1px solid #6366f1}
@@ -182,6 +184,10 @@ body{font-family:'Encode Sans Expanded','Helvetica Neue',Arial,sans-serif;font-s
     </span>
     <span class="nav-role-badge" id="roleBadge"></span>
     <span class="user-chip" id="userEmail"></span>
+    <button class="report-btn" onclick="generateReport()" id="reportBtn" style="display:none">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Exportar reporte
+    </button>
     <button class="logout-btn" onclick="doLogout()">Cerrar sesión</button>
   </div>
 </nav>
@@ -306,6 +312,8 @@ function inferPlataforma(dispositivo) {
 
   await loadAll();
   renderPage();
+  const rBtn = document.getElementById('reportBtn');
+  if (rBtn) rBtn.style.display = 'flex';
 })();
 
 function applyNavRole(rol) {
@@ -1173,6 +1181,321 @@ function mountCharts(tab, { results, runs, runSet, runStats, deviceStats, itemSt
       }
     });
   }
+}
+
+// ─────────────────────────────────────────────────────
+// REPORTE PDF — EXPORTAR
+// ─────────────────────────────────────────────────────
+function generateReport() {
+  const runs  = filteredRuns();
+  const lbl   = periodLabel();
+  if (!runs.length) { alert('No hay datos en el período seleccionado.'); return; }
+
+  const runSet     = new Set(runs.map(r => r.id));
+  const results    = dedup(allResults.filter(r => runSet.has(r.run_id)));
+  const totalRuns  = runs.length;
+  const totalChecks = results.length;
+  const passCount  = results.filter(r => r.estado === 'PASS').length;
+  const failCount  = results.filter(r => r.estado === 'FAIL').length;
+  const naCount    = results.filter(r => r.estado === 'N/A').length;
+  const uttCount   = results.filter(r => r.estado === 'UNABLE TO TEST').length;
+  const evalCount  = passCount + failCount;
+  const failPctEval = evalCount ? Math.round(failCount / evalCount * 100) : 0;
+  const passPctEval = evalCount ? Math.round(passCount / evalCount * 100) : 0;
+
+  // Item stats
+  const iMap = new Map();
+  for (const r of results) {
+    const key = r.nombre_item || r.numero_item;
+    if (!key) continue;
+    if (!iMap.has(key)) iMap.set(key, { name: key, pass:0, fail:0, total:0, byDevice:{} });
+    const it = iMap.get(key);
+    it.total++;
+    if (r.estado === 'PASS') it.pass++;
+    if (r.estado === 'FAIL') { it.fail++; if (r.dispositivo) it.byDevice[r.dispositivo] = (it.byDevice[r.dispositivo]||0)+1; }
+  }
+  const itemStats = [...iMap.values()]
+    .map(it => {
+      const ev = it.pass + it.fail;
+      return { ...it, evalChecks: ev,
+               failRate:   ev         ? Math.round(it.fail/ev*100)         : 0,
+               pctOfFails: failCount  ? Math.round(it.fail/failCount*100)  : 0,
+               topDevice:  Object.entries(it.byDevice||{}).sort((a,b)=>b[1]-a[1])[0] || null };
+    })
+    .filter(it => it.total >= 3)
+    .sort((a,b) => b.fail - a.fail);
+
+  // Device stats
+  const allDevices = [...new Set(results.map(r => r.dispositivo).filter(Boolean))];
+  const deviceStats = allDevices.map(dev => {
+    const rr = results.filter(r => r.dispositivo === dev);
+    const f  = rr.filter(r => r.estado === 'FAIL').length;
+    const p  = rr.filter(r => r.estado === 'PASS').length;
+    const ev = p + f;
+    return { dev, failCount: f, evalChecks: ev, failPctEval: ev ? Math.round(f/ev*100) : 0 };
+  }).sort((a,b) => b.failCount - a.failCount);
+
+  // Per-run trend
+  const runTrend = runs.map(run => {
+    const rr = results.filter(r => r.run_id === run.id);
+    const f  = rr.filter(r => r.estado === 'FAIL').length;
+    const p  = rr.filter(r => r.estado === 'PASS').length;
+    const ev = p + f;
+    return { label: (run.fecha||'').slice(5) + ' ' + (run.hora_franja||'').slice(0,5),
+             failRate: ev ? Math.round(f/ev*100) : 0, failCount: f };
+  }).slice(-30);
+
+  const top5 = itemStats.slice(0, 5);
+
+  // Semáforo
+  let semColor, semBg, semLabel, semEmoji;
+  if (failPctEval <= 10)      { semColor='#0a2e1a'; semBg='#1baf7a'; semLabel='Aceptable'; semEmoji='🟢'; }
+  else if (failPctEval <= 20) { semColor='#2e1f00'; semBg='#eda100'; semLabel='Atención';  semEmoji='🟡'; }
+  else                        { semColor='#2e0a0a'; semBg='#e34948'; semLabel='Crítico';   semEmoji='🔴'; }
+
+  // Heatmap: top 8 devices × top 8 items
+  const hmDevices = deviceStats.slice(0, 8);
+  const hmItems   = itemStats.slice(0, 8);
+  const hmCells   = {};
+  for (const r of results) {
+    if (r.estado !== 'FAIL' && r.estado !== 'PASS') continue;
+    const item = r.nombre_item || r.numero_item;
+    if (!item || !r.dispositivo) continue;
+    const k = `${r.dispositivo}||${item}`;
+    if (!hmCells[k]) hmCells[k] = { f:0, p:0 };
+    if (r.estado === 'FAIL') hmCells[k].f++;
+    if (r.estado === 'PASS') hmCells[k].p++;
+  }
+  function hmColor(rate) {
+    if (rate === null) return '#1a1d2e';
+    if (rate === 0)   return '#142e1f';
+    if (rate <= 15)   return '#1e3d10';
+    if (rate <= 30)   return '#3d2e06';
+    if (rate <= 50)   return '#4a1b06';
+    return '#3d0a0a';
+  }
+  function hmTextColor(rate) { return rate === null ? '#3a3f5c' : rate > 30 ? '#ffb3b3' : rate > 0 ? '#e8eaf0' : '#4ade80'; }
+
+  const heatmapHeaderCells = hmItems.map(it => `<th style="font-size:9px;font-weight:600;color:#7c82a0;padding:5px 4px;text-align:center;max-width:80px;word-break:break-word;border-bottom:1px solid #2a2e45">${escHtml(it.name.length>22 ? it.name.slice(0,20)+'…' : it.name)}</th>`).join('');
+  const heatmapRows = hmDevices.map(({dev}) =>
+    `<tr>
+      <td style="font-size:10px;font-weight:600;color:#c3a0ff;padding:5px 8px 5px 0;white-space:nowrap">${escHtml(dev)}</td>
+      ${hmItems.map(it => {
+        const k = `${dev}||${it.name}`;
+        const c = hmCells[k];
+        const ev = c ? c.f + c.p : 0;
+        const rate = ev ? Math.round(c.f/ev*100) : null;
+        const bg = hmColor(rate);
+        const tc = hmTextColor(rate);
+        return `<td style="text-align:center;padding:4px;background:${bg};border-radius:4px;font-size:10px;font-weight:700;color:${tc}">${rate !== null ? rate+'%' : '—'}</td>`;
+      }).join('')}
+    </tr>`
+  ).join('');
+
+  // SVG trend sparkline
+  const trendSamples = runTrend.slice(-24);
+  const tMax = Math.max(...trendSamples.map(r => r.failRate), 1);
+  const svgW = 560; const svgH = 70;
+  const bw = Math.max(3, Math.floor((svgW - 16) / Math.max(trendSamples.length,1)) - 2);
+  const sparkBars = trendSamples.map((r,i) => {
+    const h = Math.max(2, r.failRate / tMax * svgH);
+    const x = 8 + i*(bw+2);
+    const y = svgH - h;
+    const col = r.failRate > 20 ? '#e34948' : r.failRate > 10 ? '#eda100' : '#1baf7a';
+    return `<rect x="${x.toFixed(0)}" y="${y.toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" rx="2" fill="${col}"/>`;
+  }).join('');
+  const avgLine = evalCount ? (failCount / evalCount * 100) : 0;
+  const avgY = (svgH - avgLine/tMax*svgH).toFixed(1);
+  const sparkSVG = `<svg width="${svgW}" height="${svgH}" style="display:block">${sparkBars}<line x1="0" y1="${avgY}" x2="${svgW}" y2="${avgY}" stroke="#8E65D8" stroke-width="1.5" stroke-dasharray="4,3" opacity=".7"/></svg>`;
+
+  // Auto conclusion
+  const criticos = top5.filter(it => it.pctOfFails >= 10);
+  const worstDev = deviceStats[0];
+  let conclusion = '';
+  if (criticos.length)
+    conclusion += `Los ítems <strong>${criticos.map(i => escHtml(i.name)).join('</strong>, <strong>')}</strong> concentran la mayor parte de los FAILs del período. `;
+  if (worstDev)
+    conclusion += `El dispositivo con mayor incidencia es <strong>${escHtml(worstDev.dev)}</strong> con ${worstDev.failCount} FAILs (tasa evaluable ${worstDev.failPctEval}%). `;
+  if      (failPctEval > 20) conclusion += `La tasa de fallo supera el umbral crítico del 20% — se recomienda revisión prioritaria del proceso de QA y escalamiento al equipo técnico.`;
+  else if (failPctEval > 10) conclusion += `La tasa de fallo está en zona de atención — se recomienda monitorear la evolución en las próximas semanas y priorizar los ítems listados.`;
+  else                        conclusion += `La tasa de fallo se mantiene en niveles aceptables. Continuar monitoreo habitual.`;
+
+  const clienteNombre = document.getElementById('clienteNombre')?.textContent || 'Cliente';
+  const today = new Date().toLocaleDateString('es', { year:'numeric', month:'long', day:'numeric' });
+
+  const top5Rows = top5.map((it, idx) => `
+    <tr style="border-bottom:1px solid #1e2235">
+      <td style="padding:8px 6px;font-size:11px;color:#4a4f6a;font-weight:700">${idx+1}</td>
+      <td style="padding:8px 6px;font-size:12px;color:#e8eaf0;font-weight:600">${escHtml(it.name)}</td>
+      <td style="padding:8px 6px;font-size:13px;font-weight:900;color:#e34948;text-align:right">${it.fail}</td>
+      <td style="padding:8px 6px;font-size:11px;color:#7c82a0;text-align:right">${it.pctOfFails}%</td>
+      <td style="padding:8px 6px;font-size:11px;text-align:right">
+        <span style="color:${it.failRate>30?'#e34948':it.failRate>15?'#eda100':'#1baf7a'};font-weight:700">${it.failRate}%</span>
+      </td>
+      <td style="padding:8px 6px;font-size:10px;color:#7c82a0">${it.topDevice ? escHtml(it.topDevice[0]) : '—'}</td>
+    </tr>`).join('');
+
+  const reportHTML = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<title>Reporte QA — ${escHtml(clienteNombre)} — ${lbl}</title>
+<link href="https://fonts.googleapis.com/css2?family=Encode+Sans+Expanded:wght@300;400;600;900&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Encode Sans Expanded','Helvetica Neue',Arial,sans-serif;background:#080A18;color:#e8eaf0;font-size:13px;line-height:1.5;padding:0}
+  @page{size:A4;margin:15mm 12mm}
+  @media print{
+    body{background:#fff;color:#111}
+    .cover{background:#8E65D8!important;color:#fff!important}
+    .cover *{color:#fff!important}
+    .no-print{display:none!important}
+    .card{background:#f8f8f8!important;border:1px solid #ddd!important}
+    table td,table th{background:#fff!important}
+    h2{color:#8E65D8!important}
+    .section-rule{background:#8E65D8!important}
+    .kpi-val{color:#111!important}
+    .sem-badge{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  }
+  .cover{background:#8E65D8;padding:36px 40px 32px;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:24px}
+  .cover-left{flex:1}
+  .cover-logo{font-size:22px;font-weight:900;letter-spacing:-.5px;color:#fff}
+  .cover-dot{color:#97D700}
+  .cover-title{font-size:28px;font-weight:900;margin-top:10px;letter-spacing:-.5px;line-height:1.2}
+  .cover-sub{font-size:13px;opacity:.8;margin-top:6px}
+  .cover-meta{font-size:11px;opacity:.65;margin-top:16px;line-height:1.8}
+  .cover-sem{text-align:right;flex-shrink:0}
+  .sem-badge{display:inline-block;padding:12px 24px;border-radius:12px;font-size:15px;font-weight:900;letter-spacing:.05em;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .sem-label{font-size:11px;opacity:.8;margin-top:6px;text-align:center}
+  .content{padding:28px 40px 40px}
+  h2{font-size:14px;font-weight:900;color:#c3a0ff;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;margin-top:28px}
+  .section-rule{height:2px;background:#8E65D8;width:40px;margin-bottom:16px;border-radius:2px}
+  .card{background:#0E1126;border:1px solid rgba(80,100,200,0.18);border-radius:10px;padding:16px 20px;margin-bottom:16px}
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+  .kpi-box{background:#141A32;border:1px solid rgba(80,100,200,0.18);border-radius:8px;padding:12px 14px;text-align:center}
+  .kpi-label{font-size:9px;font-weight:700;color:#7c82a0;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+  .kpi-val{font-size:26px;font-weight:900}
+  .kpi-sub{font-size:9px;color:#7c82a0;margin-top:2px}
+  .kpi-fail{color:#e34948}.kpi-pass{color:#1baf7a}.kpi-info{color:#8E65D8}.kpi-warn{color:#eda100}
+  table{width:100%;border-collapse:collapse}
+  th{font-size:10px;font-weight:700;color:#7c82a0;text-transform:uppercase;letter-spacing:.06em;padding:8px 6px;text-align:left;border-bottom:1px solid #1e2235}
+  .summary-sentence{font-size:13px;line-height:1.7;color:#c3c8e0;background:#0E1126;border-left:3px solid #8E65D8;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:14px}
+  .conclusion-box{background:#0E1126;border:1px solid #8E65D8;border-radius:10px;padding:16px 20px}
+  .conclusion-box p{font-size:13px;line-height:1.75;color:#c3c8e0}
+  .hm-table{table-layout:fixed;border-spacing:3px;border-collapse:separate}
+  .hm-table th{word-break:break-word;max-width:80px}
+  .print-btn{position:fixed;bottom:24px;right:24px;background:#97D700;color:#0a0c12;border:none;border-radius:10px;padding:12px 22px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(151,215,0,.4)}
+  .print-btn:hover{background:#b0f200}
+  .footnote{font-size:9px;color:#4a4f6a;margin-top:8px;text-align:right}
+</style>
+</head>
+<body>
+
+<!-- PORTADA -->
+<div class="cover">
+  <div class="cover-left">
+    <div class="cover-logo">Mediastream<span class="cover-dot">.</span></div>
+    <div class="cover-title">Reporte de Calidad QA</div>
+    <div class="cover-sub">${escHtml(clienteNombre)}</div>
+    <div class="cover-meta">
+      Período: <strong>${escHtml(lbl)}</strong><br>
+      Generado: ${today}<br>
+      Runs analizados: ${totalRuns} · Checks evaluados: ${totalChecks.toLocaleString()}
+    </div>
+  </div>
+  <div class="cover-sem">
+    <div class="sem-badge" style="background:${semBg};color:${failPctEval>20?'#fff':'#0a0c12'}">${semEmoji} ${semLabel}</div>
+    <div class="sem-label">Estado general del período</div>
+    <div style="margin-top:16px;font-size:32px;font-weight:900;color:#fff">${failPctEval}%</div>
+    <div style="font-size:11px;opacity:.75">tasa de fallo evaluable</div>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- KPIs -->
+  <h2>Métricas clave</h2>
+  <div class="section-rule"></div>
+  <div class="kpi-grid">
+    <div class="kpi-box">
+      <div class="kpi-label">FAILs registrados</div>
+      <div class="kpi-val kpi-fail">${failCount.toLocaleString()}</div>
+      <div class="kpi-sub">${failPctEval}% de checks eval.</div>
+    </div>
+    <div class="kpi-box">
+      <div class="kpi-label">Tasa de PASS</div>
+      <div class="kpi-val kpi-pass">${passPctEval}%</div>
+      <div class="kpi-sub">${passCount.toLocaleString()} checks PASS</div>
+    </div>
+    <div class="kpi-box">
+      <div class="kpi-label">Runs completados</div>
+      <div class="kpi-val kpi-info">${totalRuns}</div>
+      <div class="kpi-sub">en el período</div>
+    </div>
+    <div class="kpi-box">
+      <div class="kpi-label">N/A + UTT</div>
+      <div class="kpi-val kpi-warn">${(naCount+uttCount).toLocaleString()}</div>
+      <div class="kpi-sub">excluidos del denominador</div>
+    </div>
+  </div>
+
+  <!-- TOP 5 -->
+  <h2>Top 5 ítems críticos</h2>
+  <div class="section-rule"></div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead><tr>
+        <th style="width:28px">#</th>
+        <th>Ítem</th>
+        <th style="text-align:right;width:70px">FAILs</th>
+        <th style="text-align:right;width:70px">% del total</th>
+        <th style="text-align:right;width:80px">Tasa fallo</th>
+        <th style="width:140px">Dispositivo top</th>
+      </tr></thead>
+      <tbody>${top5Rows}</tbody>
+    </table>
+  </div>
+
+  <!-- HEATMAP -->
+  <h2>Mapa de calor — dispositivo × ítem</h2>
+  <div class="section-rule"></div>
+  <div class="card" style="overflow-x:auto">
+    <table class="hm-table">
+      <thead><tr>
+        <th style="width:110px"></th>
+        ${heatmapHeaderCells}
+      </tr></thead>
+      <tbody>${heatmapRows}</tbody>
+    </table>
+    <div class="footnote">Celda = tasa de fallo evaluable (FAIL / PASS+FAIL) · Verde &lt;15% · Amarillo 15-30% · Rojo &gt;30% · — sin datos evaluables</div>
+  </div>
+
+  <!-- TENDENCIA -->
+  <h2>Evolución de la tasa de fallo</h2>
+  <div class="section-rule"></div>
+  <div class="card">
+    <div style="font-size:11px;color:#7c82a0;margin-bottom:10px">Últimos ${trendSamples.length} runs · línea punteada = promedio del período (${failPctEval}%) · colores: verde ≤10% · amarillo ≤20% · rojo &gt;20%</div>
+    ${sparkSVG}
+  </div>
+
+  <!-- CONCLUSIÓN -->
+  <h2>Conclusión y recomendación</h2>
+  <div class="section-rule"></div>
+  <div class="conclusion-box">
+    <p>${conclusion}</p>
+  </div>
+
+  <div class="footnote" style="margin-top:24px">Reporte generado automáticamente por Mediastream Analytics · mediastream.co · ${today}</div>
+</div>
+
+<button class="print-btn no-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) { alert('Permite ventanas emergentes para generar el reporte.'); return; }
+  w.document.write(reportHTML);
+  w.document.close();
 }
 
 function escHtml(s) {
