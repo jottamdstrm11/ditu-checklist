@@ -1307,21 +1307,33 @@ function generateReport() {
     </tr>`
   ).join('');
 
-  // SVG trend sparkline
+  // SVG trend sparkline — con escala fija en eje Y
   const trendSamples = runTrend.slice(-24);
-  const tMax = Math.max(...trendSamples.map(r => r.failRate), 1);
-  const svgW = 560; const svgH = 70;
-  const bw = Math.max(3, Math.floor((svgW - 16) / Math.max(trendSamples.length,1)) - 2);
+  const tRaw = Math.max(...trendSamples.map(r => r.failRate), 1);
+  const yMax = Math.max(Math.ceil(tRaw / 10) * 10, 20); // mínimo 20%, redondeado a decena
+  const mL = 34; // margen izquierdo para etiquetas
+  const svgW = 580; const svgH = 90;
+  const plotW = svgW - mL; const plotH = svgH - 6;
+  const bw = Math.max(3, Math.floor((plotW - 8) / Math.max(trendSamples.length,1)) - 2);
+
+  // Grid lines y etiquetas en 0%, yMax/2, yMax
+  const gridVals = [0, Math.round(yMax/2), yMax];
+  const gridLines = gridVals.map(v => {
+    const gy = (plotH - v/yMax*plotH).toFixed(1);
+    return `<line x1="${mL}" y1="${gy}" x2="${svgW}" y2="${gy}" stroke="#1e2235" stroke-width="1"/>
+            <text x="${mL-4}" y="${(parseFloat(gy)+3).toFixed(1)}" text-anchor="end" font-size="8" fill="#7c82a0" font-family="inherit">${v}%</text>`;
+  }).join('');
+
   const sparkBars = trendSamples.map((r,i) => {
-    const h = Math.max(2, r.failRate / tMax * svgH);
-    const x = 8 + i*(bw+2);
-    const y = svgH - h;
+    const h = Math.max(2, r.failRate / yMax * plotH);
+    const x = mL + 4 + i*(bw+2);
+    const y = plotH - h;
     const col = r.failRate > 20 ? '#e34948' : r.failRate > 10 ? '#eda100' : '#1baf7a';
     return `<rect x="${x.toFixed(0)}" y="${y.toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" rx="2" fill="${col}"/>`;
   }).join('');
   const avgLine = evalCount ? (failCount / evalCount * 100) : 0;
-  const avgY = (svgH - avgLine/tMax*svgH).toFixed(1);
-  const sparkSVG = `<svg width="${svgW}" height="${svgH}" style="display:block">${sparkBars}<line x1="0" y1="${avgY}" x2="${svgW}" y2="${avgY}" stroke="#8E65D8" stroke-width="1.5" stroke-dasharray="4,3" opacity=".7"/></svg>`;
+  const avgY = (plotH - avgLine/yMax*plotH).toFixed(1);
+  const sparkSVG = `<svg width="${svgW}" height="${svgH}" style="display:block;font-family:inherit">${gridLines}${sparkBars}<line x1="${mL}" y1="${avgY}" x2="${svgW}" y2="${avgY}" stroke="#8E65D8" stroke-width="1.5" stroke-dasharray="4,3" opacity=".7"/></svg>`;
 
   // Auto conclusion
   const criticos = top5.filter(it => it.pctOfFails >= 10);
