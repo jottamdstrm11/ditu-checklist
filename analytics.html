@@ -528,16 +528,18 @@ function renderPage() {
   for (const r of results) {
     const key = r.nombre_item || r.numero_item;
     if (!key) continue;
-    if (!itemMap.has(key)) itemMap.set(key, { name: key, pass:0, fail:0, total:0, byPlatform:{} });
+    if (!itemMap.has(key)) itemMap.set(key, { name: key, pass:0, fail:0, total:0, byPlatform:{}, byDevice:{}, byDevicePass:{} });
     const it = itemMap.get(key);
     it.total++;
-    if (r.estado === 'PASS') it.pass++;
+    if (r.estado === 'PASS') {
+      it.pass++;
+      if (r.dispositivo) it.byDevicePass[r.dispositivo] = (it.byDevicePass[r.dispositivo]||0) + 1;
+    }
     if (r.estado === 'FAIL') {
       it.fail++;
       const plat = inferPlataforma(r.dispositivo);
       it.byPlatform[plat] = (it.byPlatform[plat]||0) + 1;
       if (r.dispositivo) {
-        it.byDevice = it.byDevice || {};
         it.byDevice[r.dispositivo] = (it.byDevice[r.dispositivo]||0) + 1;
       }
     }
@@ -584,7 +586,7 @@ function renderPage() {
   }
 
   document.getElementById('mainContent').innerHTML = html;
-  requestAnimationFrame(() => mountCharts(activeTab, { results, runStats, deviceStats, itemStats, platformStats, opStats, passCount, failCount, naCount, uttCount }));
+  requestAnimationFrame(() => mountCharts(activeTab, { results, runs, runSet, runStats, deviceStats, itemStats, platformStats, opStats, passCount, failCount, naCount, uttCount }));
 }
 
 // ─────────────────────────────────────────────────────
@@ -849,14 +851,23 @@ function buildDecision({ itemStats, failCount, totalChecks, evalCount, lbl, resu
       recommendation = `Baja concentración de FAILs en el período. Continuar seguimiento normal.`;
     }
 
-    // Device breakdown for this item (device-level, not platform grouping)
-    const devBreakdown = Object.entries(sel.byDevice||sel.byPlatform)
+    // Device breakdown for this item — with full evaluable context (FASE 2.5)
+    const devBreakdown = Object.entries(sel.byDevice||{})
       .sort((a,b) => b[1]-a[1])
       .slice(0, 8)
-      .map(([dev, cnt]) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border2)">
-        <span style="font-size:12px;color:var(--text)">${escHtml(dev)}</span>
-        <span style="font-size:12px;color:#e34948;font-weight:700">${cnt} FAILs · ${sel.fail ? Math.round(cnt/sel.fail*100) : 0}%</span>
-      </div>`).join('');
+      .map(([dev, failsInDev]) => {
+        const passInDev    = (sel.byDevicePass||{})[dev] || 0;
+        const evalInDev    = failsInDev + passInDev;          // checks evaluables (PASS+FAIL) en este dispositivo para este ítem
+        const rateInDev    = evalInDev ? Math.round(failsInDev/evalInDev*100) : 0;
+        const pctOfItem    = sel.fail   ? Math.round(failsInDev/sel.fail*100)  : 0;
+        return `<div style="display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border2)">
+          <span style="font-size:12px;color:var(--text);font-weight:600">${escHtml(dev)}</span>
+          <div style="text-align:right;display:flex;flex-direction:column;gap:2px">
+            <span style="font-size:12px;color:#e34948;font-weight:700">${failsInDev} FAILs · ${pctOfItem}% del ítem</span>
+            <span style="font-size:10px;color:var(--muted)">${evalInDev} checks eval. · tasa ${rateInDev}%</span>
+          </div>
+        </div>`;
+      }).join('');
 
     insightHtml = `
       <div class="priority-badge ${priorityClass}">${priorityLabel}</div>
@@ -882,6 +893,17 @@ function buildDecision({ itemStats, failCount, totalChecks, evalCount, lbl, resu
       <div class="narrative-box">
         <div class="narrative-period">${escHtml(lbl)}</div>
         <div class="narrative-text">${narrative}</div>
+      </div>
+
+      <!-- Tendencia de FAILs por run (FASE 2.6) -->
+      <div class="chart-card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+          <div class="chart-title">Tendencia de FAILs registrados por run</div>
+          <span id="trendSummaryBadge" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px"></span>
+        </div>
+        <div class="chart-desc">Evolución de los FAILs de este ítem en los runs del período (últimos 20 runs con datos)</div>
+        <div class="chart-wrap" style="height:160px"><canvas id="chartItemTrend"></canvas></div>
+        <div class="footnote">Cada barra es un run · runs donde el ítem no fue evaluado son excluidos</div>
       </div>
 
       <div class="chart-card" style="margin-bottom:16px">
@@ -928,7 +950,7 @@ function onDecisionItemChange(val) {
 // ─────────────────────────────────────────────────────
 // Mount charts after HTML render
 // ─────────────────────────────────────────────────────
-function mountCharts(tab, { results, runStats, deviceStats, itemStats, platformStats, opStats, passCount, failCount, naCount, uttCount }) {
+function mountCharts(tab, { results, runs, runSet, runStats, deviceStats, itemStats, platformStats, opStats, passCount, failCount, naCount, uttCount }) {
 
   if (tab === 'resumen') {
     // Trend
@@ -1063,6 +1085,93 @@ function mountCharts(tab, { results, runStats, deviceStats, itemStats, platformS
         renderPage();
       };
     }
+  }
+
+  // ── NIVEL 3 — Tendencia de FAILs por ítem (FASE 2.6) ──
+  if (tab === 'decision' && selectedDecisionItem && document.getElementById('chartItemTrend')) {
+    // Deduplicar solo los resultados del ítem seleccionado por run
+    const itemRawResults = allResults.filter(r =>
+      runSet.has(r.run_id) &&
+      (r.nombre_item === selectedDecisionItem || r.numero_item === selectedDecisionItem)
+    );
+    const itemDedupMap = new Map();
+    const priority = { 'FAIL':3, 'UNABLE TO TEST':2, 'N/A':1, 'PASS':0 };
+    for (const r of itemRawResults) {
+      const key = `${r.run_id}|${r.dispositivo}`;
+      const cur = itemDedupMap.get(key);
+      if (!cur || (priority[r.estado]??-1) > (priority[cur.estado]??-1)) itemDedupMap.set(key, r);
+    }
+    const itemDeduped = [...itemDedupMap.values()];
+
+    // Calcular FAILs por run (solo runs donde el ítem fue evaluado = tiene PASS o FAIL)
+    const trendPoints = runs.map(run => {
+      const rr = itemDeduped.filter(r => r.run_id === run.id);
+      const f  = rr.filter(r => r.estado === 'FAIL').length;
+      const p  = rr.filter(r => r.estado === 'PASS').length;
+      return { label: (run.fecha||'').slice(5)+' '+(run.hora_franja||'').slice(0,5), fails: f, pass: p, tested: f+p };
+    }).filter(r => r.tested > 0).slice(-20); // últimos 20 runs con datos del ítem
+
+    // Tendencia: comparar primera mitad vs segunda mitad
+    let trendText = '', trendColor = '#7c82a0', trendBg = 'rgba(124,130,160,0.12)';
+    if (trendPoints.length >= 4) {
+      const half = Math.floor(trendPoints.length / 2);
+      const firstHalf  = trendPoints.slice(0, half).reduce((s,r) => s+r.fails, 0) / half;
+      const secondHalf = trendPoints.slice(-half).reduce((s,r) => s+r.fails, 0) / half;
+      const delta = secondHalf - firstHalf;
+      if (delta > 1.5) {
+        trendText = '📈 En aumento'; trendColor = '#f87171'; trendBg = 'rgba(227,73,72,0.12)';
+      } else if (delta < -1.5) {
+        trendText = '📉 En descenso'; trendColor = '#34d399'; trendBg = 'rgba(27,175,122,0.12)';
+      } else {
+        trendText = '➡️ Estable'; trendColor = '#fbbf24'; trendBg = 'rgba(237,161,0,0.12)';
+      }
+    } else if (trendPoints.length > 0) {
+      trendText = 'Pocos datos';
+    }
+
+    const badge = document.getElementById('trendSummaryBadge');
+    if (badge && trendText) {
+      badge.textContent = trendText;
+      badge.style.color = trendColor;
+      badge.style.background = trendBg;
+      badge.style.border = `1px solid ${trendColor}44`;
+    }
+
+    // Color bars: rojo si supera el promedio, morado si igual, verde si bajo
+    const avgFails = trendPoints.length ? trendPoints.reduce((s,r) => s+r.fails, 0) / trendPoints.length : 0;
+    const barColors = trendPoints.map(r =>
+      r.fails > avgFails * 1.2 ? 'rgba(227,73,72,0.85)' :
+      r.fails < avgFails * 0.8 ? 'rgba(27,175,122,0.70)' :
+      'rgba(142,101,216,0.70)'
+    );
+
+    mkChart('chartItemTrend', {
+      type: 'bar',
+      data: {
+        labels: trendPoints.map(r => r.label),
+        datasets: [{
+          data: trendPoints.map(r => r.fails),
+          backgroundColor: barColors,
+          borderColor: barColors.map(c => c.replace('0.85','1').replace('0.70','1')),
+          borderWidth: 1,
+          borderRadius: 3,
+          borderSkipped: 'bottom',
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label: ctx => ` ${ctx.parsed.y} FAILs · ${trendPoints[ctx.dataIndex].pass} PASS`
+          }}
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { maxRotation: 40, font: { size: 9 }, maxTicksLimit: 15 } },
+          y: { min: 0, grid: { color: gridColor }, ticks: { stepSize: 1 } }
+        }
+      }
+    });
   }
 }
 
