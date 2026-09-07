@@ -1121,14 +1121,28 @@ function mountCharts(tab, { results, runs, runSet, runStats, deviceStats, itemSt
 
     // Tendencia: comparar primera mitad vs segunda mitad
     let trendText = '', trendColor = '#7c82a0', trendBg = 'rgba(124,130,160,0.12)';
-    if (trendPoints.length >= 4) {
-      const half = Math.floor(trendPoints.length / 2);
-      const firstHalf  = trendPoints.slice(0, half).reduce((s,r) => s+r.fails, 0) / half;
-      const secondHalf = trendPoints.slice(-half).reduce((s,r) => s+r.fails, 0) / half;
-      const delta = secondHalf - firstHalf;
-      if (delta > 1.5) {
+    if (trendPoints.length >= 10) {
+      // Últimos 5 vs 5 anteriores — más sensible a cambio reciente
+      const prev5 = trendPoints.slice(-10, -5);
+      const last5 = trendPoints.slice(-5);
+      const avg = arr => arr.reduce((s,r) => s + (r.total ? r.fails/r.total*100 : 0), 0) / arr.length;
+      const avgPrev = avg(prev5);
+      const avgLast = avg(last5);
+      const pctChange = avgPrev > 0 ? (avgLast - avgPrev) / avgPrev * 100 : 0;
+      if (pctChange > 15) {
         trendText = '📈 En aumento'; trendColor = '#f87171'; trendBg = 'rgba(227,73,72,0.12)';
-      } else if (delta < -1.5) {
+      } else if (pctChange < -15) {
+        trendText = '📉 En descenso'; trendColor = '#34d399'; trendBg = 'rgba(27,175,122,0.12)';
+      } else {
+        trendText = '➡️ Estable'; trendColor = '#fbbf24'; trendBg = 'rgba(237,161,0,0.12)';
+      }
+    } else if (trendPoints.length >= 4) {
+      const half = Math.floor(trendPoints.length / 2);
+      const avg = arr => arr.reduce((s,r) => s + (r.total ? r.fails/r.total*100 : 0), 0) / arr.length;
+      const delta = avg(trendPoints.slice(-half)) - avg(trendPoints.slice(0, half));
+      if (delta > 2) {
+        trendText = '📈 En aumento'; trendColor = '#f87171'; trendBg = 'rgba(227,73,72,0.12)';
+      } else if (delta < -2) {
         trendText = '📉 En descenso'; trendColor = '#34d399'; trendBg = 'rgba(27,175,122,0.12)';
       } else {
         trendText = '➡️ Estable'; trendColor = '#fbbf24'; trendBg = 'rgba(237,161,0,0.12)';
@@ -1232,7 +1246,8 @@ function generateReport() {
     const f  = rr.filter(r => r.estado === 'FAIL').length;
     const p  = rr.filter(r => r.estado === 'PASS').length;
     const ev = p + f;
-    return { dev, failCount: f, evalChecks: ev, failPctEval: ev ? Math.round(f/ev*100) : 0 };
+    return { dev, failCount: f, evalChecks: ev, failPctEval: ev ? Math.round(f/ev*100) : 0,
+             pctOfFails: failCount ? Math.round(f/failCount*100) : 0 };
   }).sort((a,b) => b.failCount - a.failCount);
 
   // Per-run trend
@@ -1276,7 +1291,7 @@ function generateReport() {
   }
   function hmTextColor(rate) { return rate === null ? '#3a3f5c' : rate > 30 ? '#ffb3b3' : rate > 0 ? '#e8eaf0' : '#4ade80'; }
 
-  const heatmapHeaderCells = hmItems.map(it => `<th title="${escHtml(it.name)}"><div class="rot-label">${escHtml(it.name)}</div></th>`).join('');
+  const heatmapHeaderCells = hmItems.map((it,i) => `<th title="${escHtml(it.name)}"><div class="rot-label">${i+1}. ${escHtml(it.name)}</div></th>`).join('');
   const heatmapRows = hmDevices.map(({dev}) =>
     `<tr>
       <td style="font-size:10px;font-weight:600;color:#c3a0ff;padding:5px 8px 5px 0;white-space:nowrap">${escHtml(dev)}</td>
@@ -1315,10 +1330,10 @@ function generateReport() {
   if (criticos.length)
     conclusion += `Los ítems <strong>${criticos.map(i => escHtml(i.name)).join('</strong>, <strong>')}</strong> concentran la mayor parte de los FAILs del período. `;
   if (worstDev)
-    conclusion += `El dispositivo con mayor incidencia es <strong>${escHtml(worstDev.dev)}</strong> con ${worstDev.failCount} FAILs (tasa evaluable ${worstDev.failPctEval}%). `;
-  if      (failPctEval > 20) conclusion += `La tasa de fallo supera el umbral crítico del 20% — se recomienda revisión prioritaria del proceso de QA y escalamiento al equipo técnico.`;
-  else if (failPctEval > 10) conclusion += `La tasa de fallo está en zona de atención — se recomienda monitorear la evolución en las próximas semanas y priorizar los ítems listados.`;
-  else                        conclusion += `La tasa de fallo se mantiene en niveles aceptables. Continuar monitoreo habitual.`;
+    conclusion += `El dispositivo con mayor concentración de FAILs registrados es <strong>${escHtml(worstDev.dev)}</strong>, con ${worstDev.failCount} FAILs equivalentes al ${worstDev.pctOfFails}% del total del período. Su tasa de fallo evaluable es del ${worstDev.failPctEval}%. `;
+  if      (failPctEval > 20) conclusion += `La tasa global de fallo supera el umbral crítico del 20% — se recomienda revisión prioritaria del proceso de QA y escalamiento al equipo técnico.`;
+  else if (failPctEval > 10) conclusion += `La tasa global de fallo está en zona de atención. Se recomienda priorizar los ítems listados y monitorear su evolución en las próximas semanas.`;
+  else                        conclusion += `La tasa global de fallo evaluable se mantiene en ${failPctEval}%; sin embargo, se identifican focos de concentración en los ítems anteriores. Se recomienda priorizar su análisis, especialmente en los dispositivos donde presentan mayores tasas de fallo.`;
 
   const clienteNombre = document.getElementById('clienteNombre')?.textContent || 'Cliente';
   const today = new Date().toLocaleDateString('es', { year:'numeric', month:'long', day:'numeric' });
@@ -1473,6 +1488,12 @@ function generateReport() {
       <tbody>${heatmapRows}</tbody>
     </table>
     <div class="footnote">Celda = tasa de fallo evaluable (FAIL / PASS+FAIL) · Verde &lt;15% · Amarillo 15-30% · Rojo &gt;30% · — sin datos evaluables</div>
+    <div style="margin-top:10px;padding:8px 10px;background:#0E1126;border-radius:6px;border:1px solid #1e2235">
+      <div style="font-size:9px;font-weight:700;color:#7c82a0;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Referencia de ítems</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 16px">
+        ${hmItems.map((it,i) => `<div style="font-size:9px;color:#c3c8e0"><span style="color:#8E65D8;font-weight:700">${i+1}.</span> ${escHtml(it.name)}</div>`).join('')}
+      </div>
+    </div>
   </div>
 
   <!-- TENDENCIA -->
