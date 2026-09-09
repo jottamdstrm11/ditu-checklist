@@ -1256,6 +1256,38 @@ function generateReport() {
              pctOfFails: failCount ? Math.round(f/failCount*100) : 0 };
   }).sort((a,b) => b.failCount - a.failCount);
 
+  // Version stats for report
+  function normVerR(v) { return (v||'').trim().replace(/\s*\(\s*/g,'(').replace(/\s*\)\s*/g,')'); }
+  const snapMapR = {};
+  for (const run of runs) {
+    if (run.versiones_snapshot && Object.keys(run.versiones_snapshot).length > 0)
+      snapMapR[run.id] = run.versiones_snapshot;
+  }
+  const byDevVerR = {};
+  for (const res of results) {
+    const snap = snapMapR[res.run_id];
+    if (!snap) continue;
+    const rawVer = snap[res.dispositivo];
+    if (rawVer === undefined || rawVer === null) continue;
+    const version = normVerR(rawVer);
+    const key = `${res.dispositivo}|||${version}`;
+    if (!byDevVerR[key]) byDevVerR[key] = { dispositivo: res.dispositivo, version, pass:0, fail:0, na:0, utt:0 };
+    const g = byDevVerR[key];
+    if (res.estado === 'PASS') g.pass++;
+    else if (res.estado === 'FAIL') g.fail++;
+    else if (res.estado === 'N/A') g.na++;
+    else if (res.estado === 'UNABLE TO TEST') g.utt++;
+  }
+  // Group by device
+  const byDeviceR = {};
+  for (const d of Object.values(byDevVerR)) {
+    if (!byDeviceR[d.dispositivo]) byDeviceR[d.dispositivo] = [];
+    byDeviceR[d.dispositivo].push(d);
+  }
+  for (const dev of Object.keys(byDeviceR)) byDeviceR[dev].sort((a,b)=>b.version.localeCompare(a.version));
+  const versionDevices = Object.keys(byDeviceR).sort();
+  const hasVersionData = versionDevices.length > 0;
+
   // Per-run trend
   const runTrend = runs.map(run => {
     const rr = results.filter(r => r.run_id === run.id);
@@ -1522,6 +1554,42 @@ function generateReport() {
     ${sparkSVG}
   </div>
 
+  ${hasVersionData ? `
+  <!-- VERSIONES -->
+  <h2>Versiones probadas en el período</h2>
+  <div class="section-rule"></div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead><tr>
+        <th style="padding:8px 10px">Dispositivo</th>
+        <th style="padding:8px 10px">Versión</th>
+        <th style="text-align:right;padding:8px 10px">PASS</th>
+        <th style="text-align:right;padding:8px 10px">FAIL</th>
+        <th style="text-align:right;padding:8px 10px">N/A</th>
+        <th style="text-align:right;padding:8px 10px">UTT</th>
+        <th style="text-align:right;padding:8px 10px">% PASS</th>
+      </tr></thead>
+      <tbody>
+        ${versionDevices.map(dev => byDeviceR[dev].map((r,i) => {
+          const total = r.pass + r.fail + r.na + r.utt;
+          const pct = total ? Math.round(r.pass/total*100) : 0;
+          const pc = pct>=90?'#1baf7a':pct>=70?'#eda100':'#e34948';
+          const isFirst = i === 0;
+          const devSpan = isFirst ? `<td style="padding:8px 10px;font-size:11px;font-weight:700;color:#c3a0ff;vertical-align:top;border-bottom:1px solid #1e2235" rowspan="${byDeviceR[dev].length}">${escHtml(dev)}</td>` : '';
+          return `<tr style="border-bottom:1px solid #1e2235">
+            ${devSpan}
+            <td style="padding:8px 10px;font-size:11px;font-weight:600;color:#e8eaf0">${escHtml(r.version)}</td>
+            <td style="padding:8px 10px;text-align:right;font-size:11px;color:#1baf7a;font-weight:600">${r.pass.toLocaleString()}</td>
+            <td style="padding:8px 10px;text-align:right;font-size:11px;color:${r.fail?'#e34948':'#4a4f6a'};font-weight:${r.fail?'700':'400'}">${r.fail.toLocaleString()}</td>
+            <td style="padding:8px 10px;text-align:right;font-size:11px;color:#898781">${r.na.toLocaleString()}</td>
+            <td style="padding:8px 10px;text-align:right;font-size:11px;color:#eda100">${r.utt.toLocaleString()}</td>
+            <td style="padding:8px 10px;text-align:right;font-size:12px;font-weight:700;color:${pc}">${pct}%</td>
+          </tr>`;
+        }).join('')).join('')}
+      </tbody>
+    </table>
+  </div>` : ''}
+
   <!-- CONCLUSIÓN -->
   <h2>Conclusión y recomendación</h2>
   <div class="section-rule"></div>
@@ -1611,6 +1679,12 @@ function buildVersiones(runs, results) {
   const devices = Object.keys(byDevice).sort();
   const totalRunsWithSnap = runsWithSnap.length;
 
+  // Build device filter buttons HTML
+  const filterBtns = devices.map(d =>
+    `<button class="filter-btn" onclick="filterVersionDev('${escHtml(d).replace(/'/g,"\\'")}',this)"
+      style="font-size:11px;padding:4px 12px">${escHtml(d)}</button>`
+  ).join('');
+
   let html = `
     <div class="chart-card" style="margin-bottom:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <div>
@@ -1621,6 +1695,12 @@ function buildVersiones(runs, results) {
         <div style="font-size:22px;font-weight:900;color:#fff">${totalRunsWithSnap}</div>
         <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">runs con versión</div>
       </div>
+    </div>
+    <div class="global-filter-bar" style="margin-bottom:16px">
+      <span class="gfb-label">Dispositivo</span>
+      <button class="filter-btn active" id="verDevFilterAll" onclick="filterVersionDev('__all__',this)"
+        style="font-size:11px;padding:4px 12px">Todos</button>
+      ${filterBtns}
     </div>`;
 
   for (const dev of devices) {
@@ -1632,7 +1712,7 @@ function buildVersiones(runs, results) {
     const pctColor  = globalPct >= 90 ? 'var(--pass)' : globalPct >= 70 ? 'var(--utt)' : 'var(--fail)';
 
     html += `
-      <div class="chart-card" style="margin-bottom:14px">
+      <div class="chart-card" data-ver-dev="${escHtml(dev)}" style="margin-bottom:14px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
           <div style="font-size:14px;font-weight:900;color:#fff">${escHtml(dev)}</div>
           <div style="display:flex;gap:12px;align-items:center;margin-left:auto">
@@ -1749,6 +1829,21 @@ function toggleVerDetail(id) {
     const arrow = trigger.querySelector('span[style*="▾"], span[style*="▴"]');
     if (arrow) arrow.textContent = isOpen ? '▾' : '▴';
   }
+}
+
+function filterVersionDev(dev, btn) {
+  // Update active button
+  const bar = btn.closest('.global-filter-bar');
+  if (bar) bar.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Show/hide device cards
+  document.querySelectorAll('[data-ver-dev]').forEach(card => {
+    if (dev === '__all__' || card.dataset.verDev === dev) {
+      card.style.display = '';
+    } else {
+      card.style.display = 'none';
+    }
+  });
 }
 </script>
 </body>
