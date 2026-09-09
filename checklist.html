@@ -655,7 +655,10 @@ async function enviarChecklist(){
     const totalEsperado=dataEnvio.reduce((a,s)=>a+s.items.length*DEVICES.length,0);
     const _now=new Date();const _pad=n=>String(n).padStart(2,'0');
     const localFecha=`${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-${_pad(_now.getDate())}`;
-    const runPayload={fecha:localFecha,operador:op,tipo:selectedType,hora_franja:selectedFranja,items_esperados:totalEsperado};
+    // Snapshot de versiones de dispositivos activos en este momento
+    const versionesSnapshot={};
+    DEVICES.forEach(d=>{ versionesSnapshot[d.nombre||d.clave]=d.version||''; });
+    const runPayload={fecha:localFecha,operador:op,tipo:selectedType,hora_franja:selectedFranja,items_esperados:totalEsperado,versiones_snapshot:versionesSnapshot};
     if(currentClienteId)runPayload.cliente_id=currentClienteId;
     const r1=await fetch(SUPA_URL+'/rest/v1/checklist_runs',{method:'POST',headers:hRun,body:JSON.stringify(runPayload)});
     if(!r1.ok)throw new Error('Error creando run: '+r1.status);
