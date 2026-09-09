@@ -236,6 +236,10 @@ body{font-family:'Encode Sans Expanded','Helvetica Neue',Arial,sans-serif;font-s
       <svg style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:-2px;margin-right:4px" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
       Nivel 3 — Decisión <span class="tab-badge">PO</span>
     </button>
+    <button class="tab-btn" onclick="switchTab('versiones')">
+      <svg style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:-2px;margin-right:4px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Por Versión
+    </button>
   </div>
 
   <div id="mainContent">
@@ -393,7 +397,7 @@ function switchTab(tab) {
   activeTab = tab;
   selectedDevice = null; // reset drilldown on tab change
   document.querySelectorAll('.tab-btn').forEach((b,i) => {
-    const tabs = ['resumen','incidencias','decision'];
+    const tabs = ['resumen','incidencias','decision','versiones'];
     b.classList.toggle('active', tabs[i] === tab);
   });
   renderPage();
@@ -591,6 +595,8 @@ function renderPage() {
     html = buildIncidencias({ results, deviceStats, itemStats, platformStats, failCount, totalChecks, evalCount });
   } else if (activeTab === 'decision') {
     html = buildDecision({ itemStats, failCount, totalChecks, evalCount, lbl, results });
+  } else if (activeTab === 'versiones') {
+    html = buildVersiones(runs, results);
   }
 
   document.getElementById('mainContent').innerHTML = html;
@@ -1539,6 +1545,169 @@ function generateReport() {
 function escHtml(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─────────────────────────────────────────────────────
+// TAB: POR VERSIÓN
+// ─────────────────────────────────────────────────────
+function buildVersiones(runs, results) {
+  // Build runId → versiones_snapshot map (only runs that have snapshot)
+  const snapMap = {};
+  for (const run of runs) {
+    if (run.versiones_snapshot && Object.keys(run.versiones_snapshot).length > 0) {
+      snapMap[run.id] = run.versiones_snapshot;
+    }
+  }
+
+  const runsWithSnap = runs.filter(r => snapMap[r.id]);
+  if (!runsWithSnap.length) {
+    return `<div class="empty-msg" style="padding:60px 20px">
+      <div style="font-size:36px;opacity:.3;margin-bottom:12px">📦</div>
+      No hay runs con versiones registradas en el período seleccionado.
+    </div>`;
+  }
+
+  // Group by (dispositivo, version)
+  const byDevVer = {};
+  for (const res of results) {
+    const snap = snapMap[res.run_id];
+    if (!snap) continue;
+    const version = snap[res.dispositivo];
+    if (version === undefined || version === null) continue;
+    const key = `${res.dispositivo}|||${version}`;
+    if (!byDevVer[key]) {
+      byDevVer[key] = { dispositivo: res.dispositivo, version, runs: new Set(), pass:0, fail:0, na:0, utt:0, failItems:{} };
+    }
+    const g = byDevVer[key];
+    g.runs.add(res.run_id);
+    if      (res.estado === 'PASS')           g.pass++;
+    else if (res.estado === 'FAIL')         { g.fail++; g.failItems[res.nombre_item||res.numero_item] = (g.failItems[res.nombre_item||res.numero_item]||0)+1; }
+    else if (res.estado === 'N/A')            g.na++;
+    else if (res.estado === 'UNABLE TO TEST') g.utt++;
+  }
+
+  // Group by device
+  const byDevice = {};
+  for (const data of Object.values(byDevVer)) {
+    if (!byDevice[data.dispositivo]) byDevice[data.dispositivo] = [];
+    byDevice[data.dispositivo].push({...data, runCount: data.runs.size});
+  }
+
+  // Sort: within each device, newest version first (string desc)
+  for (const dev of Object.keys(byDevice)) {
+    byDevice[dev].sort((a,b) => b.version.localeCompare(a.version));
+  }
+
+  // Order devices alphabetically
+  const devices = Object.keys(byDevice).sort();
+  const totalRunsWithSnap = runsWithSnap.length;
+
+  let html = `
+    <div class="chart-card" style="margin-bottom:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div>
+        <div class="chart-title">Calidad por Versión</div>
+        <div class="chart-desc" style="margin-bottom:0">Para cada dispositivo, el desempeño histórico separado por versión. Haz clic en una fila para ver los ítems que más fallaron en esa versión.</div>
+      </div>
+      <div style="margin-left:auto;text-align:right;flex-shrink:0">
+        <div style="font-size:22px;font-weight:900;color:#fff">${totalRunsWithSnap}</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">runs con versión</div>
+      </div>
+    </div>`;
+
+  for (const dev of devices) {
+    const rows = byDevice[dev];
+    const totalFail = rows.reduce((s,r) => s+r.fail, 0);
+    const totalPass = rows.reduce((s,r) => s+r.pass, 0);
+    const totalAll  = rows.reduce((s,r) => s+r.pass+r.fail+r.na+r.utt, 0);
+    const globalPct = totalAll ? Math.round(totalPass/totalAll*100) : 0;
+    const pctColor  = globalPct >= 90 ? 'var(--pass)' : globalPct >= 70 ? 'var(--utt)' : 'var(--fail)';
+
+    html += `
+      <div class="chart-card" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <div style="font-size:14px;font-weight:900;color:#fff">${escHtml(dev)}</div>
+          <div style="display:flex;gap:12px;align-items:center;margin-left:auto">
+            <span style="font-size:10px;color:var(--muted)">${rows.length} versión${rows.length!==1?'es':''}</span>
+            <span style="font-size:10px;color:var(--fail)">${totalFail.toLocaleString('es-CL')} FAILs</span>
+            <span style="font-size:12px;font-weight:700;color:${pctColor}">${globalPct}% PASS global</span>
+          </div>
+        </div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border)">
+              <th style="text-align:left;font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 8px 8px 0">Versión</th>
+              <th style="text-align:right;font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 10px 8px">Runs</th>
+              <th style="text-align:right;font-size:9px;font-weight:700;color:var(--pass);text-transform:uppercase;letter-spacing:.06em;padding:0 10px 8px">PASS</th>
+              <th style="text-align:right;font-size:9px;font-weight:700;color:var(--fail);text-transform:uppercase;letter-spacing:.06em;padding:0 10px 8px">FAIL</th>
+              <th style="text-align:right;font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 0 8px;min-width:110px">% PASS</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((r, i) => {
+              const total = r.pass + r.fail + r.na + r.utt;
+              const pct   = total ? Math.round(r.pass/total*100) : 0;
+              const pc    = pct >= 90 ? '#1baf7a' : pct >= 70 ? '#eda100' : '#e34948';
+              const topItems = Object.entries(r.failItems)
+                .sort((a,b) => b[1]-a[1]).slice(0,8);
+              const failDetail = topItems.length
+                ? topItems.map(([name,count]) =>
+                    `<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid rgba(80,100,200,0.08)">
+                      <span style="font-size:11px;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(name)}</span>
+                      <span style="font-size:11px;font-weight:700;color:var(--fail);white-space:nowrap;flex-shrink:0">${count} FAIL${count!==1?'s':''}</span>
+                    </div>`
+                  ).join('')
+                : '<div style="font-size:11px;color:var(--muted);padding:8px 0;text-align:center">✓ Sin FAILs registrados en esta versión</div>';
+              const detailId = `vdet_${i}_${encodeURIComponent(dev)}_${encodeURIComponent(r.version)}`.replace(/[^a-zA-Z0-9_]/g,'_');
+              return `
+                <tr onclick="toggleVerDetail('${detailId}')" style="cursor:pointer;transition:.1s"
+                    onmouseenter="this.style.background='rgba(80,100,200,0.06)'"
+                    onmouseleave="this.style.background=''">
+                  <td style="padding:10px 8px 10px 0;border-bottom:1px solid var(--border2)">
+                    <span style="font-size:12px;font-weight:700;color:#e8e8e8">${escHtml(r.version)}</span>
+                  </td>
+                  <td style="text-align:right;padding:10px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border2)">${r.runCount}</td>
+                  <td style="text-align:right;padding:10px;font-size:12px;font-weight:600;color:var(--pass);border-bottom:1px solid var(--border2)">${r.pass.toLocaleString('es-CL')}</td>
+                  <td style="text-align:right;padding:10px;font-size:12px;font-weight:600;color:${r.fail?'var(--fail)':'var(--muted)'};border-bottom:1px solid var(--border2)">${r.fail.toLocaleString('es-CL')}</td>
+                  <td style="text-align:right;padding:10px 0;border-bottom:1px solid var(--border2)">
+                    <div style="display:flex;align-items:center;justify-content:flex-end;gap:7px">
+                      <div style="width:56px;height:5px;background:rgba(80,100,200,0.15);border-radius:3px;overflow:hidden;flex-shrink:0">
+                        <div style="height:100%;width:${pct}%;background:${pc};border-radius:3px"></div>
+                      </div>
+                      <span style="font-size:12px;font-weight:700;color:${pc};min-width:34px;text-align:right">${pct}%</span>
+                      <span style="font-size:10px;color:var(--muted);flex-shrink:0">▾</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr id="${detailId}" style="display:none">
+                  <td colspan="5" style="padding:0 0 14px 0">
+                    <div style="background:rgba(80,100,200,0.05);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;margin-top:6px">
+                      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:10px">
+                        Ítems con más FAILs — ${escHtml(dev)} v${escHtml(r.version)} · ${r.runCount} run${r.runCount!==1?'s':''}
+                      </div>
+                      ${failDetail}
+                    </div>
+                  </td>
+                </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  return html;
+}
+
+function toggleVerDetail(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'table-row';
+  // flip arrow on the trigger row
+  const trigger = el.previousElementSibling;
+  if (trigger) {
+    const arrow = trigger.querySelector('span[style*="▾"], span[style*="▴"]');
+    if (arrow) arrow.textContent = isOpen ? '▾' : '▴';
+  }
 }
 </script>
 </body>
