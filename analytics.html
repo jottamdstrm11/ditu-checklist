@@ -1284,7 +1284,7 @@ function generateReport() {
     if (!byDeviceR[d.dispositivo]) byDeviceR[d.dispositivo] = [];
     byDeviceR[d.dispositivo].push(d);
   }
-  for (const dev of Object.keys(byDeviceR)) byDeviceR[dev].sort((a,b)=>b.version.localeCompare(a.version));
+  for (const dev of Object.keys(byDeviceR)) byDeviceR[dev].sort(semverCmp);
   const versionDevices = Object.keys(byDeviceR).sort();
   const hasVersionData = versionDevices.length > 0;
 
@@ -1672,7 +1672,7 @@ function buildVersiones(runs, results) {
 
   // Sort: within each device, newest version first (string desc)
   for (const dev of Object.keys(byDevice)) {
-    byDevice[dev].sort((a,b) => b.version.localeCompare(a.version));
+    byDevice[dev].sort(semverCmp);
   }
 
   // Order devices alphabetically
@@ -1816,6 +1816,17 @@ function buildVersiones(runs, results) {
   }
 
   return html;
+}
+
+// Semantic version sort: "2.10.0(build)" > "2.9.0" — compares X.Y.Z numerically, desc
+function semverCmp(a, b) {
+  const parts = v => v.version.split('(')[0].split('.').map(n => parseInt(n, 10) || 0);
+  const pa = parts(a), pb = parts(b);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const diff = (pb[i] || 0) - (pa[i] || 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
 }
 
 function toggleVerDetail(id) {
