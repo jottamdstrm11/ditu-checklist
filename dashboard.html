@@ -2326,10 +2326,16 @@ function showMatrizSection() {
         labelEl.textContent = parts.join(' — ');
         // Mostrar versiones snapshot si existen
         if (vBlock && vContent && runStat.versiones_snapshot && Object.keys(runStat.versiones_snapshot).length > 0) {
-          vContent.innerHTML = Object.entries(runStat.versiones_snapshot)
-            .map(([dev, ver]) => `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface-1,rgba(255,255,255,0.06));border:1px solid var(--brand-border,rgba(255,255,255,0.1));border-radius:5px;padding:3px 9px;font-size:12px">
+          // Ordenar por activeDevices (orden del admin), luego los que no estén en la lista al final
+          const snap = runStat.versiones_snapshot;
+          const ordered = [
+            ...activeDevices.filter(d => snap[d] !== undefined),
+            ...Object.keys(snap).filter(d => !activeDevices.includes(d))
+          ];
+          vContent.innerHTML = ordered
+            .map(dev => `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface-1,rgba(255,255,255,0.06));border:1px solid var(--brand-border,rgba(255,255,255,0.1));border-radius:5px;padding:3px 9px;font-size:12px">
               <span style="color:var(--text-secondary,#aaa)">${escHtml(dev)}</span>
-              <span style="color:var(--brand-accent,#8E65D8);font-weight:600">${escHtml(ver||'—')}</span>
+              <span style="color:var(--brand-accent,#8E65D8);font-weight:600">${escHtml(snap[dev]||'—')}</span>
             </span>`)
             .join('');
           vBlock.style.display = 'block';
