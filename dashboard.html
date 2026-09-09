@@ -602,6 +602,14 @@
     #matrixBody { transition: opacity .15s; }
     #matrixBody.fading { opacity: 0.35; }
 
+    /* ─── Batch edit mode ───────────────────────────────────── */
+    .edit-mode-active .m-badge { cursor: pointer; transition: box-shadow .12s, transform .1s; }
+    .edit-mode-active .m-badge:hover { transform: scale(1.08); box-shadow: 0 0 0 2px rgba(151,215,0,0.5); }
+    .m-badge.pending { box-shadow: 0 0 0 2px #97D700 !important; }
+    .cell-edit-btn { display: none !important; } /* ocultar botones ✏️ por ítem en modo edición */
+    .edit-mode-active .cell-edit-btn { display: none !important; }
+    #editModeBar { display: none; }
+    #editModeBar.visible { display: flex !important; }
     /* ─── Edit item modal ───────────────────────────────────── */
     .edit-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,.65);
@@ -1106,7 +1114,10 @@
   <div id="matrizSection" style="display:none;margin-top:0">
     <p class="section-label" style="display:flex;align-items:center;justify-content:space-between">
       <span id="matrizSectionLabel">Vista comparativa</span>
-      <button class="btn btn-ghost" style="font-size:0.78rem;padding:4px 12px" onclick="clearRunFilter()">✕ Cerrar vista</button>
+      <span style="display:flex;align-items:center;gap:8px">
+        <button id="editModeBtn" class="btn btn-ghost" style="font-size:0.78rem;padding:4px 12px;display:none;border-color:rgba(151,215,0,0.4);color:#97D700" onclick="toggleEditMode()">✏️ Editar run</button>
+        <button class="btn btn-ghost" style="font-size:0.78rem;padding:4px 12px" onclick="clearRunFilter()">✕ Cerrar vista</button>
+      </span>
     </p>
     <!-- Single-run matrix table -->
     <div id="matrizContainer" style="display:none">
@@ -1127,6 +1138,25 @@
   </div>
 
 </main>
+
+<!-- Batch edit mode floating bar -->
+<div id="editModeBar" style="display:none;position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
+  background:#141A32;border:1px solid rgba(151,215,0,0.4);border-radius:14px;
+  padding:14px 20px;box-shadow:0 8px 40px rgba(0,0,0,0.7);z-index:6000;
+  min-width:min(560px,94vw);display:none;flex-direction:column;gap:10px">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <span id="editModeCount" style="font-size:12px;font-weight:700;color:#97D700">0 cambios pendientes</span>
+    <input id="editModeObs" type="text" placeholder="Observación general del ajuste (opcional)…"
+      style="flex:1;min-width:200px;background:#0E1126;border:1px solid rgba(80,100,200,0.3);
+      border-radius:8px;color:#e8eaf0;padding:7px 12px;font-size:12px;font-family:inherit;outline:none"/>
+    <button onclick="discardEdits()" style="background:none;border:1px solid rgba(80,100,200,0.3);
+      color:#7c82a0;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;
+      cursor:pointer;font-family:inherit;white-space:nowrap">Descartar</button>
+    <button id="saveEditsBtn" onclick="saveAllEdits()" style="background:#97D700;border:none;
+      color:#0a0c12;border-radius:8px;padding:7px 18px;font-size:12px;font-weight:800;
+      cursor:pointer;font-family:inherit;white-space:nowrap">Guardar todo</button>
+  </div>
+</div>
 
 <!-- Edit item modal (admin only) -->
 <div id="editToast">✓ Guardado</div>
@@ -1188,6 +1218,10 @@ const HIST_PAGE_SIZE = 15;
 // Active run filter
 let selectedRunId = null;
 let selectedRunIds = new Set();   // multi-select
+
+// Batch edit mode
+let editModeActive = false;
+let pendingEdits = new Map(); // resultId → { originalEstado, originalObs, newEstado, itemName, dispositivo }
 let histDateFilter = '';          // 'hoy'|'7d'|'30d'|''
 
 // Current detail view mode
@@ -2324,6 +2358,16 @@ function showMatrizSection() {
   }
 
   sec.style.display = 'block';
+
+  // Mostrar botón de edición solo para run único y rol admin
+  const editBtn = document.getElementById('editModeBtn');
+  if (editBtn) {
+    const isAdmin = currentRol === 'superadmin' || currentRol === 'admin';
+    editBtn.style.display = (selectedRunIds.size === 1 && isAdmin) ? '' : 'none';
+  }
+  // Salir de modo edición si cambia la selección
+  if (editModeActive) discardEdits();
+
   renderMatrix().catch(e => console.error('renderMatrix error:', e));
   setTimeout(() => {
     sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2331,6 +2375,7 @@ function showMatrizSection() {
 }
 
 function clearRunFilter() {
+  if (editModeActive) discardEdits();
   selectedRunIds.clear();
   selectedRunId = null;
   const sec = document.getElementById('matrizSection');
@@ -2423,9 +2468,15 @@ async function renderMatrix() {
             const isAdmin = currentRol === 'superadmin' || currentRol === 'admin';
             const editedDot = cell.editado_por
               ? `<span class="cell-edited-dot" title="Editado por ${escHtml(cell.editado_por)}"></span>` : '';
-            const editBtn = isAdmin && cell.id
+            const editBtn = isAdmin && cell.id && !editModeActive
               ? `<button class="cell-edit-btn" onclick="openEditModal('${escHtml(cell.id)}','${escHtml(item.t)}','${escHtml(d)}','${escHtml(cell.estado)}',${JSON.stringify(cell.obs||'').replace(/"/g,'&quot;')})">✏️</button>` : '';
-            return `<td><div class="matrix-cell-wrap"><span class="m-badge ${cls}" id="badge-${escHtml(cell.id||'')}">${lbl}</span>${editedDot}${editBtn}</div></td>`;
+            const pending = editModeActive && pendingEdits.has(cell.id);
+            const badgeClick = isAdmin && cell.id && editModeActive
+              ? ` onclick="cycleBadgeState('${escHtml(cell.id)}','${escHtml(item.t)}','${escHtml(d)}','${escHtml(pending ? pendingEdits.get(cell.id).newEstado : cell.estado)}',${JSON.stringify(cell.obs||'').replace(/"/g,'&quot;')})"` : '';
+            const displayEstado = pending ? pendingEdits.get(cell.id).newEstado : cell.estado;
+            const displayCls = displayEstado === 'PASS' ? 'pass' : displayEstado === 'FAIL' ? 'fail' : displayEstado === 'N/A' ? 'na' : 'unable';
+            const displayLbl = displayEstado === 'UNABLE TO TEST' ? 'UTT' : displayEstado;
+            return `<td><div class="matrix-cell-wrap"><span class="m-badge ${displayCls}${pending?' pending':''}" id="badge-${escHtml(cell.id||'')}"${badgeClick}>${displayLbl}</span>${editedDot}${editBtn}</div></td>`;
           }).join('')}
           <td class="obs-col" title="${escHtml(allObs)}">${escHtml(allObs)}</td>
         </tr>`;
@@ -2591,6 +2642,151 @@ let pendingDeleteId = null;
 // ── Edit item modal ───────────────────────────────────────────────
 let _editResultId = null;
 let _editEstado   = null;
+
+// ─────────────────────────────────────────────────────
+// BATCH EDIT MODE
+// ─────────────────────────────────────────────────────
+function toggleEditMode() {
+  if (editModeActive) {
+    discardEdits();
+    return;
+  }
+  editModeActive = true;
+  pendingEdits.clear();
+  const btn = document.getElementById('editModeBtn');
+  if (btn) { btn.textContent = '✕ Cancelar edición'; btn.style.color = '#f87171'; btn.style.borderColor = 'rgba(227,73,72,0.4)'; }
+  document.getElementById('matrizSection')?.classList.add('edit-mode-active');
+  document.getElementById('editModeBar')?.classList.add('visible');
+  updateEditModeBar();
+}
+
+function discardEdits() {
+  // Restaurar badges modificados en el DOM
+  pendingEdits.forEach((edit, resultId) => {
+    const badge = document.getElementById('badge-' + resultId);
+    if (badge) {
+      const cls = edit.originalEstado === 'PASS' ? 'pass' : edit.originalEstado === 'FAIL' ? 'fail' : edit.originalEstado === 'N/A' ? 'na' : 'unable';
+      const lbl = edit.originalEstado === 'UNABLE TO TEST' ? 'UTT' : edit.originalEstado;
+      badge.className = `m-badge ${cls}`;
+      badge.textContent = lbl;
+      badge.classList.remove('pending');
+    }
+  });
+  pendingEdits.clear();
+  exitEditMode();
+}
+
+function exitEditMode() {
+  editModeActive = false;
+  const btn = document.getElementById('editModeBtn');
+  if (btn) { btn.textContent = '✏️ Editar run'; btn.style.color = '#97D700'; btn.style.borderColor = 'rgba(151,215,0,0.4)'; }
+  document.getElementById('matrizSection')?.classList.remove('edit-mode-active');
+  document.getElementById('editModeBar')?.classList.remove('visible');
+}
+
+function updateEditModeBar() {
+  const countEl = document.getElementById('editModeCount');
+  const n = pendingEdits.size;
+  if (countEl) countEl.textContent = n === 0 ? 'Sin cambios aún' : `${n} cambio${n !== 1 ? 's' : ''} pendiente${n !== 1 ? 's' : ''}`;
+  const saveBtn = document.getElementById('saveEditsBtn');
+  if (saveBtn) saveBtn.disabled = n === 0;
+}
+
+const CYCLE_ORDER = ['PASS', 'FAIL', 'N/A', 'UNABLE TO TEST'];
+function cycleBadgeState(resultId, itemName, dispositivo, currentEstado, currentObs) {
+  if (!editModeActive) return;
+  const pending = pendingEdits.get(resultId);
+  const stateNow = pending ? pending.newEstado : currentEstado;
+  const idx = CYCLE_ORDER.indexOf(stateNow);
+  const nextEstado = CYCLE_ORDER[(idx + 1) % CYCLE_ORDER.length];
+
+  // Actualizar o crear entrada pendiente
+  if (pending) {
+    if (nextEstado === pending.originalEstado) {
+      // Volvió al original → quitar de pendientes
+      pendingEdits.delete(resultId);
+    } else {
+      pending.newEstado = nextEstado;
+    }
+  } else {
+    pendingEdits.set(resultId, { originalEstado: currentEstado, originalObs: currentObs||'', newEstado: nextEstado, itemName, dispositivo });
+  }
+
+  // Actualizar badge en el DOM
+  const badge = document.getElementById('badge-' + resultId);
+  if (badge) {
+    const cls = nextEstado === 'PASS' ? 'pass' : nextEstado === 'FAIL' ? 'fail' : nextEstado === 'N/A' ? 'na' : 'unable';
+    const lbl = nextEstado === 'UNABLE TO TEST' ? 'UTT' : nextEstado;
+    badge.className = `m-badge ${cls}${pendingEdits.has(resultId) ? ' pending' : ''}`;
+    badge.textContent = lbl;
+  }
+  updateEditModeBar();
+}
+
+async function saveAllEdits() {
+  if (pendingEdits.size === 0) return;
+  const btn = document.getElementById('saveEditsBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
+  const obs = (document.getElementById('editModeObs')?.value || '').trim();
+  const now = new Date().toISOString();
+  const totalChanges = pendingEdits.size;
+
+  try {
+    const { data: { session: _sess } } = await _sbc.auth.getSession();
+    const _token = _sess ? _sess.access_token : SUPA_KEY;
+
+    let errors = 0;
+    const saves = [...pendingEdits.entries()].map(async ([resultId, edit]) => {
+      try {
+        const body = { estado: edit.newEstado, observacion: obs || edit.originalObs, editado_por: currentUser, editado_en: now };
+        const r = await fetch(
+          `${SUPA_URL}/rest/v1/checklist_results?id=eq.${encodeURIComponent(resultId)}`,
+          { method: 'PATCH',
+            headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + _token,
+                       'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify(body) }
+        );
+        if (!r.ok) { errors++; return; }
+        // Marcar dot de editado en DOM
+        const badge = document.getElementById('badge-' + resultId);
+        if (badge) {
+          badge.classList.remove('pending');
+          const wrap = badge.closest('.matrix-cell-wrap');
+          if (wrap && !wrap.querySelector('.cell-edited-dot')) {
+            const dot = document.createElement('span');
+            dot.className = 'cell-edited-dot';
+            dot.title = `Editado por ${currentUser}`;
+            badge.after(dot);
+          }
+        }
+        // Invalidar caché
+        const runId = [...selectedRunIds][0] || selectedRunId;
+        if (runId) delete runDetailsCache[runId];
+      } catch { errors++; }
+    });
+
+    await Promise.all(saves);
+
+    if (errors > 0) {
+      alert(`${errors} cambio(s) no se pudieron guardar. Revisa los permisos.`);
+    } else {
+      const toast = document.getElementById('editToast');
+      if (toast) {
+        toast.textContent = `✓ ${totalChanges} cambio(s) guardados`;
+        toast.classList.add('show');
+        setTimeout(() => { toast.classList.remove('show'); toast.textContent = '✓ Guardado'; }, 2500);
+      }
+    }
+
+    pendingEdits.clear();
+    if (document.getElementById('editModeObs')) document.getElementById('editModeObs').value = '';
+    exitEditMode();
+
+  } catch(e) {
+    alert('Error al conectar con Supabase: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar todo'; }
+  }
+}
 
 function openEditModal(resultId, itemName, dispositivo, estadoActual, obsActual) {
   _editResultId = resultId;
