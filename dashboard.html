@@ -532,6 +532,7 @@
     .historial-table tbody tr.run-active { background: rgba(227,24,55,0.14); }
     .historial-table tbody tr.run-checked { background: rgba(227,24,55,0.08); }
     .historial-table tbody td { padding: 9px 12px; vertical-align: middle; }
+    .ver-badge:hover .ver-tooltip { display:block !important; }
     .run-pct-bar {
       width: 90px;
       height: 6px;
@@ -2238,9 +2239,34 @@ function renderHistorial() {
     const safeLabel  = escHtml(`${s.fecha} ${s.hora_franja} – ${s.operador}`);
     const verLabel   = isActive ? '✓ Viendo' : '👁 Ver';
     const dotdotdot  = '<span style="color:var(--text-muted);font-size:11px">…</span>';
+
+    // Version tooltip
+    let versionBadge = '';
+    if (s.versiones_snapshot && Object.keys(s.versiones_snapshot).length > 0) {
+      const snap = s.versiones_snapshot;
+      const ordered = [
+        ...activeDevices.filter(d => snap[d] !== undefined),
+        ...Object.keys(snap).filter(d => !activeDevices.includes(d))
+      ];
+      const tooltipLines = ordered.map(d =>
+        `<div style="display:flex;justify-content:space-between;gap:12px;align-items:center">` +
+        `<span style="color:#999;font-size:10px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">${escHtml(d)}</span>` +
+        `<span style="color:#e8e8e8;font-size:11px;font-weight:600;white-space:nowrap">${escHtml(snap[d]||'—')}</span>` +
+        `</div>`
+      ).join('');
+      versionBadge = `<span class="ver-badge" style="position:relative;display:inline-block;margin-left:5px;vertical-align:middle">` +
+        `<span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:rgba(142,101,216,.18);border:1px solid rgba(142,101,216,.35);color:#8E65D8;font-size:9px;font-weight:700;cursor:default;line-height:1">v</span>` +
+        `<span class="ver-tooltip" style="display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 6px);z-index:999;background:#1a1a1a;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:10px 12px;min-width:170px;box-shadow:0 4px 20px rgba(0,0,0,.6)">` +
+        `<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#666;margin-bottom:7px">Versiones probadas</div>` +
+        `<div style="display:flex;flex-direction:column;gap:4px">${tooltipLines}</div>` +
+        `<span style="position:absolute;left:50%;transform:translateX(-50%);bottom:-5px;width:8px;height:8px;background:#1a1a1a;border-right:1px solid rgba(255,255,255,.12);border-bottom:1px solid rgba(255,255,255,.12);transform:translateX(-50%) rotate(45deg)"></span>` +
+        `</span>` +
+        `</span>`;
+    }
+
     return `
       <tr class="${isActive ? 'run-active' : ''}">
-        <td style="white-space:nowrap;font-variant-numeric:tabular-nums">${escHtml(s.fecha || '—')}</td>
+        <td style="white-space:nowrap;font-variant-numeric:tabular-nums">${escHtml(s.fecha || '—')}${versionBadge}</td>
         <td style="color:var(--text-secondary);white-space:nowrap">${escHtml(s.hora_franja || '—')}</td>
         <td style="font-weight:600">${escHtml(s.operador || '—')}</td>
         <td style="color:var(--text-secondary)">${escHtml(tipoLabel)}</td>
