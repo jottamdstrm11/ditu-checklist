@@ -589,6 +589,19 @@
       cursor: default; flex-shrink: 0;
     }
 
+    /* ─── Toast notification ───────────────────────────────── */
+    #editToast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: #1baf7a; color: #fff; padding: 10px 22px; border-radius: 8px;
+      font-size: 14px; font-weight: 600; z-index: 9999;
+      opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none;
+    }
+    #editToast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ─── Matrix fade on re-render ───────────────────────── */
+    #matrixBody { transition: opacity .15s; }
+    #matrixBody.fading { opacity: 0.35; }
+
     /* ─── Edit item modal ───────────────────────────────────── */
     .edit-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,.65);
@@ -1116,6 +1129,7 @@
 </main>
 
 <!-- Edit item modal (admin only) -->
+<div id="editToast">✓ Guardado</div>
 <div class="edit-overlay" id="editOverlay" onclick="if(event.target===this)closeEditModal()">
   <div class="edit-modal">
     <div class="edit-modal-header">
@@ -1503,7 +1517,11 @@ async function loadData() {
       };
     });
     runsStats = Object.values(runStatsMap)
-      .sort((a, b) => (b.fecha || b.id).localeCompare(a.fecha || a.id));
+      .sort((a, b) => {
+        const dateCmp = (b.fecha || '').localeCompare(a.fecha || '');
+        if (dateCmp !== 0) return dateCmp;
+        return (b.hora_franja || '').localeCompare(a.hora_franja || '');
+      });
 
     histPage = 1;
     renderHistorial();
@@ -1540,7 +1558,11 @@ async function loadData() {
       demoRuns[r.run_id].total++;
       if (demoRuns[r.run_id][r.estado] !== undefined) demoRuns[r.run_id][r.estado]++;
     });
-    runsStats = Object.values(demoRuns).sort((a,b) => b.fecha.localeCompare(a.fecha));
+    runsStats = Object.values(demoRuns).sort((a,b) => {
+      const dateCmp = (b.fecha||'').localeCompare(a.fecha||'');
+      if (dateCmp !== 0) return dateCmp;
+      return (b.hora_franja||'').localeCompare(a.hora_franja||'');
+    });
     badge.textContent = 'DEMO (sin conexión)';
     badge.className   = 'data-source-badge demo';
     const demoBanner = document.getElementById('demoBanner');
@@ -2634,12 +2656,27 @@ async function saveEditModal() {
       }
     }
 
-    // Invalidar caché del run y re-renderizar la tabla (actualiza badge + obs column)
+    // Invalidar caché del run
     const runId = [...selectedRunIds][0] || selectedRunId;
     if (runId) delete runDetailsCache[runId];
 
     closeEditModal();
-    renderMatrix().catch(e => console.error('renderMatrix post-edit error:', e));
+
+    // Toast ✓ Guardado
+    const toast = document.getElementById('editToast');
+    if (toast) {
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    // Re-render con fade suave
+    const mb = document.getElementById('matrixBody');
+    if (mb) mb.classList.add('fading');
+    setTimeout(() => {
+      renderMatrix()
+        .catch(e => console.error('renderMatrix post-edit error:', e))
+        .finally(() => { if (mb) mb.classList.remove('fading'); });
+    }, 150);
   } catch(e) {
     alert('Error al guardar: ' + e.message);
   } finally {
