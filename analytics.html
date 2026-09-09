@@ -1567,23 +1567,32 @@ function buildVersiones(runs, results) {
     </div>`;
   }
 
-  // Group by (dispositivo, version)
+  // Normalize version string: trim + collapse spaces around parentheses
+  // Fixes: "2.8 (MTNPWFX002)" === "2.8.0(MTNPWFX002)" are different data issues,
+  // but "2.8.0 (MTNPWFX002)" vs "2.8.0(MTNPWFX002)" (only space diff) must merge.
+  function normVer(v) {
+    return (v || '').trim().replace(/\s*\(\s*/g, '(').replace(/\s*\)\s*/g, ')');
+  }
+
+  // Group by (dispositivo, normalized-version)
   const byDevVer = {};
   for (const res of results) {
     const snap = snapMap[res.run_id];
     if (!snap) continue;
-    const version = snap[res.dispositivo];
-    if (version === undefined || version === null) continue;
+    const rawVer = snap[res.dispositivo];
+    if (rawVer === undefined || rawVer === null) continue;
+    const version = normVer(rawVer);
     const key = `${res.dispositivo}|||${version}`;
     if (!byDevVer[key]) {
-      byDevVer[key] = { dispositivo: res.dispositivo, version, runs: new Set(), pass:0, fail:0, na:0, utt:0, failItems:{} };
+      byDevVer[key] = { dispositivo: res.dispositivo, version, runs: new Set(), pass:0, fail:0, na:0, utt:0, failItems:{}, naItems:{}, uttItems:{} };
     }
     const g = byDevVer[key];
     g.runs.add(res.run_id);
+    const itemKey = res.nombre_item || res.numero_item;
     if      (res.estado === 'PASS')           g.pass++;
-    else if (res.estado === 'FAIL')         { g.fail++; g.failItems[res.nombre_item||res.numero_item] = (g.failItems[res.nombre_item||res.numero_item]||0)+1; }
-    else if (res.estado === 'N/A')            g.na++;
-    else if (res.estado === 'UNABLE TO TEST') g.utt++;
+    else if (res.estado === 'FAIL')         { g.fail++; if(itemKey) g.failItems[itemKey] = (g.failItems[itemKey]||0)+1; }
+    else if (res.estado === 'N/A')          { g.na++;   if(itemKey) g.naItems[itemKey]   = (g.naItems[itemKey]||0)+1;  }
+    else if (res.estado === 'UNABLE TO TEST'){ g.utt++;  if(itemKey) g.uttItems[itemKey]  = (g.uttItems[itemKey]||0)+1; }
   }
 
   // Group by device
@@ -1647,16 +1656,19 @@ function buildVersiones(runs, results) {
               const total = r.pass + r.fail + r.na + r.utt;
               const pct   = total ? Math.round(r.pass/total*100) : 0;
               const pc    = pct >= 90 ? '#1baf7a' : pct >= 70 ? '#eda100' : '#e34948';
-              const topItems = Object.entries(r.failItems)
-                .sort((a,b) => b[1]-a[1]).slice(0,8);
-              const failDetail = topItems.length
-                ? topItems.map(([name,count]) =>
-                    `<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid rgba(80,100,200,0.08)">
-                      <span style="font-size:11px;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(name)}</span>
-                      <span style="font-size:11px;font-weight:700;color:var(--fail);white-space:nowrap;flex-shrink:0">${count} FAIL${count!==1?'s':''}</span>
-                    </div>`
-                  ).join('')
-                : '<div style="font-size:11px;color:var(--muted);padding:8px 0;text-align:center">✓ Sin FAILs registrados en esta versión</div>';
+              function itemRows(map, color, label) {
+                const top = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8);
+                if (!top.length) return `<div style="font-size:11px;color:var(--muted);padding:6px 0;text-align:center">✓ Sin ${label} en esta versión</div>`;
+                return top.map(([name,count]) =>
+                  `<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid rgba(80,100,200,0.08)">
+                    <span style="font-size:11px;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(name)}</span>
+                    <span style="font-size:11px;font-weight:700;color:${color};white-space:nowrap;flex-shrink:0">${count} ${label}</span>
+                  </div>`
+                ).join('');
+              }
+              const failDetail = itemRows(r.failItems, 'var(--fail)', 'FAIL');
+              const naDetail   = r.na  > 0 ? itemRows(r.naItems,   'var(--na,#898781)', 'N/A')  : null;
+              const uttDetail  = r.utt > 0 ? itemRows(r.uttItems,  'var(--utt)',        'UTT')   : null;
               const detailId = `vdet_${i}_${encodeURIComponent(dev)}_${encodeURIComponent(r.version)}`.replace(/[^a-zA-Z0-9_]/g,'_');
               return `
                 <tr onclick="toggleVerDetail('${detailId}')" style="cursor:pointer;transition:.1s"
@@ -1681,10 +1693,39 @@ function buildVersiones(runs, results) {
                 <tr id="${detailId}" style="display:none">
                   <td colspan="5" style="padding:0 0 14px 0">
                     <div style="background:rgba(80,100,200,0.05);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;margin-top:6px">
-                      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:10px">
-                        Ítems con más FAILs — ${escHtml(dev)} v${escHtml(r.version)} · ${r.runCount} run${r.runCount!==1?'s':''}
+                      <!-- Resumen de estados -->
+                      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border2)">
+                        <div style="text-align:center">
+                          <div style="font-size:16px;font-weight:900;color:var(--pass)">${r.pass.toLocaleString('es-CL')}</div>
+                          <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">PASS</div>
+                        </div>
+                        <div style="text-align:center">
+                          <div style="font-size:16px;font-weight:900;color:${r.fail?'var(--fail)':'var(--muted)'}">${r.fail.toLocaleString('es-CL')}</div>
+                          <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">FAIL</div>
+                        </div>
+                        <div style="text-align:center">
+                          <div style="font-size:16px;font-weight:900;color:${r.na?'var(--na,#898781)':'var(--muted)'}">${r.na.toLocaleString('es-CL')}</div>
+                          <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">N/A</div>
+                        </div>
+                        <div style="text-align:center">
+                          <div style="font-size:16px;font-weight:900;color:${r.utt?'var(--utt)':'var(--muted)'}">${r.utt.toLocaleString('es-CL')}</div>
+                          <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">UTT</div>
+                        </div>
+                        <div style="margin-left:auto;text-align:right">
+                          <div style="font-size:10px;color:var(--muted)">${escHtml(dev)} · v${escHtml(r.version)}</div>
+                          <div style="font-size:10px;color:var(--dim)">${r.runCount} run${r.runCount!==1?'s':''} · ${total.toLocaleString('es-CL')} checks totales</div>
+                        </div>
                       </div>
+                      <!-- Top FAILs por ítem -->
+                      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--fail);margin-bottom:8px">Ítems con más FAILs</div>
                       ${failDetail}
+                      ${naDetail ? `
+                      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--na,#898781);margin-top:14px;margin-bottom:8px">Ítems con más N/A</div>
+                      ${naDetail}` : ''}
+                      ${uttDetail ? `
+                      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--utt);margin-top:14px;margin-bottom:8px">Ítems con más Unable to Test</div>
+                      ${uttDetail}` : ''}
+
                     </div>
                   </td>
                 </tr>`;
