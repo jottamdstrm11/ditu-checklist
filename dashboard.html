@@ -1109,9 +1109,9 @@
       <button class="btn btn-ghost" style="font-size:0.78rem;padding:4px 12px" onclick="clearRunFilter()">✕ Cerrar vista</button>
     </p>
     <!-- Versiones snapshot del run seleccionado -->
-    <div id="versionesSnapshotBlock" style="display:none;margin:0 0 14px 0;padding:10px 14px;background:var(--surface-2,rgba(255,255,255,0.04));border:1px solid var(--brand-border,rgba(255,255,255,0.08));border-radius:8px">
-      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted,#888);margin-bottom:8px">Versiones probadas</div>
-      <div id="versionesSnapshotContent" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    <div id="versionesSnapshotBlock" style="display:none;margin:0 0 16px 0;padding:12px 16px 14px;background:var(--surface-2,rgba(255,255,255,0.03));border:1px solid var(--brand-border,rgba(255,255,255,0.08));border-radius:10px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted,#666);margin-bottom:10px">Versiones probadas</div>
+      <div id="versionesSnapshotContent" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px"></div>
     </div>
     <!-- Single-run matrix table -->
     <div id="matrizContainer" style="display:none">
@@ -2333,10 +2333,10 @@ function showMatrizSection() {
             ...Object.keys(snap).filter(d => !activeDevices.includes(d))
           ];
           vContent.innerHTML = ordered
-            .map(dev => `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface-1,rgba(255,255,255,0.06));border:1px solid var(--brand-border,rgba(255,255,255,0.1));border-radius:5px;padding:3px 9px;font-size:12px">
-              <span style="color:var(--text-secondary,#aaa)">${escHtml(dev)}</span>
-              <span style="color:var(--brand-accent,#8E65D8);font-weight:600">${escHtml(snap[dev]||'—')}</span>
-            </span>`)
+            .map(dev => `<div style="background:var(--surface-1,rgba(255,255,255,0.05));border:1px solid var(--brand-border,rgba(255,255,255,0.09));border-radius:7px;padding:7px 10px;min-width:0">
+              <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted,#666);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px">${escHtml(dev)}</div>
+              <div style="font-size:12px;font-weight:600;color:var(--text-primary,#e8e8e8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(snap[dev]||'—')}</div>
+            </div>`)
             .join('');
           vBlock.style.display = 'block';
         } else {
