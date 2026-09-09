@@ -1136,6 +1136,10 @@
       <div class="edit-modal-title">✏️ Editar resultado</div>
       <div class="edit-modal-sub" id="editModalSub">—</div>
     </div>
+    <div style="margin-bottom:12px">
+      <label style="display:block;font-size:12px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Observación <span style="font-weight:400;font-style:italic">(opcional)</span></label>
+      <textarea id="editObsText" rows="2" placeholder="Agregar o editar comentario…" style="width:100%;box-sizing:border-box;background:#1e1e1e;border:1px solid #333;border-radius:6px;color:#e8e8e8;font-size:13px;padding:8px 10px;resize:vertical;font-family:inherit"></textarea>
+    </div>
     <div>
       <label>Estado</label>
       <div class="edit-status-grid">
@@ -2593,6 +2597,9 @@ function openEditModal(resultId, itemName, dispositivo, estadoActual, obsActual)
   _editResultId = resultId;
   _editEstado   = estadoActual;
   document.getElementById('editModalSub').textContent = `${itemName}  ·  ${dispositivo}`;
+  // Pre-fill observación (sin enfocar — es opcional)
+  const ta = document.getElementById('editObsText');
+  ta.value = obsActual || '';
   // Marcar el estado actual
   document.querySelectorAll('.edit-status-btn').forEach(b => {
     b.classList.toggle('selected', b.dataset.estado === estadoActual);
@@ -2618,7 +2625,8 @@ async function saveEditModal() {
   btn.disabled = true; btn.textContent = 'Guardando…';
   try {
     const now  = new Date().toISOString();
-    const body = { estado: _editEstado, editado_por: currentUser, editado_en: now };
+    const obs  = (document.getElementById('editObsText').value || '').trim();
+    const body = { estado: _editEstado, editado_por: currentUser, editado_en: now, observacion: obs };
     const { data: { session: _sess } } = await _sbc.auth.getSession();
     const _token = _sess ? _sess.access_token : SUPA_KEY;
     const r = await fetch(
