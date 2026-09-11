@@ -397,6 +397,7 @@ function applyNavRole(rol){
 const FRANJAS=['01:00','04:00','07:00','10:00','13:00','16:00','19:00','22:00'];
 let selectedType='soporte',selectedFranja='',DEVICES=[],ITEMS={},results={};
 let observations={};  // ya estaba declarado más abajo — centralizado aquí
+let _existingRunId=null; // cuando superadmin reemplaza un run existente
 
 // ── Auto-guardado en localStorage ─────────────────────────────────────
 function draftKey(){
@@ -517,12 +518,15 @@ async function startChecklist(){
       const opDup=dups[0].operador||'otro operador';
       const isSuperAdmin=currentRol==='superadmin';
       const msg=`Ya existe un checklist de ${selectedType} para la franja ${selectedFranja} registrado por ${opDup}.\n\n`+
-        (isSuperAdmin?'Como superadmin puedes continuar de todas formas.':'Contacta a un administrador si necesitas registrar uno adicional.');
+        (isSuperAdmin?'Como superadmin puedes REEMPLAZAR ese registro (se borrarán los resultados anteriores y se guardarán los nuevos con los ítems activos actuales).':'Contacta a un administrador si necesitas registrar uno adicional.');
       if(isSuperAdmin){
-        if(!confirm(msg+'\n\n¿Continuar de todas formas?')){btn.disabled=false;btn.textContent='Comenzar checklist →';return;}
+        if(!confirm(msg+'\n\n¿Reemplazar el checklist existente?')){btn.disabled=false;btn.textContent='Comenzar checklist →';return;}
+        _existingRunId=dups[0].id; // guardar para reutilizar en enviarChecklist
       } else {
         alert(msg);btn.disabled=false;btn.textContent='Comenzar checklist →';return;
       }
+    } else {
+      _existingRunId=null; // run nuevo, limpiar por si acaso
     }
   }catch(e){
     // Si falla la verificación, dejar pasar (no bloquear por error de red)
@@ -650,26 +654,52 @@ async function enviarChecklist(){
     const hRun={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
     const hRows={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=minimal'};
 
-    // 1. Crear el run
     const dataEnvio=ITEMS[selectedType]||[];
     const totalEsperado=dataEnvio.reduce((a,s)=>a+s.items.length*DEVICES.length,0);
     const _now=new Date();const _pad=n=>String(n).padStart(2,'0');
     const localFecha=`${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-${_pad(_now.getDate())}`;
-    // Snapshot de versiones de dispositivos activos en este momento
     const versionesSnapshot={};
     DEVICES.forEach(d=>{ versionesSnapshot[d.nombre||d.clave]=d.version||''; });
-    const runPayload={fecha:localFecha,operador:op,tipo:selectedType,hora_franja:selectedFranja,items_esperados:totalEsperado,versiones_snapshot:versionesSnapshot};
-    if(currentClienteId)runPayload.cliente_id=currentClienteId;
-    const r1=await fetch(SUPA_URL+'/rest/v1/checklist_runs',{method:'POST',headers:hRun,body:JSON.stringify(runPayload)});
-    if(!r1.ok)throw new Error('Error creando run: '+r1.status);
-    const [run]=await r1.json();
-    if(!run?.id)throw new Error('No se creó el run');
+
+    let runId;
+
+    if(_existingRunId){
+      // ── MODO REEMPLAZO: reutilizar el run existente ──────────────────
+      // Obtener token de sesión para operaciones con RLS
+      const {data:{session:_sess}}=await _sbc.auth.getSession();
+      const token=_sess?_sess.access_token:SUPA_KEY;
+      const hAuth={...hRows,'Authorization':'Bearer '+token};
+
+      // 1a. Eliminar resultados anteriores del run
+      btn.innerHTML='<span class="spinner"></span> Borrando resultados anteriores...';
+      const rDel=await fetch(SUPA_URL+'/rest/v1/checklist_results?run_id=eq.'+_existingRunId,
+        {method:'DELETE',headers:hAuth});
+      if(!rDel.ok)throw new Error('Error eliminando resultados anteriores: '+rDel.status);
+
+      // 1b. Actualizar metadatos del run (operador, items_esperados, versiones)
+      const rPatch=await fetch(SUPA_URL+'/rest/v1/checklist_runs?id=eq.'+_existingRunId,
+        {method:'PATCH',headers:{...hRun,'Authorization':'Bearer '+token},
+         body:JSON.stringify({operador:op,items_esperados:totalEsperado,versiones_snapshot:versionesSnapshot})});
+      if(!rPatch.ok)throw new Error('Error actualizando run: '+rPatch.status);
+
+      runId=_existingRunId;
+      _existingRunId=null; // limpiar para futuros envíos
+    } else {
+      // ── MODO NUEVO: crear run normal ─────────────────────────────────
+      const runPayload={fecha:localFecha,operador:op,tipo:selectedType,hora_franja:selectedFranja,items_esperados:totalEsperado,versiones_snapshot:versionesSnapshot};
+      if(currentClienteId)runPayload.cliente_id=currentClienteId;
+      const r1=await fetch(SUPA_URL+'/rest/v1/checklist_runs',{method:'POST',headers:hRun,body:JSON.stringify(runPayload)});
+      if(!r1.ok)throw new Error('Error creando run: '+r1.status);
+      const [run]=await r1.json();
+      if(!run?.id)throw new Error('No se creó el run');
+      runId=run.id;
+    }
 
     // 2. Armar filas
     const data=ITEMS[selectedType]||[];const rows=[];
     data.forEach((sec,si)=>sec.items.forEach((item,ii)=>DEVICES.forEach(d=>{
       const estado=results[`${si}_${ii}_${d.clave}`];
-      if(estado)rows.push({run_id:run.id,seccion:sec.s,numero_item:item.n,nombre_item:item.t,
+      if(estado)rows.push({run_id:runId,seccion:sec.s,numero_item:item.n,nombre_item:item.t,
         dispositivo:d.nombre,estado:estado==='NA'?'N/A':estado==='UTT'?'UNABLE TO TEST':estado,
         observacion:observations[`${si}_${ii}`]||''});
     })));
@@ -683,8 +713,10 @@ async function enviarChecklist(){
         btn.innerHTML=`<span class="spinner"></span> Enviando... ${pct}%`;
         const r2=await fetch(SUPA_URL+'/rest/v1/checklist_results',{method:'POST',headers:hRows,body:JSON.stringify(chunk)});
         if(!r2.ok){
-          // Si falla un lote, eliminar el run huérfano
-          await fetch(SUPA_URL+'/rest/v1/checklist_runs?id=eq.'+run.id,{method:'DELETE',headers:hRows});
+          // Si falla un lote y era run nuevo, eliminar el run huérfano
+          if(runId!==_existingRunId){
+            await fetch(SUPA_URL+'/rest/v1/checklist_runs?id=eq.'+runId,{method:'DELETE',headers:hRows});
+          }
           throw new Error('Error guardando resultados (lote '+(i/CHUNK+1)+'): '+r2.status);
         }
       }
