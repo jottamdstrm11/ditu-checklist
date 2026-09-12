@@ -260,6 +260,7 @@ let currentClienteId = null;
 let currentClienteColor = '#7B2FBE';
 let allRuns = [];
 let allResults = [];
+let deviceOrderMap = {}; // nombre → orden (from checklist_devices)
 let activeDays = 90;
 let activeTab = 'resumen';
 let selectedDecisionItem = null; // Nivel 3 selected item
@@ -351,6 +352,14 @@ async function supaFetch(path) {
 
 async function loadAll() {
   const clienteFilter = currentClienteId ? `&cliente_id=eq.${currentClienteId}` : '';
+
+  // Load device order from checklist_devices
+  try {
+    const devs = await supaFetch(`/rest/v1/checklist_devices?select=nombre,orden${clienteFilter}&order=orden.asc`);
+    deviceOrderMap = {};
+    (devs || []).forEach((d, i) => { deviceOrderMap[d.nombre] = d.orden ?? i; });
+  } catch(_) {}
+
   allRuns = await supaFetch(`/rest/v1/checklist_runs?select=*&order=fecha.asc,hora_franja.asc${clienteFilter}`);
   if (!allRuns.length) { allResults = []; return; }
 
@@ -1285,7 +1294,11 @@ function generateReport() {
     byDeviceR[d.dispositivo].push(d);
   }
   for (const dev of Object.keys(byDeviceR)) byDeviceR[dev].sort(semverCmp);
-  const versionDevices = Object.keys(byDeviceR).sort();
+  const versionDevices = Object.keys(byDeviceR).sort((a, b) => {
+    const oa = deviceOrderMap[a] ?? 9999;
+    const ob = deviceOrderMap[b] ?? 9999;
+    return oa !== ob ? oa - ob : a.localeCompare(b);
+  });
   const hasVersionData = versionDevices.length > 0;
 
   // Per-run trend
@@ -1675,8 +1688,12 @@ function buildVersiones(runs, results) {
     byDevice[dev].sort(semverCmp);
   }
 
-  // Order devices alphabetically
-  const devices = Object.keys(byDevice).sort();
+  // Order devices by checklist_devices.orden, fallback to alphabetical
+  const devices = Object.keys(byDevice).sort((a, b) => {
+    const oa = deviceOrderMap[a] ?? 9999;
+    const ob = deviceOrderMap[b] ?? 9999;
+    return oa !== ob ? oa - ob : a.localeCompare(b);
+  });
   const totalRunsWithSnap = runsWithSnap.length;
 
   // Build device filter buttons HTML

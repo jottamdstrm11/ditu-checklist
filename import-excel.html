@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Importar Excel → Supabase | Ditu Checklist</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Encode+Sans+Expanded:wght@300;400;600;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --green: #97D700;
+  --purple: #8E65D8;
+  --black: #1a1a1a;
+  --white: #FFFFFF;
+  --gray: #f5f5f5;
+  --border: #e0e0e0;
+  --danger: #e53935;
+  --warn: #f57c00;
+  --ok: #388e3c;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Encode Sans Expanded', 'Helvetica Neue', Arial, sans-serif;
+  background: var(--black);
+  color: var(--white);
+  min-height: 100vh;
+  padding: 0;
+}
+header {
+  background: var(--purple);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+header img { height: 32px; }
+header h1 { font-size: 1.1rem; font-weight: 900; color: var(--white); }
+header span { font-size: 0.8rem; font-weight: 300; color: rgba(255,255,255,0.7); }
+.container { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+
+/* Steps */
+.steps { display: flex; gap: 8px; margin-bottom: 28px; }
+.step {
+  flex: 1; padding: 10px 12px; border-radius: 8px;
+  font-size: 0.75rem; font-weight: 600;
+  background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4);
+  text-align: center; transition: all 0.3s;
+}
+.step.active { background: var(--purple); color: var(--white); }
+.step.done { background: var(--green); color: var(--black); }
+
+/* Cards */
+.card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px; padding: 24px; margin-bottom: 20px;
+}
+.card h2 { font-size: 1rem; font-weight: 900; margin-bottom: 4px; color: var(--white); }
+.card p { font-size: 0.82rem; color: rgba(255,255,255,0.6); margin-bottom: 16px; }
+label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: rgba(255,255,255,0.7); }
+input[type=text], textarea, input[type=file] {
+  width: 100%; padding: 10px 14px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.08); color: var(--white);
+  font-family: inherit; font-size: 0.85rem;
+}
+textarea { min-height: 80px; resize: vertical; font-family: monospace; font-size: 0.78rem; }
+input[type=file] { cursor: pointer; padding: 10px; }
+input[type=file]::file-selector-button {
+  background: var(--purple); color: white; border: none;
+  padding: 6px 14px; border-radius: 6px; cursor: pointer;
+  font-family: inherit; font-size: 0.8rem; margin-right: 10px;
+}
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 24px; border-radius: 8px; border: none;
+  font-family: inherit; font-size: 0.9rem; font-weight: 600;
+  cursor: pointer; transition: opacity 0.2s;
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: var(--green); color: var(--black); }
+.btn-secondary { background: rgba(255,255,255,0.1); color: var(--white); }
+.btn-danger { background: var(--danger); color: white; }
+
+/* Info boxes */
+.info-box {
+  padding: 12px 16px; border-radius: 8px; font-size: 0.82rem;
+  margin-top: 12px; display: flex; gap: 10px; align-items: flex-start;
+}
+.info-box.warn { background: rgba(245,124,0,0.15); border: 1px solid rgba(245,124,0,0.3); color: #ffcc80; }
+.info-box.ok { background: rgba(56,142,60,0.15); border: 1px solid rgba(56,142,60,0.3); color: #a5d6a7; }
+.info-box.err { background: rgba(229,57,53,0.15); border: 1px solid rgba(229,57,53,0.3); color: #ef9a9a; }
+.info-box.info { background: rgba(142,101,216,0.15); border: 1px solid rgba(142,101,216,0.3); color: #ce93d8; }
+
+/* Stats grid */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 16px 0; }
+.stat-card {
+  background: rgba(255,255,255,0.06); border-radius: 8px; padding: 14px 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.stat-val { font-size: 1.8rem; font-weight: 900; color: var(--green); }
+.stat-lbl { font-size: 0.72rem; color: rgba(255,255,255,0.5); font-weight: 600; margin-top: 2px; }
+
+/* Progress */
+.progress-wrap { background: rgba(255,255,255,0.08); border-radius: 100px; height: 8px; margin: 12px 0; }
+.progress-bar { height: 8px; border-radius: 100px; background: var(--green); transition: width 0.3s; }
+
+/* Log */
+#log {
+  max-height: 300px; overflow-y: auto;
+  background: rgba(0,0,0,0.3); border-radius: 8px; padding: 12px;
+  font-family: monospace; font-size: 0.75rem;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.log-ok { color: #a5d6a7; }
+.log-err { color: #ef9a9a; }
+.log-info { color: #90caf9; }
+.log-warn { color: #ffcc80; }
+
+/* Table */
+.tbl-wrap { overflow-x: auto; margin: 12px 0; }
+table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+th { background: rgba(142,101,216,0.3); padding: 8px 12px; text-align: left; font-weight: 600; }
+td { padding: 7px 12px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+tr:hover td { background: rgba(255,255,255,0.03); }
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 20px;
+  font-size: 0.7rem; font-weight: 600;
+}
+.badge-m { background: rgba(142,101,216,0.3); color: #ce93d8; }
+.badge-s { background: rgba(151,215,0,0.2); color: var(--green); }
+.badge-skip { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); }
+
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <img src="https://cdn.prod.website-files.com/6584479d07aff3fd2a2570e2/6584479d07aff3fd2a25712e_Mediastream-Brand.svg" alt="Mediastream" onerror="this.hidden=true">
+  <div>
+    <h1>Importar Excel histórico</h1>
+    <span>Compilado_Final → Supabase · Ditu Checklist</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Steps indicator -->
+  <div class="steps">
+    <div class="step active" id="s1">1. Autenticación</div>
+    <div class="step" id="s2">2. Cargar Excel</div>
+    <div class="step" id="s3">3. Vista previa</div>
+    <div class="step" id="s4">4. Importar</div>
+  </div>
+
+  <!-- STEP 1: Auth -->
+  <div id="step1" class="card">
+    <h2>🔑 Token de acceso</h2>
+    <p>Abre el checklist en otra pestaña, abre la consola del navegador (F12) y ejecuta este comando para obtener tu token:</p>
+    <div style="background:rgba(0,0,0,0.4);border-radius:8px;padding:12px;margin-bottom:16px;font-family:monospace;font-size:0.8rem;color:#97D700;cursor:text;user-select:all;">(await _sbc.auth.getSession()).data.session.access_token</div>
+    <label>Pega el token aquí:</label>
+    <textarea id="tokenInput" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."></textarea>
+    <div style="margin-top:12px;">
+      <button class="btn btn-primary" onclick="validateToken()">✓ Validar token</button>
+    </div>
+    <div id="authStatus"></div>
+  </div>
+
+  <!-- STEP 2: File -->
+  <div id="step2" class="card" hidden>
+    <h2>📂 Seleccionar archivo Excel</h2>
+    <p>Selecciona el archivo <strong>Checklist_Julio.xlsx</strong> (o cualquier compilado con hoja "Compilado_Final").</p>
+    <label>Archivo Excel (.xlsx):</label>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="loadExcel(this)">
+    <div id="fileStatus"></div>
+  </div>
+
+  <!-- STEP 3: Preview -->
+  <div id="step3" class="card" hidden>
+    <h2>👁️ Vista previa del import</h2>
+    <p id="previewSummary"></p>
+    <div class="stats" id="statsGrid"></div>
+    <div id="warningsBox"></div>
+    <details style="margin-top:16px;">
+      <summary style="cursor:pointer;font-size:0.85rem;color:rgba(255,255,255,0.6);margin-bottom:8px;">Ver tabla de runs (primeros 30)</summary>
+      <div class="tbl-wrap"><table id="previewTable"><thead></thead><tbody></tbody></table></div>
+    </details>
+    <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap;">
+      <button class="btn btn-primary" id="btnImport" onclick="startImport()">🚀 Iniciar importación</button>
+      <button class="btn btn-secondary" onclick="goBack()">← Volver</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: Import progress -->
+  <div id="step4" class="card" hidden>
+    <h2>⏳ Importando datos...</h2>
+    <div id="importProgress">
+      <div style="margin-bottom:8px;font-size:0.85rem;" id="progressLabel">Preparando...</div>
+      <div class="progress-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+      <div style="font-size:0.78rem;color:rgba(255,255,255,0.5);" id="progressDetail"></div>
+    </div>
+    <div style="margin-top:16px;">
+      <div id="log"></div>
+    </div>
+    <div id="importResult" hidden style="margin-top:16px;"></div>
+  </div>
+
+</div>
+
+<script>
+// ─── CONFIG ─────────────────────────────────────────────────────────────────
+const SUPA_URL = 'https://akpuifenfstvobwtqtcq.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcHVpZmVuZnN0dm9id3RxdGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MDMxOTAsImV4cCI6MjEwMjM3OTE5MH0.5397pVE5XlyV2864iTf96Ttj--HqoffovzJ9Z9mI0ig';
+
+// ─── ITEM NAME MAPPING: Excel old name → DB current name ────────────────────
+const NAME_MAP = {
+  // Soporte & Monitoreo shared renames
+  'Continua a reproducción':        'Continúa la reproducción tras publicidad',
+  'Continuidad de video ':           'Continuidad de video',
+  'Control Player /Pause':           'Control Player / Pause',
+  'Control Player /Play':            'Control Player / Play',
+  'Filtros por genero (Humor, Realities, Investigación, etc)': 'Filtros por género (Humor, Realities, Investigación, etc)',
+  'Playbak VOD':                     'Playback VOD',
+  'Picture an Picture':              'Picture in Picture / Live',
+  'Priority Playback LIVE (Yo me LLamo, Gol Caracol, Caracol TV)': 'Priority Playback LIVE (Yo me Llamo, Gol Caracol, Caracol TV)',
+  // Soporte specific
+  'Picture an Picture / Live':       'Picture in Picture / Live',
+  // Monitoreo specific
+  'Creacion de cuenta':              'Creación de cuenta',
+  'Editar Perfil(Switch profile)':   'Editar Perfil (Switch profile)',
+  'Episodio siguiente / AutoPlay':   'Autoplay siguiente episodio',
+  'Episodio siguiente / Con el botón siguiente episodio': 'Episodio siguiente Botón siguiente episodio',
+  'Picture an Picture / VOD':        'Picture in Picture / VOD',
+  'Preguntas frecuentes':            'Preguntas frecuentes (FAQ)',
+  'Redicrección y destino de contenido (Deep Linking)': 'Redirección y destino de contenido (Deep Linking)',
+  'Términos y condiciones ':         'Términos y condiciones',
+  'Vallidar los botones dentro del Live (X, Mute)': 'Botones dentro del reproductor del Live (X, Mute)',
+  'Vallidar los botones dentro del contenido VOD funcionen correctamente(Mute, "X")': 'Botones dentro del contenido VOD (Mute, X)',
+  'Validar restricción cuando creo un nuevo perfil (Mayor de edad)': 'Restricción perfil Mayor de edad',
+  'Validar restricción cuando me registro en la cuenta (Mayor de edad)': 'Restricción registro Mayor de edad',
+  // Items that no longer exist in DB → will be skipped
+  'Botón Ver mas':                   null,
+  'Mundial ditu ':                   null,
+  'Priority Playback LIVE (A Otro Nivel, Caracol, Blu)': null,
+  'Priority Playback LIVE (A Otro Nivel, Caracol, Negocios Ditu)': null,
+};
+
+// Device name normalization
+const DEVICE_MAP = {
+  'Ipad': 'iPad',
+  'Iphone': 'iPhone',
+  'Galaxy Tab A11 /': 'Galaxy Tab A11 ',
+};
+function normDevice(d) { return DEVICE_MAP[d] || d; }
+
+// Result mapping
+function normResult(r) {
+  if (!r) return '';
+  const v = String(r).trim().toUpperCase();
+  if (v === 'UNABLE TO TEST') return 'UTT';
+  if (v === 'PASS') return 'PASS';
+  if (v === 'FAIL') return 'FAIL';
+  return v;
+}
+
+// Hora franja normalization
+function normHora(h) {
+  if (!h) return '';
+  let s = String(h).trim();
+  if (s === '400' || s === '4:00') return '04:00';
+  if (s.length === 4 && s[1] === ':') s = '0' + s;
+  return s.substring(0, 5);
+}
+
+// ─── STATE ──────────────────────────────────────────────────────────────────
+let authToken = null;
+let authHeaders = null;
+let clienteId = null;
+let itemLookup = {}; // tipo → { nombre → {numero_item, seccion} }
+let groups = [];
+
+// ─── STEP NAVIGATION ────────────────────────────────────────────────────────
+function setStep(n) {
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById('s' + i).className = 'step' + (i < n ? ' done' : i === n ? ' active' : '');
+    const el = document.getElementById('step' + i);
+    if (el) el.hidden = i !== n;
+  }
+}
+
+// ─── STEP 1: Validate token ──────────────────────────────────────────────────
+async function validateToken() {
+  const tok = document.getElementById('tokenInput').value.trim();
+  const st = document.getElementById('authStatus');
+  if (!tok || tok.length < 100) {
+    st.innerHTML = '<div class="info-box err">⚠️ El token parece inválido. Asegúrate de copiar el valor completo del JWT.</div>';
+    return;
+  }
+  st.innerHTML = '<div class="info-box info">⏳ Validando token y cargando datos...</div>';
+
+  const hdrs = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + tok };
+  try {
+    // Verify token by fetching profile
+    const rp = await fetch(SUPA_URL + '/rest/v1/profiles?select=nombre,rol', { headers: hdrs });
+    if (!rp.ok) throw new Error('Token inválido (HTTP ' + rp.status + ')');
+    const profiles = await rp.json();
+
+    // Get cliente_id for ditu (first cliente)
+    const rc = await fetch(SUPA_URL + '/rest/v1/clientes?select=id,nombre', { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } });
+    const clientes = await rc.json();
+    if (!clientes.length) throw new Error('No se encontraron clientes en la DB');
+    // Find DITU client
+    const ditu = clientes.find(c => c.nombre && c.nombre.toUpperCase().includes('DITU')) || clientes[0];
+    clienteId = ditu.id;
+
+    // Load checklist_items for both tipos
+    const ri = await fetch(SUPA_URL + `/rest/v1/checklist_items?cliente_id=eq.${clienteId}&activo=eq.true&select=numero_item,nombre_item,seccion,tipo`,
+      { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } });
+    const items = await ri.json();
+
+    itemLookup = { soporte: {}, monitoreo: {} };
+    items.forEach(it => {
+      if (itemLookup[it.tipo]) {
+        itemLookup[it.tipo][it.nombre_item] = { numero_item: it.numero_item, seccion: it.seccion };
+      }
+    });
+
+    authToken = tok;
+    authHeaders = hdrs;
+    const user = profiles[0] ? profiles[0].nombre || 'Usuario' : 'Usuario';
+    st.innerHTML = `<div class="info-box ok">✅ Autenticado como <strong>${user}</strong> · Cliente: <strong>${ditu.nombre}</strong> · ítems cargados: ${items.length}</div>`;
+    setTimeout(() => setStep(2), 800);
+  } catch (e) {
+    st.innerHTML = `<div class="info-box err">❌ Error: ${e.message}</div>`;
+  }
+}
+
+// ─── STEP 2: Load Excel ──────────────────────────────────────────────────────
+async function loadExcel(input) {
+  const st = document.getElementById('fileStatus');
+  if (!input.files.length) return;
+  st.innerHTML = '<div class="info-box info">⏳ Leyendo archivo...</div>';
+
+  const file = input.files[0];
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+
+  if (!wb.SheetNames.includes('Compilado_Final')) {
+    st.innerHTML = '<div class="info-box err">❌ No se encontró la hoja "Compilado_Final" en el archivo.</div>';
+    return;
+  }
+
+  const ws = wb.Sheets['Compilado_Final'];
+  const rows = XLSX.utils.sheet_to_json(ws, { raw: false, dateNF: 'yyyy-mm-dd' });
+  if (!rows.length) {
+    st.innerHTML = '<div class="info-box err">❌ La hoja está vacía.</div>';
+    return;
+  }
+
+  st.innerHTML = `<div class="info-box ok">✅ ${rows.length.toLocaleString()} filas cargadas. Procesando...</div>`;
+  setTimeout(() => processRows(rows), 100);
+}
+
+function parseDate(v) {
+  if (!v) return '';
+  const s = String(v).trim();
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+  // DD/MM/YYYY
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  return s.substring(0, 10);
+}
+
+function processRows(rows) {
+  // Group by fecha + hora + operador
+  const map = new Map();
+  rows.forEach(r => {
+    const fecha = parseDate(r['Fecha']);
+    const hora = normHora(r['Hora Check']);
+    const op = String(r['Realizado Por'] || '').trim();
+    const validacion = String(r['Validación'] || '').trim();
+    const dispositivo = normDevice(String(r['Dispositivo'] || '').trim());
+    const version = String(r['Versión'] || '').trim();
+    const resultado = normResult(r['Resultado']);
+    const obs = String(r['Observaciones'] || '').trim();
+    if (obs === 'Sin comentarios' || obs === 'sin comentarios') { /* keep */ }
+
+    const key = `${fecha}||${hora}||${op}`;
+    if (!map.has(key)) map.set(key, { fecha, hora, op, rows: [] });
+    map.get(key).rows.push({ validacion, dispositivo, version, resultado, obs });
+  });
+
+  groups = [];
+  let skipped = 0;
+  map.forEach((g, key) => {
+    const uniqueItems = new Set(g.rows.map(r => r.validacion)).size;
+    let tipo = null;
+    if (uniqueItems >= 19 && uniqueItems <= 22) tipo = 'soporte';
+    else if (uniqueItems >= 40) tipo = 'monitoreo';
+    else { skipped++; return; } // skip anomalous
+
+    // Build versiones_snapshot: { device: version }
+    const versions = {};
+    g.rows.forEach(r => { if (r.version) versions[r.dispositivo] = r.version; });
+
+    groups.push({ fecha: g.fecha, hora: g.hora, operador: g.op, tipo, itemCount: uniqueItems, rows: g.rows, versions });
+  });
+
+  // Sort by fecha, hora
+  groups.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora.localeCompare(b.hora));
+  showPreview(skipped);
+}
+
+function showPreview(skipped) {
+  setStep(3);
+  const sop = groups.filter(g => g.tipo === 'soporte').length;
+  const mon = groups.filter(g => g.tipo === 'monitoreo').length;
+  const dates = [...new Set(groups.map(g => g.fecha))];
+  const firstDate = dates[0] || '?';
+  const lastDate = dates[dates.length - 1] || '?';
+
+  // Calculate how many items will be skipped per run (items that don't map)
+  let totalSkipItems = 0;
+  groups.forEach(g => {
+    const uniqueItems = [...new Set(g.rows.map(r => r.validacion))];
+    uniqueItems.forEach(name => {
+      const mapped = mapItemName(name);
+      if (mapped === null) totalSkipItems++;
+    });
+  });
+
+  document.getElementById('previewSummary').textContent =
+    `Se importarán ${groups.length} runs entre ${firstDate} y ${lastDate}.`;
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-val">${groups.length}</div><div class="stat-lbl">RUNS TOTALES</div></div>
+    <div class="stat-card"><div class="stat-val">${sop}</div><div class="stat-lbl">SOPORTE</div></div>
+    <div class="stat-card"><div class="stat-val">${mon}</div><div class="stat-lbl">MONITOREO</div></div>
+    <div class="stat-card"><div class="stat-val">${dates.length}</div><div class="stat-lbl">DÍAS DISTINTOS</div></div>
+    ${skipped > 0 ? `<div class="stat-card"><div class="stat-val" style="color:#ffcc80">${skipped}</div><div class="stat-lbl">RUNS INCOMPLETOS (OMITIDOS)</div></div>` : ''}
+  `;
+
+  let warnings = '';
+  if (skipped > 0) warnings += `<div class="info-box warn">⚠️ ${skipped} runs incompletos (< 19 ítems) serán omitidos automáticamente.</div>`;
+  if (totalSkipItems > 0) warnings += `<div class="info-box warn">⚠️ ~${totalSkipItems} ítems por run tienen nombres obsoletos y serán omitidos (ej: "Botón Ver mas", "Mundial ditu"). El resto se mapeará correctamente.</div>`;
+  warnings += `<div class="info-box info">ℹ️ Los ítems nuevos que se agregaron después de julio (como "Inicio de sesión con Apple ID") no aparecerán en estos runs, lo cual es correcto.</div>`;
+  document.getElementById('warningsBox').innerHTML = warnings;
+
+  // Preview table
+  const thead = document.querySelector('#previewTable thead');
+  const tbody = document.querySelector('#previewTable tbody');
+  thead.innerHTML = '<tr><th>Fecha</th><th>Hora</th><th>Operador</th><th>Tipo</th><th>Ítems</th><th>Dispositivos</th></tr>';
+  tbody.innerHTML = '';
+  groups.slice(0, 30).forEach(g => {
+    const devices = [...new Set(g.rows.map(r => r.dispositivo))].length;
+    tbody.innerHTML += `<tr>
+      <td>${g.fecha}</td><td>${g.hora}</td><td>${g.operador}</td>
+      <td><span class="badge ${g.tipo === 'monitoreo' ? 'badge-m' : 'badge-s'}">${g.tipo}</span></td>
+      <td>${g.itemCount}</td><td>${devices}</td>
+    </tr>`;
+  });
+  if (groups.length > 30) {
+    tbody.innerHTML += `<tr><td colspan="6" style="text-align:center;color:rgba(255,255,255,0.4);">... y ${groups.length - 30} más</td></tr>`;
+  }
+}
+
+function goBack() {
+  groups = [];
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileStatus').innerHTML = '';
+  setStep(2);
+}
+
+function mapItemName(excelName) {
+  const trimmed = excelName.trim();
+  if (NAME_MAP.hasOwnProperty(trimmed)) return NAME_MAP[trimmed]; // null = skip
+  return trimmed; // already current name
+}
+
+// ─── STEP 4: Import ──────────────────────────────────────────────────────────
+let importRunning = false;
+async function startImport() {
+  if (importRunning) return;
+  importRunning = true;
+  document.getElementById('btnImport').disabled = true;
+  setStep(4);
+  document.getElementById('log').innerHTML = '';
+
+  const log = (msg, cls = 'log-info') => {
+    const el = document.getElementById('log');
+    el.innerHTML += `<div class="${cls}">${msg}</div>`;
+    el.scrollTop = el.scrollHeight;
+  };
+
+  const setProgress = (done, total, label) => {
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressLabel').textContent = label || `Importando run ${done} de ${total}...`;
+    document.getElementById('progressDetail').textContent = `${pct}% completado`;
+  };
+
+  const writeHeaders = {
+    ...authHeaders,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation',
+  };
+
+  let successRuns = 0, errorRuns = 0, totalResults = 0;
+
+  log(`🚀 Iniciando importación de ${groups.length} runs...`);
+
+  for (let i = 0; i < groups.length; i++) {
+    const g = groups[i];
+    setProgress(i, groups.length, `Importando run ${i + 1} de ${groups.length}: ${g.fecha} ${g.hora} ${g.tipo}`);
+
+    try {
+      // 1. Build results rows
+      const rowsByItemDevice = {};
+      g.rows.forEach(r => {
+        const currentName = mapItemName(r.validacion);
+        if (currentName === null) return; // skip deprecated item
+        const key = currentName + '||' + r.dispositivo;
+        if (!rowsByItemDevice[key]) rowsByItemDevice[key] = { validacion: currentName, dispositivo: r.dispositivo, resultado: r.resultado, obs: r.obs };
+      });
+
+      // Lookup item info
+      const lookup = itemLookup[g.tipo] || {};
+      const resultRows = [];
+      const seenItems = new Map(); // nombre → {n, seccion}
+      const observations = {};
+
+      Object.values(rowsByItemDevice).forEach(r => {
+        const info = lookup[r.validacion];
+        if (!info) return; // item not in DB (new item added after July)
+        if (!seenItems.has(r.validacion)) {
+          seenItems.set(r.validacion, info);
+        }
+        const obsKey = r.validacion;
+        if (r.obs && r.obs.toLowerCase() !== 'sin comentarios' && !observations[obsKey]) {
+          observations[obsKey] = r.obs;
+        }
+        resultRows.push({
+          dispositivo: r.dispositivo,
+          numero_item: info.numero_item,
+          nombre_item: r.validacion,
+          seccion: info.seccion,
+          estado: r.resultado,
+          observacion: r.obs && r.obs.toLowerCase() !== 'sin comentarios' ? r.obs : null,
+        });
+      });
+
+      if (!resultRows.length) {
+        log(`⚠️ Run ${g.fecha} ${g.hora} ${g.tipo}: sin resultados mapeables, omitido`, 'log-warn');
+        continue;
+      }
+
+      // 2. Build versiones_snapshot
+      const versSnap = JSON.stringify(g.versions);
+
+      // 3. Insert checklist_run
+      const runPayload = {
+        fecha: g.fecha,
+        hora_franja: g.hora,
+        operador: g.operador,
+        tipo: g.tipo,
+        cliente_id: clienteId,
+        versiones_snapshot: versSnap,
+        items_esperados: seenItems.size,
+      };
+
+      const rRun = await fetch(SUPA_URL + '/rest/v1/checklist_runs', {
+        method: 'POST',
+        headers: writeHeaders,
+        body: JSON.stringify(runPayload),
+      });
+
+      if (!rRun.ok) {
+        const errText = await rRun.text();
+        log(`❌ Run ${g.fecha} ${g.hora} ${g.tipo}: error al crear run → ${errText}`, 'log-err');
+        errorRuns++;
+        continue;
+      }
+
+      const runData = await rRun.json();
+      const runId = Array.isArray(runData) ? runData[0].id : runData.id;
+
+      // 4. Insert results (batch)
+      const resultsPayload = resultRows.map(r => ({ ...r, run_id: runId }));
+      const rRes = await fetch(SUPA_URL + '/rest/v1/checklist_results', {
+        method: 'POST',
+        headers: { ...writeHeaders, 'Prefer': 'return=minimal' },
+        body: JSON.stringify(resultsPayload),
+      });
+
+      if (!rRes.ok) {
+        const errText = await rRes.text();
+        log(`❌ Run ${runId} (${g.fecha} ${g.hora}): error al insertar resultados → ${errText}`, 'log-err');
+        // Rollback: delete the run we just created
+        await fetch(SUPA_URL + '/rest/v1/checklist_runs?id=eq.' + runId, { method: 'DELETE', headers: authHeaders });
+        errorRuns++;
+        continue;
+      }
+
+      successRuns++;
+      totalResults += resultsPayload.length;
+      log(`✅ [${i+1}/${groups.length}] ${g.fecha} ${g.hora} ${g.tipo} por ${g.operador} → ${resultsPayload.length} resultados`, 'log-ok');
+
+    } catch (e) {
+      log(`❌ Error inesperado en run ${i+1}: ${e.message}`, 'log-err');
+      errorRuns++;
+    }
+
+    // Small delay to avoid rate limiting
+    if (i % 10 === 9) await new Promise(r => setTimeout(r, 200));
+  }
+
+  setProgress(groups.length, groups.length, 'Completado');
+  const resultHtml = `
+    <div class="info-box ${errorRuns === 0 ? 'ok' : 'warn'}">
+      <div>
+        <strong>🎉 Importación finalizada</strong><br>
+        ✅ ${successRuns} runs importados correctamente ·
+        📊 ${totalResults.toLocaleString()} resultados insertados<br>
+        ${errorRuns > 0 ? `❌ ${errorRuns} runs fallidos (ver log arriba)` : ''}
+      </div>
+    </div>
+  `;
+  const resultEl = document.getElementById('importResult');
+  resultEl.innerHTML = resultHtml;
+  resultEl.hidden = false;
+  importRunning = false;
+}
+</script>
+</body>
+</html>
