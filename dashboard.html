@@ -802,10 +802,20 @@
       text-align: left;
       color: var(--text-secondary);
       max-width: 260px;
-      white-space: pre-wrap;
-      word-break: break-word;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       font-size: 0.72rem;
-      line-height: 1.4;
+      cursor: help;
+    }
+    /* Filas sin resultados: ítem que existía pero no se registró en este run */
+    .matrix-table tr.row-missing td {
+      opacity: 0.4;
+      font-style: italic;
+    }
+    .matrix-table tr.row-missing td.num-col,
+    .matrix-table tr.row-missing td.item-col {
+      color: var(--text-muted);
     }
     .matrix-section-row td {
       background: rgba(100,60,200,0.22);
@@ -2413,7 +2423,8 @@ async function renderMatrix() {
   if (matrizCont) matrizCont.style.display = 'block';
 
   // Helper: build single run matrix data from a set of rows
-  function buildRunMatrix(runRows) {
+  // allItems: lista canónica de ítems (incluye inactivos) para mostrar filas faltantes
+  function buildRunMatrix(runRows, allItems) {
     const devicesInRun = [...new Set(runRows.map(r => r.dispositivo).filter(Boolean))];
     // Usar el orden canónico de activeDevices (columna `orden` de checklist_devices)
     // para que coincida con el orden del formulario de checklist
@@ -2424,12 +2435,30 @@ async function renderMatrix() {
     const sectionOrder = [];
     // Track minimum numero_item per section for ordering
     const sectionMinItem = {};
+
+    // 1. Seed con TODOS los ítems canónicos (activos e inactivos)
+    // para que los ítems sin resultados aparezcan como filas dimmed
+    if (allItems && allItems.length > 0) {
+      allItems.forEach(it => {
+        const sec = it.seccion || '—';
+        if (!sectionsMap[sec]) { sectionsMap[sec] = new Map(); sectionOrder.push(sec); }
+        const key = (it.numero_item ?? '') + '|' + (it.nombre ?? it.nombre_item ?? '');
+        if (!sectionsMap[sec].has(key)) {
+          sectionsMap[sec].set(key, { n: it.numero_item ?? '', t: it.nombre ?? it.nombre_item ?? '', devs: {}, _missing: true });
+        }
+        const num = parseFloat(it.numero_item) || 0;
+        if (sectionMinItem[sec] === undefined || num < sectionMinItem[sec]) sectionMinItem[sec] = num;
+      });
+    }
+
+    // 2. Llenar con resultados reales (marca _missing: false)
     runRows.forEach(r => {
       const sec = r.seccion || '—';
       if (!sectionsMap[sec]) { sectionsMap[sec] = new Map(); sectionOrder.push(sec); }
       const key = (r.numero_item ?? '') + '|' + (r.nombre_item ?? '');
-      if (!sectionsMap[sec].has(key)) sectionsMap[sec].set(key, { n: r.numero_item ?? '', t: r.nombre_item ?? '', devs: {} });
+      if (!sectionsMap[sec].has(key)) sectionsMap[sec].set(key, { n: r.numero_item ?? '', t: r.nombre_item ?? '', devs: {}, _missing: false });
       const item = sectionsMap[sec].get(key);
+      item._missing = false; // tiene al menos un resultado real
       const dev = r.dispositivo;
       if (dev) {
         if (!item.devs[dev]) item.devs[dev] = { estado: r.estado, obs: r.observacion || '', id: r.id, editado_por: r.editado_por || null, editado_en: r.editado_en || null };
@@ -2460,9 +2489,11 @@ async function renderMatrix() {
       });
       items.forEach(item => {
         const allObs = devicesSet.map(d => item.devs[d]?.obs || '').filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(' | ');
-        html += `<tr>
+        // Filas sin ningún resultado: dimmed + itálica para indicar que faltan datos
+        const rowMissingAttr = item._missing ? ' class="row-missing"' : '';
+        html += `<tr${rowMissingAttr}>
           <td class="num-col">${escHtml(String(item.n))}</td>
-          <td class="item-col">${escHtml(item.t)}</td>
+          <td class="item-col">${escHtml(item.t)}${item._missing ? ' <span style="font-size:0.7em;color:var(--text-muted)">(sin datos)</span>' : ''}</td>
           ${devicesSet.map(d => {
             const cell = item.devs[d];
             if (!cell) return `<td><span class="m-badge empty">—</span></td>`;
@@ -2547,6 +2578,25 @@ async function renderMatrix() {
   // Determine: single-run or multi-run
   const multiMode = runIdsToShow.size > 1;
 
+  // ── Cargar ítems canónicos (activos E inactivos) para mostrar gaps ──
+  let canonicalItems = [];
+  try {
+    const tiposInRuns = [...new Set(runIds.map(rid => {
+      const s = runsStats.find(x => x.id === rid);
+      return s ? s.tipo : null;
+    }).filter(Boolean))];
+    if (tiposInRuns.length > 0 && currentClienteId) {
+      const tipo = tiposInRuns[0];
+      // SIN filtro activo=true → incluye ítems desactivados (ej: 1.4, 1.10)
+      const cf = `&cliente_id=eq.${currentClienteId}`;
+      const itemsRes = await fetch(
+        SUPA_URL + `/rest/v1/checklist_items?tipo=eq.${encodeURIComponent(tipo)}${cf}&select=numero_item,nombre,seccion&order=numero_item`,
+        { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } }
+      );
+      if (itemsRes.ok) canonicalItems = await itemsRes.json();
+    }
+  } catch(_) { /* no-op: si falla, la matrix igual muestra los datos del run */ }
+
   if (!multiMode) {
     // ── Single-run rendering ──
     const bd = document.getElementById('multiRunBlocks');
@@ -2558,7 +2608,7 @@ async function renderMatrix() {
         `<tr><td colspan="99" class="state-msg" style="color:var(--text-muted)">Este run no tiene resultados guardados en la base de datos.</td></tr>`;
       matrizCont.style.display = 'block';
     } else {
-      const { devicesSet, sectionsMap, sectionOrder } = buildRunMatrix(allDetailRows);
+      const { devicesSet, sectionsMap, sectionOrder } = buildRunMatrix(allDetailRows, canonicalItems);
       document.getElementById('matrixHead').innerHTML = `<tr>
         <th style="text-align:right;width:40px">#</th>
         <th class="item-col">Ítem de verificación</th>
@@ -2609,7 +2659,7 @@ async function renderMatrix() {
         return;
       }
 
-      const { devicesSet, sectionsMap, sectionOrder } = buildRunMatrix(runRows);
+      const { devicesSet, sectionsMap, sectionOrder } = buildRunMatrix(runRows, canonicalItems);
       const tbodyHtml = buildTableRows(devicesSet, sectionsMap, sectionOrder);
       blocksHtml += `<div class="run-block">
         <div class="run-block-header">
