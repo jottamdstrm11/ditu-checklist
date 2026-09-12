@@ -397,7 +397,8 @@ function applyNavRole(rol){
 const FRANJAS=['01:00','04:00','07:00','10:00','13:00','16:00','19:00','22:00'];
 let selectedType='soporte',selectedFranja='',DEVICES=[],ITEMS={},results={};
 let observations={};  // ya estaba declarado más abajo — centralizado aquí
-let _existingRunId=null; // cuando superadmin reemplaza un run existente
+let _existingRunId=null; // cuando superadmin edita un run existente
+let _editMode=false;    // true → cargar ítems del run original, no de checklist_items
 
 // ── Auto-guardado en localStorage ─────────────────────────────────────
 function draftKey(){
@@ -455,6 +456,54 @@ function showSavedIndicator(msg){
 }
 
 async function supa(p){const r=await fetch(SUPA_URL+p,{headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}});return r.json();}
+
+// ── Carga ítems y resultados de un run YA GUARDADO (modo edición) ──────────
+async function loadExistingResults(runId){
+  const res=await fetch(SUPA_URL+`/rest/v1/checklist_results?run_id=eq.${runId}&order=seccion,numero_item&select=*`,
+    {headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}});
+  if(!res.ok)throw new Error('Error cargando resultados existentes: '+res.status);
+  const rows=await res.json();
+  if(!rows.length)throw new Error('El run no tiene resultados guardados');
+
+  // DEVICES: preservar clave/version de loadConfig; si no existe usar nombre como clave
+  const deviceNombres=[...new Set(rows.map(r=>r.dispositivo))];
+  DEVICES=deviceNombres.map(nombre=>{
+    const ex=DEVICES.find(d=>d.nombre===nombre);
+    return ex||{nombre,clave:nombre,version:'',activo:true};
+  });
+
+  // ITEMS: construir desde los resultados reales (secciones e ítems del run original)
+  const bySeccion={};const secOrder=[];
+  rows.forEach(r=>{
+    if(!bySeccion[r.seccion]){bySeccion[r.seccion]=new Map();secOrder.push(r.seccion);}
+    const key=r.numero_item+'|'+r.nombre_item;
+    if(!bySeccion[r.seccion].has(key))
+      bySeccion[r.seccion].set(key,{n:r.numero_item,t:r.nombre_item,c:''});
+  });
+  const sortedSecs=[...secOrder].sort((a,b)=>{
+    const gm=s=>Math.min(...[...bySeccion[s].values()].map(i=>parseFloat(i.n)||0));
+    return gm(a)-gm(b);
+  });
+  ITEMS[selectedType]=sortedSecs.map(s=>({
+    s,items:[...bySeccion[s].values()].sort((a,b)=>numSort(a.n,b.n))
+  }));
+
+  // Pre-poblar results y observations con los valores guardados
+  results={};observations={};
+  ITEMS[selectedType].forEach((sec,si)=>sec.items.forEach((item,ii)=>{
+    DEVICES.forEach(d=>{
+      const row=rows.find(r=>r.numero_item===item.n&&r.dispositivo===d.nombre);
+      if(row){
+        let st=row.estado||'';
+        if(st==='N/A')st='NA';
+        if(st==='UNABLE TO TEST')st='UTT';
+        if(st)results[`${si}_${ii}_${d.clave}`]=st;
+        if(row.observacion&&!observations[`${si}_${ii}`])
+          observations[`${si}_${ii}`]=row.observacion;
+      }
+    });
+  }));
+}
 
 function numSort(a,b){
   const pa=String(a).split('.').map(Number),pb=String(b).split('.').map(Number);
@@ -518,15 +567,16 @@ async function startChecklist(){
       const opDup=dups[0].operador||'otro operador';
       const isSuperAdmin=currentRol==='superadmin';
       const msg=`Ya existe un checklist de ${selectedType} para la franja ${selectedFranja} registrado por ${opDup}.\n\n`+
-        (isSuperAdmin?'Como superadmin puedes REEMPLAZAR ese registro (se borrarán los resultados anteriores y se guardarán los nuevos con los ítems activos actuales).':'Contacta a un administrador si necesitas registrar uno adicional.');
+        (isSuperAdmin?'Como superadmin puedes EDITAR ese registro. Solo podrás cambiar los estados y observaciones — los ítems originales se mantienen intactos.':'Contacta a un administrador si necesitas modificar un checklist ya registrado.');
       if(isSuperAdmin){
-        if(!confirm(msg+'\n\n¿Reemplazar el checklist existente?')){btn.disabled=false;btn.textContent='Comenzar checklist →';return;}
-        _existingRunId=dups[0].id; // guardar para reutilizar en enviarChecklist
+        if(!confirm(msg+'\n\n¿Editar el checklist existente?')){btn.disabled=false;btn.textContent='Comenzar checklist →';return;}
+        _existingRunId=dups[0].id;
+        _editMode=true;
       } else {
         alert(msg);btn.disabled=false;btn.textContent='Comenzar checklist →';return;
       }
     } else {
-      _existingRunId=null; // run nuevo, limpiar por si acaso
+      _existingRunId=null;_editMode=false;
     }
   }catch(e){
     // Si falla la verificación, dejar pasar (no bloquear por error de red)
@@ -535,11 +585,29 @@ async function startChecklist(){
   btn.disabled=false;btn.textContent='Comenzar checklist →';
   const op=currentUser;
   document.getElementById('headerOp').textContent=op;
-  document.getElementById('headerMeta').textContent=
-    (selectedType==='soporte'?'🟣 Soporte':'🔵 Monitoreo')+' · Franja '+selectedFranja+' · '+
-    new Date().toLocaleDateString('es-CO',{day:'2-digit',month:'short'});
-  results={};observations={};buildTable();show('screenChecklist');updateProgress();
-  checkDraft();
+  const tipoLabel=(selectedType==='soporte'?'🟣 Soporte':'🔵 Monitoreo');
+  const fechaLabel=new Date().toLocaleDateString('es-CO',{day:'2-digit',month:'short'});
+
+  if(_editMode){
+    try{
+      btn.disabled=true;btn.textContent='Cargando...';
+      await loadExistingResults(_existingRunId);
+      btn.disabled=false;btn.textContent='Comenzar checklist →';
+    }catch(e){
+      btn.disabled=false;btn.textContent='Comenzar checklist →';
+      alert('No se pudo cargar el checklist existente.\n\n'+e.message);
+      _existingRunId=null;_editMode=false;return;
+    }
+    document.getElementById('headerMeta').textContent=
+      tipoLabel+' · Franja '+selectedFranja+' · '+fechaLabel+' · ✏️ Editando';
+  } else {
+    results={};observations={};
+    document.getElementById('headerMeta').textContent=
+      tipoLabel+' · Franja '+selectedFranja+' · '+fechaLabel;
+  }
+
+  buildTable();show('screenChecklist');updateProgress();
+  if(!_editMode)checkDraft();
 }
 
 function buildTable(){
@@ -613,7 +681,7 @@ function updateProgress(){
       sendBtn.onclick=scrollToFirstEmpty;
     } else {
       sendBtn.disabled=false;
-      sendBtn.innerHTML='✅ Enviar Checklist';
+      sendBtn.innerHTML=_editMode?'✅ Guardar cambios':'✅ Enviar Checklist';
       sendBtn.style.background='';sendBtn.style.borderColor='';
       sendBtn.onclick=enviarChecklist;
     }
@@ -664,26 +732,27 @@ async function enviarChecklist(){
     let runId;
 
     if(_existingRunId){
-      // ── MODO REEMPLAZO: reutilizar el run existente ──────────────────
-      // Obtener token de sesión para operaciones con RLS
+      // ── MODO EDICIÓN: conservar run, reemplazar solo resultados ─────
+      // Los ítems vienen de loadExistingResults (run original) → count es el mismo
       const {data:{session:_sess}}=await _sbc.auth.getSession();
       const token=_sess?_sess.access_token:SUPA_KEY;
       const hAuth={...hRows,'Authorization':'Bearer '+token};
 
       // 1a. Eliminar resultados anteriores del run
-      btn.innerHTML='<span class="spinner"></span> Borrando resultados anteriores...';
+      btn.innerHTML='<span class="spinner"></span> Guardando cambios...';
       const rDel=await fetch(SUPA_URL+'/rest/v1/checklist_results?run_id=eq.'+_existingRunId,
         {method:'DELETE',headers:hAuth});
       if(!rDel.ok)throw new Error('Error eliminando resultados anteriores: '+rDel.status);
 
-      // 1b. Actualizar metadatos del run (operador, items_esperados, versiones)
+      // 1b. Actualizar solo operador — NO tocar items_esperados ni versiones_snapshot
       const rPatch=await fetch(SUPA_URL+'/rest/v1/checklist_runs?id=eq.'+_existingRunId,
         {method:'PATCH',headers:{...hRun,'Authorization':'Bearer '+token},
-         body:JSON.stringify({operador:op,items_esperados:totalEsperado,versiones_snapshot:versionesSnapshot})});
+         body:JSON.stringify({operador:op})});
       if(!rPatch.ok)throw new Error('Error actualizando run: '+rPatch.status);
 
       runId=_existingRunId;
-      _existingRunId=null; // limpiar para futuros envíos
+      _existingRunId=null;
+      _editMode=false;
     } else {
       // ── MODO NUEVO: crear run normal ─────────────────────────────────
       const runPayload={fecha:localFecha,operador:op,tipo:selectedType,hora_franja:selectedFranja,items_esperados:totalEsperado,versiones_snapshot:versionesSnapshot};
@@ -728,12 +797,13 @@ async function enviarChecklist(){
     show('screenSuccess');
   }catch(e){
     alert('No se pudo enviar el checklist.\n\nDetalle: '+e.message+'\n\nTus datos no se perdieron — puedes intentarlo de nuevo.');
-    btn.disabled=false;btn.innerHTML='✅ Enviar Checklist';
+    btn.disabled=false;
+    btn.innerHTML=_editMode?'✅ Guardar cambios':'✅ Enviar Checklist';
     btn.style.background='';btn.style.borderColor='';
     btn.onclick=enviarChecklist;
   }
 }
-function resetForm(){results={};observations={};checkReady();show('screenSetup');}
+function resetForm(){results={};observations={};_existingRunId=null;_editMode=false;checkReady();show('screenSetup');}
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
 
 // ── Criterio popover ──────────────────────────────
