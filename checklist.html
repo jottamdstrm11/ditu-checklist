@@ -475,12 +475,15 @@ async function loadExistingResults(runId){
   const rows=await res.json();
   if(!rows.length)throw new Error('El run no tiene resultados guardados');
 
-  // DEVICES: preservar clave/version de loadConfig; si no existe usar nombre como clave
-  const deviceNombres=[...new Set(rows.map(r=>r.dispositivo))];
-  DEVICES=deviceNombres.map(nombre=>{
-    const ex=DEVICES.find(d=>d.nombre===nombre);
-    return ex||{nombre,clave:nombre,version:'',activo:true};
-  });
+  // DEVICES: mantener el orden original de checklist_devices (ya cargado por loadConfig con orden ASC)
+  // Solo filtrar los que realmente aparecen en este run histórico
+  const deviceNombresEnRun=new Set(rows.map(r=>r.dispositivo));
+  const dispositivosOrdenados=DEVICES.filter(d=>deviceNombresEnRun.has(d.nombre));
+  // Si hay dispositivos en el run que ya no están en la DB, agregarlos al final
+  const extras=[...deviceNombresEnRun]
+    .filter(nombre=>!DEVICES.find(d=>d.nombre===nombre))
+    .map(nombre=>({nombre,clave:nombre,version:'',activo:true}));
+  DEVICES=[...dispositivosOrdenados,...extras];
 
   // ITEMS: construir desde los resultados reales (secciones e ítems del run original)
   const bySeccion={};const secOrder=[];
