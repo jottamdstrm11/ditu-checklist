@@ -280,6 +280,14 @@ tr.item-row:nth-child(even) td.td-item{background:#12151e}
     <label>Franja horaria</label>
     <div class="franja-grid" id="franjaGrid"></div>
   </div>
+  <!-- Fecha histórica: solo visible para admin/superadmin -->
+  <div class="card" id="cardFecha" style="display:none">
+    <label>📅 Fecha del checklist</label>
+    <input type="date" id="inputFecha"
+      style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;outline:none;"
+      oninput="selectedFecha=this.value">
+    <div style="margin-top:6px;font-size:11px;color:var(--dim)">Solo admins · Cambia la fecha para corregir runs históricos</div>
+  </div>
   <button class="start-btn" id="btnStart" onclick="startChecklist()" disabled>Comenzar checklist →</button>
 </div>
 </div>
@@ -391,11 +399,13 @@ function applyNavRole(rol){
   const navAn=document.getElementById('navAnalytics');if(navAn)navAn.style.display='';
   const navU=document.getElementById('navUsuarios');if(navU)navU.style.display=isSuperAdmin?'':'none';
   const navC=document.getElementById('navClientes');if(navC)navC.style.display=isSuperAdmin?'':'none';
+  // Mostrar selector de fecha histórica solo a admin y superadmin
+  const cardF=document.getElementById('cardFecha');if(cardF)cardF.style.display=isAdmin?'':'none';
   const b=document.getElementById('roleBadge');
   if(b){b.textContent=rol;b.className='nav-role-badge '+rol;b.style.display='';}
 }
 const FRANJAS=['01:00','04:00','07:00','10:00','13:00','16:00','19:00','22:00'];
-let selectedType='soporte',selectedFranja='',DEVICES=[],ITEMS={},results={};
+let selectedType='soporte',selectedFranja='',selectedFecha='',DEVICES=[],ITEMS={},results={};
 let observations={};  // ya estaba declarado más abajo — centralizado aquí
 let _existingRunId=null; // cuando superadmin edita un run existente
 let _editMode=false;    // true → cargar ítems del run original, no de checklist_items
@@ -537,6 +547,11 @@ async function loadConfig(){
   });
 }
 function initFranjas(){
+  // Inicializar fecha al día de hoy en hora local
+  const _td=new Date();const _p=n=>String(n).padStart(2,'0');
+  selectedFecha=`${_td.getFullYear()}-${_p(_td.getMonth()+1)}-${_p(_td.getDate())}`;
+  const fi=document.getElementById('inputFecha');
+  if(fi){fi.value=selectedFecha;fi.max=selectedFecha;}
   const now=new Date(),mins=now.getHours()*60+now.getMinutes();
   let auto='10:00';
   if(mins<180)auto='01:00';else if(mins<360)auto='04:00';else if(mins<540)auto='07:00';
@@ -555,9 +570,8 @@ async function startChecklist(){
   const btn=document.getElementById('btnStart');
   btn.disabled=true;btn.textContent='Verificando...';
   try{
-    // Calcular fecha local (misma lógica que enviarChecklist)
-    const _n=new Date();const _p=n=>String(n).padStart(2,'0');
-    const fechaHoy=`${_n.getFullYear()}-${_p(_n.getMonth()+1)}-${_p(_n.getDate())}`;
+    // Usar la fecha seleccionada (hoy por defecto, o histórica si el admin la cambió)
+    const fechaHoy=selectedFecha;
     // Verificar si ya existe un run para este cliente+tipo+fecha+franja
     let dupUrl=`/rest/v1/checklist_runs?select=id,operador&fecha=eq.${fechaHoy}&tipo=eq.${selectedType}&hora_franja=eq.${selectedFranja}`;
     if(currentClienteId)dupUrl+=`&cliente_id=eq.${currentClienteId}`;
@@ -586,7 +600,9 @@ async function startChecklist(){
   const op=currentUser;
   document.getElementById('headerOp').textContent=op;
   const tipoLabel=(selectedType==='soporte'?'🟣 Soporte':'🔵 Monitoreo');
-  const fechaLabel=new Date().toLocaleDateString('es-CO',{day:'2-digit',month:'short'});
+  const [_fy,_fm,_fd]=selectedFecha.split('-');
+  const fechaLabel=new Date(parseInt(_fy),parseInt(_fm)-1,parseInt(_fd))
+    .toLocaleDateString('es-CO',{day:'2-digit',month:'short'});
 
   if(_editMode){
     try{
@@ -724,8 +740,7 @@ async function enviarChecklist(){
 
     const dataEnvio=ITEMS[selectedType]||[];
     const totalEsperado=dataEnvio.reduce((a,s)=>a+s.items.length*DEVICES.length,0);
-    const _now=new Date();const _pad=n=>String(n).padStart(2,'0');
-    const localFecha=`${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-${_pad(_now.getDate())}`;
+    const localFecha=selectedFecha; // fecha seleccionada (hoy por defecto, o histórica para admins)
     const versionesSnapshot={};
     DEVICES.forEach(d=>{ versionesSnapshot[d.nombre||d.clave]=d.version||''; });
 
