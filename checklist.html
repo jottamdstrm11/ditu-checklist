@@ -190,22 +190,36 @@ tr.item-row:nth-child(even) td.td-item{background:#12151e}
 @keyframes spin{to{transform:rotate(360deg)}}
 .msg{text-align:center;padding:48px;color:var(--dim)}
 
-/* Observation button */
-.obs-btn{width:100%;min-width:100px;background:#0f1117;border:1px solid #2e3350;border-radius:6px;color:#7c82a0;padding:5px 8px;font-size:11px;font-family:inherit;text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;transition:border .15s,background .15s;line-height:1.4}
-.obs-btn:hover{border-color:#6366f1;color:#c3a0ff}
-.obs-btn.has-comment{color:#e8eaf0;background:#1e2440;border-color:#6366f1;border-left:3px solid #6366f1;padding-left:7px;font-style:italic}
+/* Per-device obs icon inside each cell */
+.dev-cell-td{padding:3px 4px;vertical-align:top}
+.dev-obs-icon{
+  display:block;width:100%;
+  background:transparent;border:none;
+  color:rgba(255,255,255,0.2);
+  font-size:9px;cursor:pointer;
+  text-align:center;border-radius:3px;
+  padding:1px 3px;margin-top:3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  transition:color .15s,background .15s;
+  font-family:inherit;line-height:1.4;
+  letter-spacing:0;
+}
+.dev-obs-icon:hover{color:#c3a0ff;background:rgba(99,102,241,0.14)}
+.dev-obs-icon.has-obs{color:#b8a4f0;background:rgba(99,102,241,0.12);font-style:italic}
+
 /* Observation modal */
-.obs-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:3000;display:none;align-items:center;justify-content:center}
+.obs-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:3000;display:none;align-items:center;justify-content:center;padding:16px}
 .obs-overlay.show{display:flex}
-.obs-modal{background:#1a1d27;border:1px solid #2e3350;border-radius:14px;padding:24px;width:90%;max-width:480px;display:flex;flex-direction:column;gap:14px;box-shadow:0 12px 40px rgba(0,0,0,.7)}
-.obs-modal-title{font-size:13px;font-weight:700;color:#c3a0ff}
-.obs-modal-item{font-size:12px;color:#7c82a0;margin-top:-8px}
-.obs-modal textarea{background:#0f1117;border:1px solid #2e3350;border-radius:8px;color:#e8eaf0;padding:12px;font-size:13px;font-family:inherit;resize:none;height:140px;width:100%;outline:none;transition:border .15s;line-height:1.6}
-.obs-modal textarea:focus{border-color:#6366f1}
-.obs-modal-actions{display:flex;gap:8px;justify-content:flex-end}
+.obs-modal{background:#1a1d27;border:1px solid #2e3350;border-radius:16px;padding:22px 24px;width:100%;max-width:460px;display:flex;flex-direction:column;gap:14px;box-shadow:0 16px 48px rgba(0,0,0,.8)}
+.obs-modal-title{font-size:14px;font-weight:700;color:#c3a0ff;margin-bottom:-4px}
+.obs-modal-device{font-size:10px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:.07em;background:rgba(99,102,241,0.14);border-radius:6px;padding:3px 10px;align-self:flex-start}
+.obs-modal textarea{background:#0f1117;border:1px solid #2e3350;border-radius:10px;color:#e8eaf0;padding:12px 14px;font-size:13px;font-family:inherit;resize:none;height:140px;width:100%;outline:none;transition:border .15s;line-height:1.65}
+.obs-modal textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+.obs-modal textarea::placeholder{color:#3d4265}
+.obs-modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:-2px}
 .obs-cancel{background:none;border:1px solid #2e3350;color:#7c82a0;border-radius:8px;padding:8px 18px;font-size:13px;cursor:pointer;transition:.15s}
 .obs-cancel:hover{border-color:#6366f1;color:#e8eaf0}
-.obs-save{background:#6366f1;border:none;color:#fff;border-radius:8px;padding:8px 20px;font-size:13px;font-weight:700;cursor:pointer;transition:.15s}
+.obs-save{background:#6366f1;border:none;color:#fff;border-radius:8px;padding:8px 22px;font-size:13px;font-weight:700;cursor:pointer;transition:.15s}
 .obs-save:hover{background:#4f52d9}
 /* Modal overlay */
 .sitenav{display:flex;gap:4px;padding:8px 14px;background:#0a0c12;border-bottom:1px solid #1e2235;flex-wrap:wrap;position:sticky;top:0;z-index:100}
@@ -406,7 +420,7 @@ function applyNavRole(rol){
 }
 const FRANJAS=['01:00','04:00','07:00','10:00','13:00','16:00','19:00','22:00'];
 let selectedType='soporte',selectedFranja='',selectedFecha='',DEVICES=[],ITEMS={},results={};
-let observations={};  // ya estaba declarado más abajo — centralizado aquí
+let deviceObs={};  // observaciones por device — clave: `${si}_${ii}_${d.clave}`
 let _existingRunId=null; // cuando superadmin edita un run existente
 let _editMode=false;    // true → cargar ítems del run original, no de checklist_items
 
@@ -418,7 +432,7 @@ function draftKey(){
 }
 function saveDraft(){
   try{
-    localStorage.setItem(draftKey(),JSON.stringify({savedAt:Date.now(),results,observations,selectedType,selectedFranja}));
+    localStorage.setItem(draftKey(),JSON.stringify({savedAt:Date.now(),results,deviceObs,selectedType,selectedFranja}));
   }catch(_){}
 }
 function clearDraft(){try{localStorage.removeItem(draftKey());}catch(_){}}
@@ -449,7 +463,7 @@ function restoreDraft(){
   if(!window._pendingDraft)return;
   const d=window._pendingDraft;
   results=d.results||{};
-  observations=d.observations||{};
+  deviceObs=d.deviceObs||{};
   buildTable();updateProgress();
   document.getElementById('draftBanner')?.remove();
   showSavedIndicator('✅ Borrador restaurado');
@@ -501,8 +515,8 @@ async function loadExistingResults(runId){
     s,items:[...bySeccion[s].values()].sort((a,b)=>numSort(a.n,b.n))
   }));
 
-  // Pre-poblar results y observations con los valores guardados
-  results={};observations={};
+  // Pre-poblar results y deviceObs con los valores guardados
+  results={};deviceObs={};
   ITEMS[selectedType].forEach((sec,si)=>sec.items.forEach((item,ii)=>{
     DEVICES.forEach(d=>{
       const row=rows.find(r=>r.numero_item===item.n&&r.dispositivo===d.nombre);
@@ -511,8 +525,7 @@ async function loadExistingResults(runId){
         if(st==='N/A')st='NA';
         if(st==='UNABLE TO TEST')st='UTT';
         if(st)results[`${si}_${ii}_${d.clave}`]=st;
-        if(row.observacion&&!observations[`${si}_${ii}`])
-          observations[`${si}_${ii}`]=row.observacion;
+        if(row.observacion)deviceObs[`${si}_${ii}_${d.clave}`]=row.observacion;
       }
     });
   }));
@@ -631,12 +644,12 @@ async function startChecklist(){
 
 function buildTable(){
   const data=ITEMS[selectedType]||[];
-  const totalCols=3+DEVICES.length;
+  const totalCols=2+DEVICES.length;
   const devH=DEVICES.map(d=>
     `<th>${d.nombre}<br><span style="font-size:8px;font-weight:400;color:var(--dim)">${d.version}</span></th>`
   ).join('');
   let html=`<table><thead><tr>
-    <th class="th-num">#</th><th class="th-item">Item de verificación</th>${devH}<th style="min-width:140px">Observaciones</th>
+    <th class="th-num">#</th><th class="th-item">Item de verificación</th>${devH}
   </tr></thead><tbody>`;
   data.forEach((sec,si)=>{
     html+=`<tr class="sec-row"><td colspan="${totalCols}">📋 ${sec.s}
@@ -646,16 +659,17 @@ function buildTable(){
       const devCells=DEVICES.map(d=>{
         const k=`${si}_${ii}_${d.clave}`,st=results[k]||'';
         const lbl=st==='NA'?'N/A':st==='UTT'?'UTT':st||'—';
-        return`<td style="padding:3px 4px;vertical-align:top"><button class="s-btn${st?' '+st:''}" onclick="cycleStatus(${si},${ii},'${d.clave}',this)">${lbl}</button></td>`;
+        const obsVal=deviceObs[k]||'';
+        const obsPreview=obsVal?'💬 '+obsVal.replace(/\n/g,' ').slice(0,22)+(obsVal.length>22?'…':''):'+ nota';
+        const obsIconCls=obsVal?'dev-obs-icon has-obs':'dev-obs-icon';
+        const obsTitle=obsVal?obsVal.replace(/"/g,'&quot;'):'Agregar comentario';
+        const devLabel=d.nombre.replace(/'/g,"\\'");
+        return`<td class="dev-cell-td"><button class="s-btn${st?' '+st:''}" onclick="cycleStatus(${si},${ii},'${d.clave}',this)">${lbl}</button><button class="${obsIconCls}" onclick="openObsModal('${k}','${devLabel}',this)" title="${obsTitle}">${obsPreview}</button></td>`;
       }).join('');
-      const obsKey=`${si}_${ii}`;
-      const obsVal=observations[obsKey]||'';
-      const obsLabel=obsVal?obsVal.replace(/\n/g,' '):'+ Comentario';
-      const obsCls=obsVal?'obs-btn has-comment':'obs-btn';
       const itemSpan=item.c
         ?`<span>${item.t}</span><button class="info-btn" data-criterio="${item.c.replace(/"/g,'&quot;').replace(/\n/g,'&#10;')}" onclick="showCriterio(this)" title="Ver criterio de verificación">ℹ️</button>`
         :`<span>${item.t}</span>`;
-      html+=`<tr class="item-row"><td class="td-num">${item.n}</td><td class="td-item"><div class="item-content">${itemSpan}</div></td>${devCells}<td style="padding:3px 4px;vertical-align:top"><button class="${obsCls}" onclick="openObsModal('${obsKey}',this)" title="${obsLabel.replace(/"/g,'&quot;')}">${obsLabel}</button></td></tr>`;
+      html+=`<tr class="item-row"><td class="td-num">${item.n}</td><td class="td-item"><div class="item-content">${itemSpan}</div></td>${devCells}</tr>`;
     });
   });
   html+='</tbody></table>';
@@ -788,7 +802,7 @@ async function enviarChecklist(){
       const estado=results[`${si}_${ii}_${d.clave}`];
       if(estado)rows.push({run_id:runId,seccion:sec.s,numero_item:item.n,nombre_item:item.t,
         dispositivo:d.nombre,estado:estado==='NA'?'N/A':estado==='UTT'?'UNABLE TO TEST':estado,
-        observacion:observations[`${si}_${ii}`]||''});
+        observacion:deviceObs[`${si}_${ii}_${d.clave}`]||''});
     })));
 
     // 3. Enviar en lotes de 100
@@ -821,16 +835,17 @@ async function enviarChecklist(){
     btn.onclick=enviarChecklist;
   }
 }
-function resetForm(){results={};observations={};_existingRunId=null;_editMode=false;checkReady();show('screenSetup');}
+function resetForm(){results={};deviceObs={};_existingRunId=null;_editMode=false;checkReady();show('screenSetup');}
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
 
 // ── Criterio popover ──────────────────────────────
 let _popSrc=null;
-// ── Observation modal ─────────────────────────────────────────────
+// ── Observation modal (por device) ───────────────────────────────────
 let _obsKey=null,_obsBtn=null;
-function openObsModal(key,btn){
+function openObsModal(key,devLabel,btn){
   _obsKey=key;_obsBtn=btn;
-  document.getElementById('obsModalText').value=observations[key]||'';
+  document.getElementById('obsModalText').value=deviceObs[key]||'';
+  document.getElementById('obsModalDevice').textContent=devLabel;
   document.getElementById('obsOverlay').classList.add('show');
   setTimeout(()=>document.getElementById('obsModalText').focus(),80);
 }
@@ -841,11 +856,12 @@ function closeObsModal(){
 function saveObsModal(){
   const val=document.getElementById('obsModalText').value.trim();
   if(_obsKey!==null){
-    observations[_obsKey]=val;
+    deviceObs[_obsKey]=val;
     if(_obsBtn){
-      _obsBtn.textContent=val?val.replace(/\n/g,' '):'+ Comentario';
-      _obsBtn.title=val?val.replace(/\n/g,' '):'+ Comentario';
-      _obsBtn.className=val?'obs-btn has-comment':'obs-btn';
+      const preview=val?'💬 '+val.replace(/\n/g,' ').slice(0,22)+(val.length>22?'…':''):'+ nota';
+      _obsBtn.textContent=preview;
+      _obsBtn.title=val?val:'Agregar comentario';
+      _obsBtn.className=val?'dev-obs-icon has-obs':'dev-obs-icon';
     }
   }
   saveDraft();
@@ -897,11 +913,12 @@ document.addEventListener('click',e=>{
   <div id="itemPopoverText"></div>
 </div>
 
-<!-- Observation modal -->
+<!-- Observation modal (por device) -->
 <div class="obs-overlay" id="obsOverlay" onclick="if(event.target===this)closeObsModal()">
   <div class="obs-modal">
     <div class="obs-modal-title">💬 Observación</div>
-    <textarea id="obsModalText" placeholder="Escribe tu observación aquí..."></textarea>
+    <div class="obs-modal-device" id="obsModalDevice"></div>
+    <textarea id="obsModalText" placeholder="Escribe la observación para este dispositivo..."></textarea>
     <div class="obs-modal-actions">
       <button class="obs-cancel" onclick="closeObsModal()">Cancelar</button>
       <button class="obs-save" onclick="saveObsModal()">Guardar</button>

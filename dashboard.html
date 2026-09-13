@@ -810,18 +810,27 @@
     }
     .matrix-table td.obs-col:hover { color: var(--accent); text-decoration: underline dotted; }
     /* Obs full modal */
-    #obsFullOverlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9000;display:none;align-items:center;justify-content:center}
+    #obsFullOverlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9000;display:none;align-items:center;justify-content:center;padding:16px}
     #obsFullOverlay.show{display:flex}
-    #obsFullBox{background:#1a1d27;border:1px solid #2e3350;border-radius:14px;padding:24px;width:92%;max-width:560px;box-shadow:0 16px 48px rgba(0,0,0,.8);max-height:85vh;display:flex;flex-direction:column}
-    #obsFullTitle{font-size:13px;font-weight:700;color:#c3a0ff;margin-bottom:14px;flex-shrink:0}
-    #obsFullRows{overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px}
-    .obs-full-row{display:flex;flex-direction:column;gap:6px}
-    .obs-full-dev{font-size:11px;font-weight:700;color:#7c82a0;text-transform:uppercase;letter-spacing:.05em}
-    .obs-full-ta{background:#0f1117;border:1px solid #2e3350;border-radius:8px;color:#e8eaf0;padding:10px 12px;font-size:13px;font-family:inherit;resize:vertical;min-height:60px;width:100%;outline:none;line-height:1.6}
-    .obs-full-ta:focus{border-color:#6366f1}
-    .obs-full-save-btn{align-self:flex-end;background:#6366f1;border:none;color:#fff;border-radius:7px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer}
-    .obs-full-save-btn:hover:not(:disabled){filter:brightness(1.15)}
-    #obsFullClose{margin-top:16px;background:none;border:1px solid #2e3350;color:#7c82a0;border-radius:8px;padding:8px 20px;font-size:13px;cursor:pointer;align-self:flex-end;flex-shrink:0}
+    #obsFullBox{background:#1a1d27;border:1px solid #2e3350;border-radius:16px;padding:22px 24px;width:100%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.85);max-height:88vh;display:flex;flex-direction:column;gap:0}
+    #obsFullHeader{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;flex-shrink:0}
+    #obsFullTitle{font-size:14px;font-weight:700;color:#c3a0ff;line-height:1.3}
+    #obsFullSubtitle{font-size:11px;color:#7c82a0}
+    #obsFullRows{overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px;padding-right:2px}
+    /* Per-device rows */
+    .obs-full-row{display:flex;flex-direction:column;gap:6px;padding:12px 14px;background:rgba(255,255,255,.03);border-radius:10px;border:1px solid rgba(255,255,255,.06);transition:border-color .15s}
+    .obs-full-row:hover{border-color:rgba(99,102,241,.25)}
+    .obs-full-dev{font-size:10px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:.07em}
+    .obs-full-ta{background:#0f1117;border:1px solid #2e3350;border-radius:8px;color:#e8eaf0;padding:10px 12px;font-size:13px;font-family:inherit;resize:vertical;min-height:52px;width:100%;outline:none;line-height:1.65;transition:border .15s}
+    .obs-full-ta:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+    .obs-full-ta::placeholder{color:#3d4265}
+    .obs-full-save-btn{align-self:flex-end;background:rgba(99,102,241,0.18);border:1px solid rgba(99,102,241,0.35);color:#a090f0;border-radius:7px;padding:5px 16px;font-size:11px;font-weight:700;cursor:pointer;transition:.15s}
+    .obs-full-save-btn:hover:not(:disabled){background:#6366f1;color:#fff;border-color:#6366f1}
+    .obs-full-save-btn:disabled{opacity:.5;cursor:not-allowed}
+    /* Empty state */
+    .obs-empty-state{text-align:center;padding:28px 16px;color:#7c82a0;font-size:13px}
+    .obs-empty-icon{font-size:28px;margin-bottom:10px;opacity:.5}
+    #obsFullClose{margin-top:16px;background:none;border:1px solid #2e3350;color:#7c82a0;border-radius:8px;padding:8px 20px;font-size:13px;cursor:pointer;align-self:flex-end;flex-shrink:0;transition:.15s}
     #obsFullClose:hover{border-color:#6366f1;color:#e8eaf0}
     /* Filas sin resultados: ítem que existía pero no se registró en este run */
     .matrix-table tr.row-missing td {
@@ -2708,7 +2717,7 @@ async function renderMatrix() {
 // ── Delete run ─────────────────────────────────────────────────
 let pendingDeleteId = null;
 
-// ── Obs full modal (editable per device) ─────────────────────────
+// ── Obs full modal — muestra solo devices con observación ─────────────
 function showObsFull(td) {
   const itemName = td.getAttribute('data-item') || '';
   const raw = td.getAttribute('data-obs') || '[]';
@@ -2716,38 +2725,64 @@ function showObsFull(td) {
   try { cells = JSON.parse(raw.replace(/&quot;/g,'"')); } catch(e){}
   const isAdmin = currentRol === 'superadmin' || currentRol === 'admin';
 
+  // Solo devices que tienen observación (o todos si es admin para poder editar)
+  const withObs = cells.filter(c => c.obs && c.obs.trim());
+  const toShow = isAdmin ? cells : withObs;
+
   const container = document.getElementById('obsFullRows');
-  if(!cells.length) {
-    container.innerHTML = '<p style="color:var(--text-secondary);font-size:13px">Sin observaciones registradas.</p>';
+  const subtitle = document.getElementById('obsFullSubtitle');
+
+  if (!toShow.length) {
+    container.innerHTML = `
+      <div class="obs-empty-state">
+        <div class="obs-empty-icon">💬</div>
+        <div>Sin observaciones registradas</div>
+        ${isAdmin ? '<div style="font-size:11px;margin-top:6px;color:#555">Los comentarios se agregan desde el checklist</div>' : ''}
+      </div>`;
+    subtitle.textContent = '';
   } else {
-    container.innerHTML = cells.map(c => `
-      <div class="obs-full-row" id="obsrow-${c.id}">
-        <div class="obs-full-dev">${escHtml(c.dev)}</div>
-        <textarea class="obs-full-ta" id="obsta-${c.id}">${escHtml(c.obs)}</textarea>
-        ${isAdmin ? `<button class="obs-full-save-btn" onclick="saveObsFromModal('${c.id}','${escHtml(c.estado)}')">Guardar</button>` : ''}
-      </div>
-    `).join('');
+    const obsCount = withObs.length;
+    subtitle.textContent = obsCount
+      ? `${obsCount} de ${cells.length} dispositivos con observación`
+      : 'Sin observaciones — puedes agregarlas desde aquí';
+
+    container.innerHTML = toShow.map(c => {
+      const hasObs = !!(c.obs && c.obs.trim());
+      return `
+        <div class="obs-full-row" id="obsrow-${c.id}" style="${!hasObs && isAdmin ? 'opacity:.55' : ''}">
+          <div class="obs-full-dev">${escHtml(c.dev)}</div>
+          <textarea class="obs-full-ta" id="obsta-${c.id}" placeholder="Sin observación...">${escHtml(c.obs)}</textarea>
+          ${isAdmin ? `<button class="obs-full-save-btn" onclick="saveObsFromModal('${c.id}','${escHtml(c.estado)}')">Guardar</button>` : ''}
+        </div>`;
+    }).join('');
   }
+
   document.getElementById('obsFullTitle').textContent = `💬 ${itemName}`;
   document.getElementById('obsFullOverlay').classList.add('show');
 }
 
+// Guardar observación de un device desde el dashboard
 async function saveObsFromModal(resultId, estadoActual) {
-  const ta = document.getElementById('obsta-'+resultId);
-  if(!ta) return;
+  const ta = document.getElementById('obsta-' + resultId);
+  if (!ta) return;
   const newObs = ta.value.trim();
-  const btn = ta.closest('.obs-full-row')?.querySelector('.obs-full-save-btn');
-  if(btn){ btn.disabled=true; btn.textContent='Guardando...'; }
+  const row = ta.closest('.obs-full-row');
+  const btn = row?.querySelector('.obs-full-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
   try {
     const { error } = await _sbc.from('checklist_results')
       .update({ observacion: newObs, editado_por: currentUser, editado_at: new Date().toISOString() })
       .eq('id', resultId);
-    if(error) throw error;
-    if(btn){ btn.textContent='✓ Guardado'; btn.style.background='#166534'; }
-    setTimeout(()=>{ if(btn){btn.disabled=false;btn.textContent='Guardar';btn.style.background='';} }, 2000);
-  } catch(err) {
-    if(btn){ btn.disabled=false; btn.textContent='Error'; btn.style.background='#7f1d1d'; }
-    setTimeout(()=>{ if(btn){btn.textContent='Guardar';btn.style.background='';} }, 2500);
+    if (error) throw error;
+    // Actualizar opacidad del row según si tiene obs
+    if (row) row.style.opacity = newObs ? '' : '0.55';
+    if (btn) { btn.textContent = '✓ Guardado'; btn.style.background = 'rgba(22,101,52,0.6)'; btn.style.color = '#4ade80'; btn.style.borderColor = '#166534'; }
+    setTimeout(() => {
+      if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; btn.style.background = ''; btn.style.color = ''; btn.style.borderColor = ''; }
+    }, 2200);
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Error — reintentar'; btn.style.background = 'rgba(127,29,29,0.5)'; }
+    setTimeout(() => { if (btn) { btn.textContent = 'Guardar'; btn.style.background = ''; } }, 2500);
   }
 }
 
@@ -3034,7 +3069,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 <!-- Obs full modal -->
 <div id="obsFullOverlay" onclick="if(event.target===this)closeObsFull()">
   <div id="obsFullBox">
-    <div id="obsFullTitle">💬 Observación</div>
+    <div id="obsFullHeader">
+      <div id="obsFullTitle">💬 Observación</div>
+      <div id="obsFullSubtitle"></div>
+    </div>
     <div id="obsFullRows"></div>
     <button id="obsFullClose" onclick="closeObsFull()">Cerrar</button>
   </div>
