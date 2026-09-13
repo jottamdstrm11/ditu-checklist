@@ -190,15 +190,20 @@ tr.item-row:nth-child(even) td.td-item{background:#12151e}
 @keyframes spin{to{transform:rotate(360deg)}}
 .msg{text-align:center;padding:48px;color:var(--dim)}
 
+/* Columnas de dispositivo — ancho fijo igual para todos */
+thead th:not(.th-num):not(.th-item){
+  width:80px;min-width:80px;max-width:80px;
+}
+.dev-cell-td{padding:3px 4px;vertical-align:top;width:80px;min-width:80px;max-width:80px}
+
 /* Per-device obs icon inside each cell */
-.dev-cell-td{padding:3px 4px;vertical-align:top}
 .dev-obs-icon{
   display:block;width:100%;
   background:transparent;border:none;
-  color:rgba(255,255,255,0.2);
-  font-size:9px;cursor:pointer;
+  color:rgba(255,255,255,0.45);
+  font-size:10px;cursor:pointer;
   text-align:center;border-radius:3px;
-  padding:1px 3px;margin-top:3px;
+  padding:2px 3px;margin-top:3px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   transition:color .15s,background .15s;
   font-family:inherit;line-height:1.4;
@@ -645,9 +650,10 @@ async function startChecklist(){
 function buildTable(){
   const data=ITEMS[selectedType]||[];
   const totalCols=2+DEVICES.length;
-  const devH=DEVICES.map(d=>
-    `<th>${d.nombre}<br><span style="font-size:8px;font-weight:400;color:var(--dim)">${d.version}</span></th>`
-  ).join('');
+  const devH=DEVICES.map(d=>{
+    const nomShort=d.nombre.length>10?d.nombre.slice(0,10)+'…':d.nombre;
+    return`<th title="${d.nombre}">${nomShort}<br><span style="font-size:8px;font-weight:400;color:var(--dim)">${d.version}</span></th>`;
+  }).join('');
   let html=`<table><thead><tr>
     <th class="th-num">#</th><th class="th-item">Item de verificación</th>${devH}
   </tr></thead><tbody>`;
