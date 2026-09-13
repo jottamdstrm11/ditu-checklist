@@ -812,11 +812,17 @@
     /* Obs full modal */
     #obsFullOverlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9000;display:none;align-items:center;justify-content:center}
     #obsFullOverlay.show{display:flex}
-    #obsFullBox{background:#1a1d27;border:1px solid #2e3350;border-radius:14px;padding:28px;width:90%;max-width:520px;box-shadow:0 16px 48px rgba(0,0,0,.8)}
-    #obsFullBox h3{font-size:13px;font-weight:700;color:#c3a0ff;margin-bottom:12px}
-    #obsFullText{font-size:13px;line-height:1.7;color:#e8eaf0;white-space:pre-wrap;word-break:break-word;max-height:60vh;overflow-y:auto}
-    #obsFullBox button{margin-top:18px;background:none;border:1px solid #2e3350;color:#7c82a0;border-radius:8px;padding:8px 20px;font-size:13px;cursor:pointer;float:right}
-    #obsFullBox button:hover{border-color:#6366f1;color:#e8eaf0}
+    #obsFullBox{background:#1a1d27;border:1px solid #2e3350;border-radius:14px;padding:24px;width:92%;max-width:560px;box-shadow:0 16px 48px rgba(0,0,0,.8);max-height:85vh;display:flex;flex-direction:column}
+    #obsFullTitle{font-size:13px;font-weight:700;color:#c3a0ff;margin-bottom:14px;flex-shrink:0}
+    #obsFullRows{overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px}
+    .obs-full-row{display:flex;flex-direction:column;gap:6px}
+    .obs-full-dev{font-size:11px;font-weight:700;color:#7c82a0;text-transform:uppercase;letter-spacing:.05em}
+    .obs-full-ta{background:#0f1117;border:1px solid #2e3350;border-radius:8px;color:#e8eaf0;padding:10px 12px;font-size:13px;font-family:inherit;resize:vertical;min-height:60px;width:100%;outline:none;line-height:1.6}
+    .obs-full-ta:focus{border-color:#6366f1}
+    .obs-full-save-btn{align-self:flex-end;background:#6366f1;border:none;color:#fff;border-radius:7px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer}
+    .obs-full-save-btn:hover:not(:disabled){filter:brightness(1.15)}
+    #obsFullClose{margin-top:16px;background:none;border:1px solid #2e3350;color:#7c82a0;border-radius:8px;padding:8px 20px;font-size:13px;cursor:pointer;align-self:flex-end;flex-shrink:0}
+    #obsFullClose:hover{border-color:#6366f1;color:#e8eaf0}
     /* Filas sin resultados: ítem que existía pero no se registró en este run */
     .matrix-table tr.row-missing td {
       opacity: 0.4;
@@ -2498,6 +2504,13 @@ async function renderMatrix() {
       });
       items.forEach(item => {
         const allObs = devicesSet.map(d => item.devs[d]?.obs || '').filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(' | ');
+        // Per-device obs data for the editable modal
+        const obsData = devicesSet.map(d => {
+          const cell = item.devs[d];
+          if(!cell || !cell.id) return null;
+          return {dev: d, id: cell.id, obs: cell.obs||'', estado: cell.estado||''};
+        }).filter(Boolean);
+        const obsDataAttr = JSON.stringify(obsData).replace(/"/g,'&quot;');
         // Filas sin ningún resultado: dimmed + itálica para indicar que faltan datos
         const rowMissingAttr = item._missing ? ' class="row-missing"' : '';
         html += `<tr${rowMissingAttr}>
@@ -2515,7 +2528,7 @@ async function renderMatrix() {
               ? `<button class="cell-edit-btn" onclick="openEditModal('${escHtml(cell.id)}','${escHtml(item.t)}','${escHtml(d)}','${escHtml(cell.estado)}',${JSON.stringify(cell.obs||'').replace(/"/g,'&quot;')})">✏️</button>` : '';
             return `<td><div class="matrix-cell-wrap"><span class="m-badge ${cls}" id="badge-${escHtml(cell.id||'')}">${lbl}</span>${editedDot}${editBtn}</div></td>`;
           }).join('')}
-          <td class="obs-col" title="${escHtml(allObs)}" onclick="showObsFull(this)">${escHtml(allObs)}</td>
+          <td class="obs-col" title="${escHtml(allObs)}" data-obs="${obsDataAttr}" data-item="${escHtml(item.t)}" onclick="showObsFull(this)">${escHtml(allObs)}</td>
         </tr>`;
       });
     });
@@ -2695,13 +2708,49 @@ async function renderMatrix() {
 // ── Delete run ─────────────────────────────────────────────────
 let pendingDeleteId = null;
 
-// ── Obs full modal ────────────────────────────────────────────────
+// ── Obs full modal (editable per device) ─────────────────────────
 function showObsFull(td) {
-  const txt = td.getAttribute('title') || td.textContent;
-  if(!txt || !txt.trim()) return;
-  document.getElementById('obsFullText').textContent = txt;
+  const itemName = td.getAttribute('data-item') || '';
+  const raw = td.getAttribute('data-obs') || '[]';
+  let cells = [];
+  try { cells = JSON.parse(raw.replace(/&quot;/g,'"')); } catch(e){}
+  const isAdmin = currentRol === 'superadmin' || currentRol === 'admin';
+
+  const container = document.getElementById('obsFullRows');
+  if(!cells.length) {
+    container.innerHTML = '<p style="color:var(--text-secondary);font-size:13px">Sin observaciones registradas.</p>';
+  } else {
+    container.innerHTML = cells.map(c => `
+      <div class="obs-full-row" id="obsrow-${c.id}">
+        <div class="obs-full-dev">${escHtml(c.dev)}</div>
+        <textarea class="obs-full-ta" id="obsta-${c.id}">${escHtml(c.obs)}</textarea>
+        ${isAdmin ? `<button class="obs-full-save-btn" onclick="saveObsFromModal('${c.id}','${escHtml(c.estado)}')">Guardar</button>` : ''}
+      </div>
+    `).join('');
+  }
+  document.getElementById('obsFullTitle').textContent = `💬 ${itemName}`;
   document.getElementById('obsFullOverlay').classList.add('show');
 }
+
+async function saveObsFromModal(resultId, estadoActual) {
+  const ta = document.getElementById('obsta-'+resultId);
+  if(!ta) return;
+  const newObs = ta.value.trim();
+  const btn = ta.closest('.obs-full-row')?.querySelector('.obs-full-save-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Guardando...'; }
+  try {
+    const { error } = await _sbc.from('checklist_results')
+      .update({ observacion: newObs, editado_por: currentUser, editado_at: new Date().toISOString() })
+      .eq('id', resultId);
+    if(error) throw error;
+    if(btn){ btn.textContent='✓ Guardado'; btn.style.background='#166534'; }
+    setTimeout(()=>{ if(btn){btn.disabled=false;btn.textContent='Guardar';btn.style.background='';} }, 2000);
+  } catch(err) {
+    if(btn){ btn.disabled=false; btn.textContent='Error'; btn.style.background='#7f1d1d'; }
+    setTimeout(()=>{ if(btn){btn.textContent='Guardar';btn.style.background='';} }, 2500);
+  }
+}
+
 function closeObsFull() {
   document.getElementById('obsFullOverlay').classList.remove('show');
 }
@@ -2985,10 +3034,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 <!-- Obs full modal -->
 <div id="obsFullOverlay" onclick="if(event.target===this)closeObsFull()">
   <div id="obsFullBox">
-    <h3>💬 Observación completa</h3>
-    <div id="obsFullText"></div>
-    <button onclick="closeObsFull()">Cerrar</button>
-    <div style="clear:both"></div>
+    <div id="obsFullTitle">💬 Observación</div>
+    <div id="obsFullRows"></div>
+    <button id="obsFullClose" onclick="closeObsFull()">Cerrar</button>
   </div>
 </div>
 </body>
