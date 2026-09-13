@@ -119,13 +119,15 @@ tr.sec-row td{
 }
 .sec-actions{float:right}
 .sec-pass-btn{
-  background:rgba(255,255,255,.1);
-  color:var(--cliente-color);
-  border:1px solid rgba(255,255,255,.3);
-  padding:3px 12px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:700;
+  background:var(--cliente-color);
+  color:#fff;
+  border:none;
+  padding:4px 14px;border-radius:5px;font-size:11px;cursor:pointer;font-weight:700;
   white-space:nowrap;letter-spacing:.02em;
+  opacity:0.9;
+  transition:opacity .15s,filter .15s;
 }
-.sec-pass-btn:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.45)}
+.sec-pass-btn:hover{opacity:1;filter:brightness(1.15)}
 .sec-pass-btn:hover{background:rgba(255,255,255,.16)}
 
 /* ITEM ROWS */
