@@ -775,7 +775,7 @@
       min-width: 180px;
       max-width: 240px;
     }
-    .matrix-table th.obs-col { text-align: left; min-width: 200px; }
+    .matrix-table th.obs-col { text-align: left; min-width: 160px; max-width: 260px; }
     .matrix-table tbody tr {
       border-bottom: 1px solid rgba(180,140,255,0.05);
     }
@@ -800,15 +800,30 @@
     }
     .matrix-table td.obs-col {
       text-align: left;
-      color: var(--text-secondary);
       max-width: 260px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-size: 0.72rem;
+      min-width: 160px;
       cursor: pointer;
+      padding: 5px 8px;
+      vertical-align: top;
     }
-    .matrix-table td.obs-col:hover { color: var(--accent); text-decoration: underline dotted; }
+    /* Inline obs rows — one per device con observación */
+    .obs-inline-list { display: flex; flex-direction: column; gap: 3px; }
+    .obs-inline-row {
+      display: flex; align-items: baseline; gap: 5px;
+      border-radius: 4px; padding: 2px 4px;
+      transition: background .12s;
+    }
+    .matrix-table td.obs-col:hover .obs-inline-row { background: rgba(99,102,241,0.07); }
+    .obs-inline-dev {
+      font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+      color: #7a6bb0; flex-shrink: 0; white-space: nowrap;
+    }
+    .obs-inline-text {
+      font-size: 11px; color: #a89fd0; font-style: italic;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px;
+    }
+    .obs-badge-empty { color: var(--text-muted); font-size: 0.75rem; opacity: .35; padding: 2px 4px; }
+    .matrix-table td.obs-col:hover .obs-badge-empty { opacity: .6; }
     /* Obs full modal */
     #obsFullOverlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9000;display:none;align-items:center;justify-content:center;padding:16px}
     #obsFullOverlay.show{display:flex}
@@ -2512,7 +2527,6 @@ async function renderMatrix() {
         return 0;
       });
       items.forEach(item => {
-        const allObs = devicesSet.map(d => item.devs[d]?.obs || '').filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(' | ');
         // Per-device obs data for the editable modal
         const obsData = devicesSet.map(d => {
           const cell = item.devs[d];
@@ -2520,6 +2534,25 @@ async function renderMatrix() {
           return {dev: d, id: cell.id, obs: cell.obs||'', estado: cell.estado||''};
         }).filter(Boolean);
         const obsDataAttr = JSON.stringify(obsData).replace(/"/g,'&quot;');
+
+        // Obs inline — mostrar device + texto truncado para cada device con observación
+        const obsWithText = obsData.filter(c => c.obs && c.obs.trim());
+        const obsCount = obsWithText.length;
+        const isAdminLocal = currentRol === 'superadmin' || currentRol === 'admin';
+        let obsCellContent;
+        if (obsCount > 0) {
+          const rows = obsWithText.map(c => {
+            // Nombre corto del device — máx 9 chars
+            const devShort = c.dev.length > 9 ? c.dev.slice(0, 9) + '…' : c.dev;
+            const txt = c.obs.replace(/\n/g, ' ');
+            const txtShort = txt.length > 30 ? txt.slice(0, 30) + '…' : txt;
+            return `<div class="obs-inline-row"><span class="obs-inline-dev">${escHtml(devShort)}</span><span class="obs-inline-text">${escHtml(txtShort)}</span></div>`;
+          }).join('');
+          obsCellContent = `<div class="obs-inline-list">${rows}</div>`;
+        } else {
+          obsCellContent = `<span class="obs-badge-empty">—</span>`;
+        }
+
         // Filas sin ningún resultado: dimmed + itálica para indicar que faltan datos
         const rowMissingAttr = item._missing ? ' class="row-missing"' : '';
         html += `<tr${rowMissingAttr}>
@@ -2537,7 +2570,7 @@ async function renderMatrix() {
               ? `<button class="cell-edit-btn" onclick="openEditModal('${escHtml(cell.id)}','${escHtml(item.t)}','${escHtml(d)}','${escHtml(cell.estado)}',${JSON.stringify(cell.obs||'').replace(/"/g,'&quot;')})">✏️</button>` : '';
             return `<td><div class="matrix-cell-wrap"><span class="m-badge ${cls}" id="badge-${escHtml(cell.id||'')}">${lbl}</span>${editedDot}${editBtn}</div></td>`;
           }).join('')}
-          <td class="obs-col" title="${escHtml(allObs)}" data-obs="${obsDataAttr}" data-item="${escHtml(item.t)}" onclick="showObsFull(this)">${escHtml(allObs)}</td>
+          <td class="obs-col" data-obs="${obsDataAttr}" data-item="${escHtml(item.t)}" onclick="${obsCount > 0 || isAdminLocal ? 'showObsFull(this)' : ''}" style="${obsCount > 0 || isAdminLocal ? 'cursor:pointer' : 'cursor:default'}">${obsCellContent}</td>
         </tr>`;
       });
     });
