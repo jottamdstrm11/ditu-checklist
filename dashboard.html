@@ -775,7 +775,13 @@
       min-width: 180px;
       max-width: 240px;
     }
-    .item-obs-dot { font-size: 11px; opacity: 0.7; margin-left: 4px; cursor: default; }
+    .item-obs-btn {
+      display: inline-block;
+      background: rgba(99,102,241,0.18); border: 1px solid rgba(99,102,241,0.35);
+      color: #818cf8; border-radius: 4px; padding: 1px 5px; font-size: 10px;
+      margin-left: 5px; vertical-align: middle; cursor: default;
+      font-family: inherit; line-height: 1.4;
+    }
     .matrix-table tbody tr {
       border-bottom: 1px solid rgba(180,140,255,0.05);
     }
@@ -2488,7 +2494,7 @@ async function renderMatrix() {
         const obsWithText = obsData.filter(c => c.obs && c.obs.trim());
         const obsCount = obsWithText.length;
         const obsIndicator = obsCount > 0
-          ? ` <span class="item-obs-dot" title="${obsCount} comentario${obsCount > 1 ? 's' : ''}">💬</span>`
+          ? `<span class="item-obs-btn" title="${obsCount} comentario${obsCount > 1 ? 's' : ''}">💬 ${obsCount}</span>`
           : '';
 
         // Filas sin ningún resultado: dimmed + itálica para indicar que faltan datos
