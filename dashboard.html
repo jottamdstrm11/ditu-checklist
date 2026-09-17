@@ -594,6 +594,13 @@
       background: #f59e0b; vertical-align: middle; margin-left: 3px;
       cursor: default; flex-shrink: 0;
     }
+    .cell-obs-badge {
+      display: inline-block;
+      background: rgba(99,102,241,0.18); border: 1px solid rgba(99,102,241,0.35);
+      color: #818cf8; border-radius: 4px; padding: 1px 4px; font-size: 9px;
+      vertical-align: middle; margin-left: 3px; cursor: default; flex-shrink: 0;
+      max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
 
     /* ─── Toast notification ───────────────────────────────── */
     #editToast {
@@ -2508,8 +2515,11 @@ async function renderMatrix() {
             const cls = cell.estado === 'PASS' ? 'pass' : cell.estado === 'FAIL' ? 'fail' : cell.estado === 'N/A' ? 'na' : 'unable';
             const lbl = cell.estado === 'UNABLE TO TEST' ? 'UTT' : cell.estado;
             const isAdmin = currentRol === 'superadmin' || currentRol === 'admin';
-            const editedDot = cell.editado_por
-              ? `<span class="cell-edited-dot" title="Editado por ${escHtml(cell.editado_por)}"></span>` : '';
+            const editedDot = (cell.obs && cell.obs.trim())
+              ? `<span class="cell-obs-badge" title="${escHtml(cell.obs)}">💬</span>`
+              : cell.editado_por
+              ? `<span class="cell-edited-dot" title="Editado por ${escHtml(cell.editado_por)}"></span>`
+              : '';
             const editBtn = isAdmin && cell.id
               ? `<button class="cell-edit-btn" onclick="openEditModal('${escHtml(cell.id)}','${escHtml(item.t)}','${escHtml(d)}','${escHtml(cell.estado)}',${JSON.stringify(cell.obs||'').replace(/"/g,'&quot;')})">✏️</button>` : '';
             return `<td><div class="matrix-cell-wrap"><span class="m-badge ${cls}" id="badge-${escHtml(cell.id||'')}">${lbl}</span>${editedDot}${editBtn}</div></td>`;
