@@ -602,24 +602,26 @@
     }
     .cell-obs-badge:hover { background: rgba(99,102,241,0.32); border-color: rgba(99,102,241,0.6); }
     /* Popup de comentario (solo lectura) */
-    #obsPopupBackdrop {
-      position: fixed; inset: 0; z-index: 7999; display: none;
-      background: rgba(0,0,0,0.45);
-    }
-    #obsPopupBackdrop.show { display: block; }
     #obsPopup {
       position: fixed; z-index: 8000; display: none;
-      background: #1a1d27; border: 1px solid #3a3f5c; border-radius: 12px;
-      padding: 20px 22px; width: 320px; max-width: 90vw;
-      box-shadow: 0 12px 48px rgba(0,0,0,.85);
-      top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: #1a1d27; border: 1px solid #3a3f5c; border-radius: 10px;
+      padding: 14px 16px; width: 260px; max-width: 90vw;
+      box-shadow: 0 8px 32px rgba(0,0,0,.85);
     }
     #obsPopup.show { display: block; }
-    #obsPopupHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-    #obsPopupDev { font-size: 11px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: .08em; }
-    #obsPopupClose { background: none; border: none; color: #7a7880; cursor: pointer; font-size: 18px; line-height: 1; padding: 0 2px; }
+    #obsPopupHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    #obsPopupDev { font-size: 10px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: .08em; }
+    #obsPopupClose { background: none; border: none; color: #7a7880; cursor: pointer; font-size: 16px; line-height: 1; padding: 0 2px; }
     #obsPopupClose:hover { color: #c8cae0; }
-    #obsPopupText { font-size: 13px; color: #c8cae0; line-height: 1.7; white-space: pre-wrap; user-select: text; cursor: text; }
+    #obsPopupText { font-size: 12px; color: #c8cae0; line-height: 1.6; white-space: pre-wrap; user-select: text; cursor: text; }
+    /* Flecha indicadora */
+    #obsPopup::before {
+      content: ''; position: absolute; width: 8px; height: 8px;
+      background: #1a1d27; border: 1px solid #3a3f5c;
+      transform: rotate(45deg);
+    }
+    #obsPopup.arrow-top::before { top: -5px; left: var(--arrow-left, 16px); border-right: none; border-bottom: none; }
+    #obsPopup.arrow-bottom::before { bottom: -5px; left: var(--arrow-left, 16px); border-left: none; border-top: none; }
 
     /* ─── Toast notification ───────────────────────────────── */
     #editToast {
@@ -2998,7 +3000,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 </script>
 
 <!-- Popup solo lectura de comentario por dispositivo -->
-<div id="obsPopupBackdrop"></div>
 <div id="obsPopup">
   <div id="obsPopupHeader">
     <div id="obsPopupDev"></div>
@@ -3009,16 +3010,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 <script>
 (function(){
-  const pop      = document.getElementById('obsPopup');
-  const backdrop = document.getElementById('obsPopupBackdrop');
+  const pop = document.getElementById('obsPopup');
 
-  function hidePopup(){
-    pop.classList.remove('show');
-    backdrop.classList.remove('show');
-  }
+  function hidePopup(){ pop.classList.remove('show','arrow-top','arrow-bottom'); }
 
-  backdrop.addEventListener('click', hidePopup);
-  document.getElementById('obsPopupClose').addEventListener('click', hidePopup);
+  document.addEventListener('click', function(e){
+    if (!e.target.closest('.cell-obs-badge') && !e.target.closest('#obsPopup')) hidePopup();
+  });
+
+  document.getElementById('obsPopupClose').addEventListener('click', function(e){
+    e.stopPropagation(); hidePopup();
+  });
 
   document.addEventListener('keydown', function(e){
     if (e.key === 'Escape') hidePopup();
@@ -3028,8 +3030,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     e.stopPropagation();
     document.getElementById('obsPopupDev').textContent = dev;
     document.getElementById('obsPopupText').textContent = obs;
+
+    // Mostrar primero para medir altura
+    pop.classList.remove('arrow-top','arrow-bottom');
     pop.classList.add('show');
-    backdrop.classList.add('show');
+
+    const r      = e.target.getBoundingClientRect();
+    const pw     = 260, margin = 8;
+    const ph     = pop.offsetHeight;
+
+    // Horizontal: alinear con el badge, sin salirse
+    let left = r.left;
+    if (left + pw > window.innerWidth - margin) left = window.innerWidth - pw - margin;
+    if (left < margin) left = margin;
+
+    // Vertical: preferir debajo, si no cabe ir arriba
+    let top, arrowClass;
+    if (r.bottom + ph + 8 < window.innerHeight - margin) {
+      top = r.bottom + 8;
+      arrowClass = 'arrow-top';
+    } else {
+      top = r.top - ph - 8;
+      arrowClass = 'arrow-bottom';
+    }
+
+    // Ajustar posición de la flecha al badge
+    const arrowLeft = Math.min(r.left - left + r.width/2 - 4, pw - 20);
+    pop.style.setProperty('--arrow-left', Math.max(8, arrowLeft) + 'px');
+    pop.style.left = left + 'px';
+    pop.style.top  = top  + 'px';
+    pop.classList.add(arrowClass);
   };
 })();
 </script>
