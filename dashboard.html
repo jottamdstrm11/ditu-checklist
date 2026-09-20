@@ -1631,38 +1631,45 @@ async function loadData() {
   }
 }
 
-// ── Carga estadísticas en segundo plano — por lotes ───────────
+// ── Fetch completo de un lote de runs ─────────────────────────
+async function fetchBatch(batch) {
+  const batchIds = batch.map(r => r.id);
+  const PAGE = 1000;
+  let batchResults = [], offset = 0;
+  while (true) {
+    const page = await supaFetch(
+      `/rest/v1/checklist_results?select=run_id,dispositivo,numero_item,nombre_item,estado&run_id=in.(${batchIds.join(',')})&order=id&limit=${PAGE}&offset=${offset}`
+    );
+    batchResults = batchResults.concat(page);
+    if (page.length < PAGE) break;
+    offset += PAGE;
+  }
+  return { batch, batchResults };
+}
+
+// ── Carga estadísticas en paralelo ────────────────────────────
 async function loadStatsInBackground(runs) {
   const badge = document.getElementById('dataSourceBadge');
-  const BATCH = 40; // runs por lote — menos peticiones, más rápido
-  const PRIORITY_FIRST = 20; // cargar estos primero (los visibles)
+  const BATCH = 40;
   let totalLoaded = 0;
-  allRows = []; // reset acumulador
+  allRows = [];
 
-  // Reordenar: primeros PRIORITY_FIRST runs van adelante, el resto después
-  const priorityRuns = runs.slice(0, PRIORITY_FIRST);
-  const restRuns     = runs.slice(PRIORITY_FIRST);
-  const orderedRuns  = [...priorityRuns, ...restRuns];
+  // Dividir en lotes
+  const batches = [];
+  for (let i = 0; i < runs.length; i += BATCH) {
+    batches.push(runs.slice(i, i + BATCH));
+  }
+
+  badge.textContent = `Cargando estadísticas…`;
 
   try {
-    for (let i = 0; i < orderedRuns.length; i += BATCH) {
-      const batch = orderedRuns.slice(i, i + BATCH);
-      const batchIds = batch.map(r => r.id);
+    // Lanzar todos los lotes en paralelo
+    const results = await Promise.all(batches.map(b => fetchBatch(b)));
 
-      // Fetch resultados solo para este lote (pocos cientos de filas, no miles)
-      const PAGE = 1000;
-      let batchResults = [], offset = 0;
-      while (true) {
-        const page = await supaFetch(
-          `/rest/v1/checklist_results?select=run_id,dispositivo,numero_item,nombre_item,estado&run_id=in.(${batchIds.join(',')})&order=id&limit=${PAGE}&offset=${offset}`
-        );
-        batchResults = batchResults.concat(page);
-        if (page.length < PAGE) break;
-        offset += PAGE;
-      }
+    const priority = { 'FAIL':3, 'UNABLE TO TEST':2, 'N/A':1, 'PASS':0 };
 
-      // Deduplicar: mismo criterio que analytics.html → FAIL gana (prioridad numérica)
-      const priority = { 'FAIL':3, 'UNABLE TO TEST':2, 'N/A':1, 'PASS':0 };
+    for (const { batch, batchResults } of results) {
+      // Deduplicar
       const cellMap = new Map();
       for (const row of batchResults) {
         const key = `${row.run_id}|${row.numero_item ?? ''}|${row.dispositivo || ''}`;
@@ -1672,7 +1679,7 @@ async function loadStatsInBackground(runs) {
       const deduped = Array.from(cellMap.values());
       totalLoaded += deduped.length;
 
-      // Acumular en allRows (para filtros y vista detalle)
+      // Acumular en allRows
       deduped.forEach(r => {
         const run = batch.find(b => b.id === r.run_id) || {};
         allRows.push({
@@ -1684,7 +1691,7 @@ async function loadStatsInBackground(runs) {
         });
       });
 
-      // Calcular stats de este lote y mergearlo en runsStats
+      // Calcular stats del lote
       const batchStats = {};
       batch.forEach(r => { batchStats[r.id] = { total:0, PASS:0, FAIL:0, 'N/A':0, 'UNABLE TO TEST':0 }; });
       deduped.forEach(r => {
@@ -1692,17 +1699,9 @@ async function loadStatsInBackground(runs) {
         s.total++;
         if (s[r.estado] !== undefined) s[r.estado]++;
       });
-
       runsStats = runsStats.map(s =>
         batchStats[s.id] ? { ...s, ...batchStats[s.id], _statsLoaded: true } : s
       );
-
-      const pct = Math.round((i + batch.length) / orderedRuns.length * 100);
-      badge.textContent = `Cargando estadísticas… ${pct}%`;
-
-      // Actualizar UI después de cada lote — el usuario ve progreso inmediato
-      renderHistorial();
-      applyFilters();
     }
 
     badge.textContent = `EN VIVO · ${totalLoaded.toLocaleString('es-CL')} registros`;
