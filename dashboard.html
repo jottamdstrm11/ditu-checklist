@@ -598,9 +598,19 @@
       display: inline-block;
       background: rgba(99,102,241,0.18); border: 1px solid rgba(99,102,241,0.35);
       color: #818cf8; border-radius: 4px; padding: 1px 4px; font-size: 9px;
-      vertical-align: middle; margin-left: 3px; cursor: default; flex-shrink: 0;
-      max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      vertical-align: middle; margin-left: 3px; cursor: pointer; flex-shrink: 0;
     }
+    .cell-obs-badge:hover { background: rgba(99,102,241,0.32); border-color: rgba(99,102,241,0.6); }
+    /* Popup de comentario (solo lectura) */
+    #obsPopup {
+      position: fixed; z-index: 8000; display: none;
+      background: #1a1d27; border: 1px solid #3a3f5c; border-radius: 10px;
+      padding: 12px 16px; max-width: 280px; box-shadow: 0 8px 32px rgba(0,0,0,.7);
+      pointer-events: none;
+    }
+    #obsPopup.show { display: block; }
+    #obsPopupDev { font-size: 10px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+    #obsPopupText { font-size: 12px; color: #c8cae0; line-height: 1.6; white-space: pre-wrap; }
 
     /* ─── Toast notification ───────────────────────────────── */
     #editToast {
@@ -2516,7 +2526,7 @@ async function renderMatrix() {
             const lbl = cell.estado === 'UNABLE TO TEST' ? 'UTT' : cell.estado;
             const isAdmin = currentRol === 'superadmin' || currentRol === 'admin';
             const editedDot = (cell.obs && cell.obs.trim())
-              ? `<span class="cell-obs-badge" title="${escHtml(cell.obs)}">💬</span>`
+              ? `<span class="cell-obs-badge" onclick="showObsPopup(event,'${escHtml(d)}',${JSON.stringify(cell.obs||'').replace(/"/g,'&quot;')})">💬</span>`
               : cell.editado_por
               ? `<span class="cell-edited-dot" title="Editado por ${escHtml(cell.editado_por)}"></span>`
               : '';
@@ -2975,6 +2985,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     TIP.style.top  = top  + 'px';
     TIP.style.left = left + 'px';
   }
+})();
+</script>
+
+<!-- Popup solo lectura de comentario por dispositivo -->
+<div id="obsPopup">
+  <div id="obsPopupDev"></div>
+  <div id="obsPopupText"></div>
+</div>
+
+<script>
+(function(){
+  const pop = document.getElementById('obsPopup');
+  function hidePopup(){ pop.classList.remove('show'); }
+
+  document.addEventListener('click', function(e){
+    if (!e.target.closest('.cell-obs-badge')) hidePopup();
+  });
+
+  window.showObsPopup = function(e, dev, obs){
+    e.stopPropagation();
+    document.getElementById('obsPopupDev').textContent = dev;
+    document.getElementById('obsPopupText').textContent = obs;
+    pop.classList.add('show');
+
+    // Posicionar cerca del badge sin salir de pantalla
+    const r = e.target.getBoundingClientRect();
+    const pw = 280, margin = 8;
+    let left = r.left;
+    let top  = r.bottom + 6;
+    if (left + pw > window.innerWidth - margin) left = window.innerWidth - pw - margin;
+    if (top + pop.offsetHeight > window.innerHeight - margin) top = r.top - pop.offsetHeight - 6;
+    pop.style.left = left + 'px';
+    pop.style.top  = top  + 'px';
+  };
 })();
 </script>
 
