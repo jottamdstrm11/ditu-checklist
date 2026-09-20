@@ -1634,13 +1634,19 @@ async function loadData() {
 // ── Carga estadísticas en segundo plano — por lotes ───────────
 async function loadStatsInBackground(runs) {
   const badge = document.getElementById('dataSourceBadge');
-  const BATCH = 8; // runs por lote — mantiene requests pequeños
+  const BATCH = 40; // runs por lote — menos peticiones, más rápido
+  const PRIORITY_FIRST = 20; // cargar estos primero (los visibles)
   let totalLoaded = 0;
   allRows = []; // reset acumulador
 
+  // Reordenar: primeros PRIORITY_FIRST runs van adelante, el resto después
+  const priorityRuns = runs.slice(0, PRIORITY_FIRST);
+  const restRuns     = runs.slice(PRIORITY_FIRST);
+  const orderedRuns  = [...priorityRuns, ...restRuns];
+
   try {
-    for (let i = 0; i < runs.length; i += BATCH) {
-      const batch = runs.slice(i, i + BATCH);
+    for (let i = 0; i < orderedRuns.length; i += BATCH) {
+      const batch = orderedRuns.slice(i, i + BATCH);
       const batchIds = batch.map(r => r.id);
 
       // Fetch resultados solo para este lote (pocos cientos de filas, no miles)
@@ -1691,7 +1697,7 @@ async function loadStatsInBackground(runs) {
         batchStats[s.id] ? { ...s, ...batchStats[s.id], _statsLoaded: true } : s
       );
 
-      const pct = Math.round((i + batch.length) / runs.length * 100);
+      const pct = Math.round((i + batch.length) / orderedRuns.length * 100);
       badge.textContent = `Cargando estadísticas… ${pct}%`;
 
       // Actualizar UI después de cada lote — el usuario ve progreso inmediato
