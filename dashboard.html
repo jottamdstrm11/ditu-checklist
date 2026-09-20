@@ -602,15 +602,24 @@
     }
     .cell-obs-badge:hover { background: rgba(99,102,241,0.32); border-color: rgba(99,102,241,0.6); }
     /* Popup de comentario (solo lectura) */
+    #obsPopupBackdrop {
+      position: fixed; inset: 0; z-index: 7999; display: none;
+      background: rgba(0,0,0,0.45);
+    }
+    #obsPopupBackdrop.show { display: block; }
     #obsPopup {
       position: fixed; z-index: 8000; display: none;
-      background: #1a1d27; border: 1px solid #3a3f5c; border-radius: 10px;
-      padding: 12px 16px; max-width: 280px; box-shadow: 0 8px 32px rgba(0,0,0,.7);
-      pointer-events: none;
+      background: #1a1d27; border: 1px solid #3a3f5c; border-radius: 12px;
+      padding: 20px 22px; width: 320px; max-width: 90vw;
+      box-shadow: 0 12px 48px rgba(0,0,0,.85);
+      top: 50%; left: 50%; transform: translate(-50%, -50%);
     }
     #obsPopup.show { display: block; }
-    #obsPopupDev { font-size: 10px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
-    #obsPopupText { font-size: 12px; color: #c8cae0; line-height: 1.6; white-space: pre-wrap; }
+    #obsPopupHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    #obsPopupDev { font-size: 11px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: .08em; }
+    #obsPopupClose { background: none; border: none; color: #7a7880; cursor: pointer; font-size: 18px; line-height: 1; padding: 0 2px; }
+    #obsPopupClose:hover { color: #c8cae0; }
+    #obsPopupText { font-size: 13px; color: #c8cae0; line-height: 1.7; white-space: pre-wrap; user-select: text; cursor: text; }
 
     /* ─── Toast notification ───────────────────────────────── */
     #editToast {
@@ -2989,18 +2998,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 </script>
 
 <!-- Popup solo lectura de comentario por dispositivo -->
+<div id="obsPopupBackdrop"></div>
 <div id="obsPopup">
-  <div id="obsPopupDev"></div>
+  <div id="obsPopupHeader">
+    <div id="obsPopupDev"></div>
+    <button id="obsPopupClose" title="Cerrar">✕</button>
+  </div>
   <div id="obsPopupText"></div>
 </div>
 
 <script>
 (function(){
-  const pop = document.getElementById('obsPopup');
-  function hidePopup(){ pop.classList.remove('show'); }
+  const pop      = document.getElementById('obsPopup');
+  const backdrop = document.getElementById('obsPopupBackdrop');
 
-  document.addEventListener('click', function(e){
-    if (!e.target.closest('.cell-obs-badge')) hidePopup();
+  function hidePopup(){
+    pop.classList.remove('show');
+    backdrop.classList.remove('show');
+  }
+
+  backdrop.addEventListener('click', hidePopup);
+  document.getElementById('obsPopupClose').addEventListener('click', hidePopup);
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') hidePopup();
   });
 
   window.showObsPopup = function(e, dev, obs){
@@ -3008,16 +3029,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('obsPopupDev').textContent = dev;
     document.getElementById('obsPopupText').textContent = obs;
     pop.classList.add('show');
-
-    // Posicionar cerca del badge sin salir de pantalla
-    const r = e.target.getBoundingClientRect();
-    const pw = 280, margin = 8;
-    let left = r.left;
-    let top  = r.bottom + 6;
-    if (left + pw > window.innerWidth - margin) left = window.innerWidth - pw - margin;
-    if (top + pop.offsetHeight > window.innerHeight - margin) top = r.top - pop.offsetHeight - 6;
-    pop.style.left = left + 'px';
-    pop.style.top  = top  + 'px';
+    backdrop.classList.add('show');
   };
 })();
 </script>
