@@ -601,6 +601,38 @@
       vertical-align: middle; margin-left: 3px; cursor: pointer; flex-shrink: 0;
     }
     .cell-obs-badge:hover { background: rgba(99,102,241,0.32); border-color: rgba(99,102,241,0.6); }
+    /* Botón de criterio de verificación */
+    .item-criterio-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 15px; height: 15px; border-radius: 50%;
+      background: rgba(80,100,200,0.18); border: 1px solid rgba(80,100,200,0.35);
+      color: #8892c8; font-size: 9px; font-weight: 700;
+      vertical-align: middle; margin-left: 5px; cursor: pointer;
+      flex-shrink: 0; line-height: 1; user-select: none;
+      transition: background .15s, border-color .15s;
+    }
+    .item-criterio-btn:hover { background: rgba(80,100,200,0.38); border-color: rgba(80,100,200,0.7); color: #c8cae0; }
+    /* Popup de criterio de verificación */
+    #criterioPopup {
+      position: fixed; z-index: 8000; display: none;
+      background: #1a1d27; border: 1px solid #3a3f5c; border-radius: 10px;
+      padding: 14px 16px; width: 300px; max-width: 90vw;
+      box-shadow: 0 8px 32px rgba(0,0,0,.85);
+    }
+    #criterioPopup.show { display: block; }
+    #criterioPopupHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    #criterioPopupLabel { font-size: 10px; font-weight: 700; color: #8892c8; text-transform: uppercase; letter-spacing: .08em; }
+    #criterioPopupClose { background: none; border: none; color: #7a7880; cursor: pointer; font-size: 16px; line-height: 1; padding: 0 2px; }
+    #criterioPopupClose:hover { color: #c8cae0; }
+    #criterioPopupTitle { font-size: 12px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+    #criterioPopupText { font-size: 12px; color: #c8cae0; line-height: 1.6; white-space: pre-wrap; user-select: text; cursor: text; }
+    #criterioPopup::before {
+      content: ''; position: absolute; width: 8px; height: 8px;
+      background: #1a1d27; border: 1px solid #3a3f5c;
+      transform: rotate(45deg);
+    }
+    #criterioPopup.arrow-top::before { top: -5px; left: var(--arrow-left, 16px); border-right: none; border-bottom: none; }
+    #criterioPopup.arrow-bottom::before { bottom: -5px; left: var(--arrow-left, 16px); border-left: none; border-top: none; }
     /* Popup de comentario (solo lectura) */
     #obsPopup {
       position: fixed; z-index: 8000; display: none;
@@ -2473,7 +2505,7 @@ async function renderMatrix() {
         if (!sectionsMap[sec]) { sectionsMap[sec] = new Map(); sectionOrder.push(sec); }
         const key = (it.numero_item ?? '') + '|' + (it.nombre ?? it.nombre_item ?? '');
         if (!sectionsMap[sec].has(key)) {
-          sectionsMap[sec].set(key, { n: it.numero_item ?? '', t: it.nombre ?? it.nombre_item ?? '', devs: {}, _missing: true });
+          sectionsMap[sec].set(key, { n: it.numero_item ?? '', t: it.nombre ?? it.nombre_item ?? '', desc: it.descripcion || '', devs: {}, _missing: true });
         }
         const num = parseFloat(it.numero_item) || 0;
         if (sectionMinItem[sec] === undefined || num < sectionMinItem[sec]) sectionMinItem[sec] = num;
@@ -2532,9 +2564,12 @@ async function renderMatrix() {
 
         // Filas sin ningún resultado: dimmed + itálica para indicar que faltan datos
         const rowMissingAttr = item._missing ? ' class="row-missing"' : '';
+        const criterioBtn = item.desc
+          ? `<span class="item-criterio-btn" onclick="showCriterioPopup(event,${JSON.stringify(item.t).replace(/"/g,'&quot;')},${JSON.stringify(item.desc).replace(/"/g,'&quot;')})" title="Ver criterio de verificación">i</span>`
+          : '';
         html += `<tr${rowMissingAttr}>
           <td class="num-col">${escHtml(String(item.n))}</td>
-          <td class="item-col">${escHtml(item.t)}${obsIndicator}${item._missing ? ' <span style="font-size:0.7em;color:var(--text-muted)">(sin datos)</span>' : ''}</td>
+          <td class="item-col">${escHtml(item.t)}${criterioBtn}${obsIndicator}${item._missing ? ' <span style="font-size:0.7em;color:var(--text-muted)">(sin datos)</span>' : ''}</td>
           ${devicesSet.map(d => {
             const cell = item.devs[d];
             if (!cell) return `<td><span class="m-badge empty">—</span></td>`;
@@ -2633,7 +2668,7 @@ async function renderMatrix() {
       // SIN filtro activo=true → incluye ítems desactivados (ej: 1.4, 1.10)
       const cf = `&cliente_id=eq.${currentClienteId}`;
       const itemsRes = await fetch(
-        SUPA_URL + `/rest/v1/checklist_items?tipo=eq.${encodeURIComponent(tipo)}${cf}&select=numero_item,nombre,seccion&order=numero_item`,
+        SUPA_URL + `/rest/v1/checklist_items?tipo=eq.${encodeURIComponent(tipo)}${cf}&select=numero_item,nombre,seccion,descripcion&order=numero_item`,
         { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } }
       );
       if (itemsRes.ok) canonicalItems = await itemsRes.json();
@@ -3013,6 +3048,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   <div id="obsPopupText"></div>
 </div>
 
+<!-- Popup criterio de verificación del ítem -->
+<div id="criterioPopup">
+  <div id="criterioPopupHeader">
+    <div id="criterioPopupLabel">Criterio de verificación</div>
+    <button id="criterioPopupClose" title="Cerrar">✕</button>
+  </div>
+  <div id="criterioPopupTitle"></div>
+  <div id="criterioPopupText"></div>
+</div>
+
 <script>
 (function(){
   const pop = document.getElementById('obsPopup');
@@ -3065,6 +3110,52 @@ document.addEventListener('DOMContentLoaded', async () => {
     pop.style.left = left + 'px';
     pop.style.top  = top  + 'px';
     pop.classList.add(arrowClass);
+  };
+})();
+</script>
+
+<script>
+(function(){
+  const cpop = document.getElementById('criterioPopup');
+  function hideCriterio(){ cpop.classList.remove('show','arrow-top','arrow-bottom'); }
+
+  document.addEventListener('click', function(e){
+    if (!e.target.closest('.item-criterio-btn') && !e.target.closest('#criterioPopup')) hideCriterio();
+  });
+  document.getElementById('criterioPopupClose').addEventListener('click', function(e){
+    e.stopPropagation(); hideCriterio();
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') hideCriterio();
+  });
+
+  window.showCriterioPopup = function(e, titulo, criterio){
+    e.stopPropagation();
+    document.getElementById('criterioPopupTitle').textContent = titulo;
+    document.getElementById('criterioPopupText').textContent = criterio;
+    cpop.classList.remove('arrow-top','arrow-bottom');
+    cpop.classList.add('show');
+
+    const r = e.target.getBoundingClientRect();
+    const pw = 300, margin = 8;
+    const ph = cpop.offsetHeight;
+
+    let left = r.left;
+    if (left + pw > window.innerWidth - margin) left = window.innerWidth - pw - margin;
+    if (left < margin) left = margin;
+
+    let top, arrowClass;
+    if (r.bottom + ph + 8 < window.innerHeight - margin) {
+      top = r.bottom + 8; arrowClass = 'arrow-top';
+    } else {
+      top = r.top - ph - 8; arrowClass = 'arrow-bottom';
+    }
+
+    const arrowLeft = Math.min(r.left - left + r.width/2 - 4, pw - 20);
+    cpop.style.setProperty('--arrow-left', Math.max(8, arrowLeft) + 'px');
+    cpop.style.left = left + 'px';
+    cpop.style.top  = top  + 'px';
+    cpop.classList.add(arrowClass);
   };
 })();
 </script>
