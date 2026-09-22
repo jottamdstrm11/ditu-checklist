@@ -2505,7 +2505,7 @@ async function renderMatrix() {
         if (!sectionsMap[sec]) { sectionsMap[sec] = new Map(); sectionOrder.push(sec); }
         const key = (it.numero_item ?? '') + '|' + (it.nombre ?? it.nombre_item ?? '');
         if (!sectionsMap[sec].has(key)) {
-          sectionsMap[sec].set(key, { n: it.numero_item ?? '', t: it.nombre ?? it.nombre_item ?? '', desc: it.descripcion || '', devs: {}, _missing: true });
+          sectionsMap[sec].set(key, { n: it.numero_item ?? '', t: it.nombre ?? it.nombre_item ?? '', desc: it.descripcion || it.criterio || it.detalle || it.description || it.criterio_verificacion || '', devs: {}, _missing: true });
         }
         const num = parseFloat(it.numero_item) || 0;
         if (sectionMinItem[sec] === undefined || num < sectionMinItem[sec]) sectionMinItem[sec] = num;
@@ -2668,10 +2668,13 @@ async function renderMatrix() {
       // SIN filtro activo=true → incluye ítems desactivados (ej: 1.4, 1.10)
       const cf = `&cliente_id=eq.${currentClienteId}`;
       const itemsRes = await fetch(
-        SUPA_URL + `/rest/v1/checklist_items?tipo=eq.${encodeURIComponent(tipo)}${cf}&select=numero_item,nombre,seccion,descripcion&order=numero_item`,
+        SUPA_URL + `/rest/v1/checklist_items?tipo=eq.${encodeURIComponent(tipo)}${cf}&select=*&order=numero_item`,
         { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } }
       );
-      if (itemsRes.ok) canonicalItems = await itemsRes.json();
+      if (itemsRes.ok) {
+        canonicalItems = await itemsRes.json();
+        if (canonicalItems.length > 0) console.log('[DITU] checklist_items campos:', Object.keys(canonicalItems[0]));
+      }
     }
   } catch(_) { /* no-op: si falla, la matrix igual muestra los datos del run */ }
 
