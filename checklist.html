@@ -412,8 +412,13 @@ let currentRol='operador';
   const{data:{session}}=await _sbc.auth.getSession();
   if(!session){window.location.href='./login.html';return;}
   _token = session.access_token;
-  _sbc.auth.onAuthStateChange((_event, s) => {
-    _token = s?.access_token ?? null;
+  _sbc.auth.onAuthStateChange((event, s) => {
+    if (s?.access_token) {
+      _token = s.access_token;          // token renovado: actualizar
+    } else if (event === 'SIGNED_OUT') {
+      _token = null;                    // cierre de sesión real: limpiar
+    }
+    // INITIAL_SESSION con null (race condition Supabase v2) → ignorar
   });
   try{
     const res=await fetch(SUPA_URL+'/rest/v1/profiles?id=eq.'+session.user.id+'&select=nombre,rol',
