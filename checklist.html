@@ -389,11 +389,33 @@ let currentClienteId = null;
 })();
 
 // ── Auth ─────────────────────────────────────────────────────────────
+let _token = null; // null = sin sesión. Sin fallback a SUPA_KEY para datos.
+
+/**
+ * Devuelve los headers con el JWT del usuario autenticado.
+ * Si no hay sesión activa, redirige a login y lanza un error —
+ * no hay fallback silencioso a SUPA_KEY.
+ */
+function _authHeaders(contentType, extra) {
+  if (!_token) {
+    window.location.href = './login.html';
+    throw new Error('Sesión expirada');
+  }
+  const h = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + _token };
+  if (contentType) h['Content-Type'] = contentType;
+  return Object.assign(h, extra || {});
+}
+
 let currentUser='';
 let currentRol='operador';
 (async()=>{
   const{data:{session}}=await _sbc.auth.getSession();
   if(!session){window.location.href='./login.html';return;}
+  _token = session.access_token;
+  _sbc.auth.onAuthStateChange((_event, s) => {
+    if(s?.access_token){ _token = s.access_token; }
+    else { _token = null; window.location.href = './login.html'; }
+  });
   try{
     const res=await fetch(SUPA_URL+'/rest/v1/profiles?id=eq.'+session.user.id+'&select=nombre,rol',
       {headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+session.access_token}});
@@ -489,12 +511,12 @@ function showSavedIndicator(msg){
   clearTimeout(el._t);el._t=setTimeout(()=>{el.style.opacity='0';},2500);
 }
 
-async function supa(p){const r=await fetch(SUPA_URL+p,{headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}});return r.json();}
+async function supa(p){const r=await fetch(SUPA_URL+p,{headers:_authHeaders()});if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}
 
 // ── Carga ítems y resultados de un run YA GUARDADO (modo edición) ──────────
 async function loadExistingResults(runId){
   const res=await fetch(SUPA_URL+`/rest/v1/checklist_results?run_id=eq.${runId}&order=seccion,numero_item&select=*`,
-    {headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}});
+    {headers:_authHeaders()});
   if(!res.ok)throw new Error('Error cargando resultados existentes: '+res.status);
   const rows=await res.json();
   if(!rows.length)throw new Error('El run no tiene resultados guardados');
@@ -601,7 +623,7 @@ async function startChecklist(){
     // Verificar si ya existe un run para este cliente+tipo+fecha+franja
     let dupUrl=`/rest/v1/checklist_runs?select=id,operador&fecha=eq.${fechaHoy}&tipo=eq.${selectedType}&hora_franja=eq.${selectedFranja}`;
     if(currentClienteId)dupUrl+=`&cliente_id=eq.${currentClienteId}`;
-    const dupRes=await fetch(SUPA_URL+dupUrl,{headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}});
+    const dupRes=await fetch(SUPA_URL+dupUrl,{headers:_authHeaders()});
     const dups=await dupRes.json();
     if(dups&&dups.length>0){
       const opDup=dups[0].operador||'otro operador';
@@ -763,8 +785,8 @@ async function enviarChecklist(){
   const btn=document.getElementById('sendBtn');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Enviando...';
   try{
-    const hRun={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
-    const hRows={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=minimal'};
+    const hRun=_authHeaders('application/json',{'Prefer':'return=representation'});
+    const hRows=_authHeaders('application/json',{'Prefer':'return=minimal'});
 
     const dataEnvio=ITEMS[selectedType]||[];
     const totalEsperado=dataEnvio.reduce((a,s)=>a+s.items.length*DEVICES.length,0);
@@ -777,19 +799,15 @@ async function enviarChecklist(){
     if(_existingRunId){
       // ── MODO EDICIÓN: conservar run, reemplazar solo resultados ─────
       // Los ítems vienen de loadExistingResults (run original) → count es el mismo
-      const {data:{session:_sess}}=await _sbc.auth.getSession();
-      const token=_sess?_sess.access_token:SUPA_KEY;
-      const hAuth={...hRows,'Authorization':'Bearer '+token};
-
       // 1a. Eliminar resultados anteriores del run
       btn.innerHTML='<span class="spinner"></span> Guardando cambios...';
       const rDel=await fetch(SUPA_URL+'/rest/v1/checklist_results?run_id=eq.'+_existingRunId,
-        {method:'DELETE',headers:hAuth});
+        {method:'DELETE',headers:hRows});
       if(!rDel.ok)throw new Error('Error eliminando resultados anteriores: '+rDel.status);
 
       // 1b. Actualizar solo operador — NO tocar items_esperados ni versiones_snapshot
       const rPatch=await fetch(SUPA_URL+'/rest/v1/checklist_runs?id=eq.'+_existingRunId,
-        {method:'PATCH',headers:{...hRun,'Authorization':'Bearer '+token},
+        {method:'PATCH',headers:hRun,
          body:JSON.stringify({operador:op})});
       if(!rPatch.ok)throw new Error('Error actualizando run: '+rPatch.status);
 
