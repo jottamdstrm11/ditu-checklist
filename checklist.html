@@ -413,8 +413,7 @@ let currentRol='operador';
   if(!session){window.location.href='./login.html';return;}
   _token = session.access_token;
   _sbc.auth.onAuthStateChange((_event, s) => {
-    if(s?.access_token){ _token = s.access_token; }
-    else { _token = null; window.location.href = './login.html'; }
+    _token = s?.access_token ?? null;
   });
   try{
     const res=await fetch(SUPA_URL+'/rest/v1/profiles?id=eq.'+session.user.id+'&select=nombre,rol',
