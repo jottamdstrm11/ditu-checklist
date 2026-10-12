@@ -163,6 +163,26 @@ body{font-family:'Encode Sans Expanded','Helvetica Neue',Arial,sans-serif;font-s
 @keyframes spin{to{transform:rotate(360deg)}}
 .empty-msg{text-align:center;color:var(--muted);padding:40px;font-size:12px}
 .footnote{font-size:10px;color:var(--dim);margin-top:8px;text-align:right}
+
+/* ── AI Analysis ── */
+.ai-analyze-btn{background:linear-gradient(135deg,#8E65D8,#6b40c4);border:none;color:#fff;border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;display:inline-flex;align-items:center;gap:6px;letter-spacing:.03em;white-space:nowrap}
+.ai-analyze-btn:hover{background:linear-gradient(135deg,#9e75e8,#7b50d4);transform:translateY(-1px)}
+.ai-analyze-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.ai-spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.15);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+.ai-result-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.ai-badge{font-size:10px;font-weight:700;background:rgba(142,101,216,0.25);color:#c3a0ff;border-radius:10px;padding:2px 10px;letter-spacing:.04em}
+.ai-timestamp{font-size:10px;color:var(--dim)}
+.ai-regen-btn{margin-left:auto;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:10px;font-family:inherit;border-radius:6px;padding:3px 9px;transition:.15s}
+.ai-regen-btn:hover{color:var(--text);border-color:var(--purple)}
+/* Modal */
+.ai-key-modal{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.ai-key-box{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px 30px;width:480px;max-width:92vw}
+.ai-key-box h3{font-size:15px;font-weight:900;margin-bottom:6px}
+.ai-key-box p{font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.7}
+.ai-key-input{width:100%;background:#0a0c12;border:1px solid var(--border);color:#fff;padding:10px 14px;border-radius:8px;font-size:12px;font-family:monospace;outline:none;letter-spacing:.04em}
+.ai-key-input:focus{border-color:var(--purple)}
+.ai-key-actions{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+.ai-key-note{font-size:10px;color:var(--dim);margin-top:10px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -265,6 +285,7 @@ let activeDays = 90;
 let activeTab = 'resumen';
 let selectedDecisionItem = null; // Nivel 3 selected item
 let selectedDevice = null;        // Nivel 2 device drilldown
+let currentDecisionContext = null; // Populated by buildDecision() for AI analysis
 
 const chartInstances = {};
 
@@ -874,6 +895,28 @@ function buildDecision({ itemStats, failCount, totalChecks, evalCount, lbl, resu
       recommendation = `Baja concentración de FAILs en el período. Continuar seguimiento normal.`;
     }
 
+    // Store context for AI analysis (read by generateAIAnalysis())
+    currentDecisionContext = {
+      itemName: sel.name,
+      fail: sel.fail,
+      pct,
+      rate,
+      evalChecks: sel.evalChecks,
+      totalFailCount: failCount,
+      topDevice,
+      topDeviceCount,
+      topDevicePct,
+      priority,
+      lbl,
+      devStats: Object.entries(sel.byDevice||{})
+        .sort((a,b) => b[1]-a[1]).slice(0, 7)
+        .map(([dev, f]) => {
+          const p = (sel.byDevicePass||{})[dev] || 0;
+          const ev = f + p;
+          return { dev, fails: f, rate: ev ? Math.round(f/ev*100) : 0, pct: sel.fail ? Math.round(f/sel.fail*100) : 0 };
+        })
+    };
+
     // Device breakdown for this item — with full evaluable context (FASE 2.5)
     const devBreakdown = Object.entries(sel.byDevice||{})
       .sort((a,b) => b[1]-a[1])
@@ -930,8 +973,11 @@ function buildDecision({ itemStats, failCount, totalChecks, evalCount, lbl, resu
       </div>
 
       <div class="chart-card" style="margin-bottom:16px">
-        <div class="chart-title">Recomendación</div>
-        <div style="font-size:13px;color:var(--text);line-height:1.8;margin-top:8px">${recommendation}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+          <div class="chart-title">Recomendación</div>
+          <button class="ai-analyze-btn" id="aiBtn" onclick="generateAIAnalysis()">✨ Analizar con IA</button>
+        </div>
+        <div id="aiResult" style="font-size:13px;color:var(--text);line-height:1.8">${recommendation}</div>
       </div>
 
       ${devBreakdown ? `
@@ -968,6 +1014,146 @@ function buildDecision({ itemStats, failCount, totalChecks, evalCount, lbl, resu
 function onDecisionItemChange(val) {
   selectedDecisionItem = val || null;
   renderPage();
+}
+
+// ─────────────────────────────────────────────────────
+// AI ANALYSIS — Claude API integration
+// ─────────────────────────────────────────────────────
+function getAnthropicKey() {
+  try { return localStorage.getItem('ms_anthropic_key') || ''; } catch(e) { return ''; }
+}
+
+function showKeyModal(cb) {
+  const existing = getAnthropicKey();
+  const modal = document.createElement('div');
+  modal.className = 'ai-key-modal';
+  modal.id = 'aiKeyModal';
+  modal.innerHTML = `
+    <div class="ai-key-box">
+      <h3>🔑 Clave de API Anthropic</h3>
+      <p>Para usar el análisis IA, ingresa tu API Key de Anthropic (comienza con <code style="color:#c3a0ff">sk-ant-</code>). La clave se guarda únicamente en <strong>este navegador</strong> (localStorage) y no se envía a ningún servidor de Mediastream.</p>
+      <input class="ai-key-input" id="aiKeyInput" type="password" placeholder="sk-ant-api03-..." value="${existing}" autocomplete="off">
+      <p class="ai-key-note">Puedes obtener tu clave en <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--purple)">console.anthropic.com</a>. El análisis usa Claude Haiku (costo mínimo por consulta).</p>
+      <div class="ai-key-actions">
+        <button class="filter-btn" onclick="document.getElementById('aiKeyModal').remove()">Cancelar</button>
+        <button class="ai-analyze-btn" onclick="
+          const k = document.getElementById('aiKeyInput').value.trim();
+          if (!k) return;
+          try { localStorage.setItem('ms_anthropic_key', k); } catch(e){}
+          document.getElementById('aiKeyModal').remove();
+          if (window.__aiKeyCb) { window.__aiKeyCb(k); window.__aiKeyCb = null; }
+        ">✓ Guardar y analizar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  window.__aiKeyCb = cb;
+  setTimeout(() => { const inp = document.getElementById('aiKeyInput'); if(inp) inp.focus(); }, 50);
+}
+
+async function generateAIAnalysis() {
+  const ctx = currentDecisionContext;
+  if (!ctx) return;
+
+  let key = getAnthropicKey();
+  if (!key) {
+    showKeyModal(k => { if (k) generateAIAnalysis(); });
+    return;
+  }
+
+  const btn = document.getElementById('aiBtn');
+  const resultDiv = document.getElementById('aiResult');
+  if (!btn || !resultDiv) return;
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="ai-spinner"></span>Analizando...';
+  resultDiv.innerHTML = '<div style="display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;padding:4px 0"><div class="ai-spinner" style="border-top-color:var(--purple)"></div>Claude está analizando los datos del período...</div>';
+
+  // Build the prompt
+  const devLines = ctx.devStats.map(d =>
+    `  · ${d.dev}: ${d.fails} FAILs (${d.pct}% del ítem · tasa ${d.rate}%)`
+  ).join('\n');
+
+  const concentrated = ctx.topDevice && ctx.topDevicePct >= 55;
+
+  const prompt = `Eres analista senior de calidad QA de una plataforma OTT streaming latinoamericana. Analiza estos datos y entrega una recomendación operativa concisa en español profesional.
+
+FUNCIONALIDAD ANALIZADA: "${ctx.itemName}"
+PERÍODO: ${ctx.lbl}
+Checks evaluables (PASS+FAIL): ${ctx.evalChecks}
+FAILs registrados: ${ctx.fail} — representa el ${ctx.pct}% de los ${ctx.totalFailCount} FAILs globales del período
+Tasa de fallo: ${ctx.rate}% (sobre checks evaluables, excluye N/A y UTT)
+Nivel de concentración: ${ctx.priority === 'high' ? 'ALTA (>20% del total de FAILs)' : ctx.priority === 'medium' ? 'MEDIA (10–20%)' : 'BAJA (<10%)'}
+${ctx.topDevice ? `Dispositivo más afectado: ${ctx.topDevice} (${ctx.topDevicePct}% de los FAILs de esta funcionalidad)` : ''}
+${concentrated ? '→ Concentración atípica: +55% de FAILs en un solo dispositivo' : '→ FAILs distribuidos entre varios dispositivos'}
+
+Distribución por dispositivo:
+${devLines}
+
+CONTEXTO: La plataforma se prueba en 8 franjas horarias diarias con un equipo de 3–4 operadores. Los FAILs registrados corresponden a ejecuciones reales de checklist, no a tickets Jira. Una "Alta concentración" significa que este ítem falló con frecuencia relativa alta pero no implica necesariamente severidad crítica.
+
+Escribe exactamente 3 párrafos:
+1. DIAGNÓSTICO: ¿el fallo es específico de uno o varios dispositivos? ¿Qué sugiere el patrón de distribución?
+2. ACCIÓN: qué debería hacer el equipo QA esta semana (puede incluir: escalar al cliente, abrir ticket, aumentar frecuencia de monitoreo, investigar versión específica)
+3. CONTEXTO OTT: si este tipo de fallo en esta funcionalidad es esperable o atípico en plataformas OTT
+
+Usa los números reales, no los parafrasees. Sé directo. Máximo 220 palabras en total.`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-allow-browser': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        max_tokens: 500,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!resp.ok) {
+      let errMsg = `Error HTTP ${resp.status}`;
+      try { const e = await resp.json(); errMsg = e.error?.message || errMsg; } catch(e){}
+      if (resp.status === 401) {
+        try { localStorage.removeItem('ms_anthropic_key'); } catch(e){}
+        resultDiv.innerHTML = `<span style="color:#f87171">❌ API Key inválida o expirada.</span> <button class="ai-analyze-btn" style="margin-top:8px" onclick="generateAIAnalysis()">↻ Ingresar clave correcta</button>`;
+      } else {
+        resultDiv.innerHTML = `<span style="color:#f87171">❌ ${errMsg}</span>`;
+      }
+      btn.disabled = false;
+      btn.innerHTML = '✨ Analizar con IA';
+      return;
+    }
+
+    const data = await resp.json();
+    const text = (data.content?.[0]?.text || '').trim();
+    if (!text) { resultDiv.innerHTML = '<span style="color:#f87171">❌ Respuesta vacía de la API</span>'; btn.disabled = false; btn.innerHTML = '✨ Analizar con IA'; return; }
+
+    // Render paragraphs
+    const paras = text.split(/\n{2,}/).filter(Boolean)
+      .map(p => `<p style="margin-bottom:10px;font-size:13px;line-height:1.8">${p.replace(/\n/g,'<br>')}</p>`)
+      .join('');
+
+    const now = new Date().toLocaleTimeString('es', { hour:'2-digit', minute:'2-digit' });
+    resultDiv.innerHTML = `
+      <div class="ai-result-header">
+        <span class="ai-badge">✨ ANÁLISIS IA</span>
+        <span class="ai-timestamp">Claude Haiku · ${now}</span>
+        <button class="ai-regen-btn" onclick="generateAIAnalysis()">↻ Regenerar</button>
+      </div>
+      ${paras}
+    `;
+    btn.innerHTML = '✨ Regenerar análisis';
+    btn.disabled = false;
+
+  } catch(e) {
+    resultDiv.innerHTML = `<span style="color:#f87171">❌ Error de red: ${e.message}. Verifica que estás conectado.</span>`;
+    btn.disabled = false;
+    btn.innerHTML = '✨ Analizar con IA';
+  }
 }
 
 // ─────────────────────────────────────────────────────
