@@ -1451,6 +1451,64 @@ function generateReport() {
              pctOfFails: failCount ? Math.round(f/failCount*100) : 0 };
   }).sort((a,b) => b.failCount - a.failCount);
 
+  // ── Período anterior (misma duración y filtros) para comparativa ──
+  let prev = null;
+  if (activeDays) {
+    const tipoSel   = document.getElementById('an-tipo')?.value || '';
+    const franjaSel = document.getElementById('an-franja')?.value || '';
+    const cut = new Date(); cut.setDate(cut.getDate() - activeDays);
+    const prevStart = new Date(cut); prevStart.setDate(prevStart.getDate() - activeDays);
+    const cutStr = cut.toISOString().slice(0,10), prevStr = prevStart.toISOString().slice(0,10);
+    const prevRuns = allRuns.filter(r => {
+      const f = r.fecha || '';
+      if (f < prevStr || f >= cutStr) return false;
+      if (tipoSel   && r.tipo        !== tipoSel)   return false;
+      if (franjaSel && r.hora_franja !== franjaSel) return false;
+      return true;
+    });
+    if (prevRuns.length) {
+      const pSet = new Set(prevRuns.map(r => r.id));
+      const pRes = dedup(allResults.filter(r => pSet.has(r.run_id)));
+      const pf = pRes.filter(r => r.estado === 'FAIL').length;
+      const pp = pRes.filter(r => r.estado === 'PASS').length;
+      const byDev = {};
+      for (const r of pRes) {
+        if (!r.dispositivo || (r.estado !== 'FAIL' && r.estado !== 'PASS')) continue;
+        if (!byDev[r.dispositivo]) byDev[r.dispositivo] = { f:0, p:0 };
+        if (r.estado === 'FAIL') byDev[r.dispositivo].f++; else byDev[r.dispositivo].p++;
+      }
+      const fmtD = d => d.slice(8) + '/' + d.slice(5,7);
+      const lastPrev = new Date(cut); lastPrev.setDate(lastPrev.getDate() - 1);
+      prev = { runs: prevRuns.length, fail: pf, pass: pp,
+               failRate: (pf+pp) ? pf/(pf+pp)*100 : null,
+               passRate: (pf+pp) ? pp/(pf+pp)*100 : null,
+               devRate: Object.fromEntries(Object.entries(byDev).map(([d,c]) => [d, (c.f+c.p) ? c.f/(c.f+c.p)*100 : null])),
+               range: `${fmtD(prevStr)} – ${fmtD(lastPrev.toISOString().slice(0,10))}` };
+    }
+  }
+  // Delta en puntos porcentuales; lowerIsBetter define el color (verde = mejora)
+  function deltaPP(cur, before, lowerIsBetter = true) {
+    if (before === null || before === undefined || cur === null || cur === undefined) return '<span class="delta d-na">nuevo</span>';
+    const d = Math.round((cur - before) * 10) / 10;
+    if (Math.abs(d) < 0.5) return '<span class="delta d-eq">= sin cambio</span>';
+    const better = lowerIsBetter ? d < 0 : d > 0;
+    return `<span class="delta ${better ? 'd-good' : 'd-bad'}">${d > 0 ? '▲' : '▼'} ${Math.abs(d).toLocaleString('de-DE')} pp</span>`;
+  }
+  function deltaCount(cur, before, lowerIsBetter = true) {
+    if (!before) return '';
+    const pct = Math.round((cur - before) / before * 100);
+    if (pct === 0) return '<span class="delta d-eq">= sin cambio</span>';
+    const better = lowerIsBetter ? pct < 0 : pct > 0;
+    return `<span class="delta ${better ? 'd-good' : 'd-bad'}">${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}%</span>`;
+  }
+  function deltaNeutral(cur, before) {
+    if (!before) return '';
+    const pct = Math.round((cur - before) / before * 100);
+    return pct === 0 ? '<span class="delta d-eq">= igual</span>' : `<span class="delta d-eq">${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}%</span>`;
+  }
+  const curFailRateExact = evalCount ? failCount / evalCount * 100 : 0;
+  const curPassRateExact = evalCount ? passCount / evalCount * 100 : 0;
+
   // Version stats for report
   function normVerR(v) { return (v||'').trim().replace(/\s*\(\s*/g,'(').replace(/\s*\)\s*/g,')'); }
   const snapMapR = {};
@@ -1567,6 +1625,7 @@ function generateReport() {
       <td class="num strong">${d.failCount.toLocaleString('de-DE')}</td>
       <td class="num muted">${d.pctOfFails}%</td>
       <td class="num muted">${d.evalChecks.toLocaleString('de-DE')}</td>
+      ${prev ? `<td class="num">${deltaPP(d.evalChecks ? d.failCount/d.evalChecks*100 : null, prev.devRate[d.dev])}</td>` : ''}
     </tr>`).join('');
 
   // Gráfico de evolución (SVG responsive, escala fija)
@@ -1631,8 +1690,19 @@ function generateReport() {
 
   // Conclusión automática
   const criticos = top5.filter(it => it.pctOfFails >= 10);
+  let trendSentence = '';
+  if (prev && prev.failRate !== null) {
+    const d = Math.round((curFailRateExact - prev.failRate) * 10) / 10;
+    if (Math.abs(d) < 0.5) trendSentence = `Respecto al período anterior (${prev.range}), la tasa de fallo se mantiene estable (${Math.round(prev.failRate)}% → ${failPctEval}%). `;
+    else if (d < 0) trendSentence = `Respecto al período anterior (${prev.range}), la tasa de fallo <strong>mejora ${Math.abs(d).toLocaleString('de-DE')} pp</strong> (${Math.round(prev.failRate)}% → ${failPctEval}%). `;
+    else trendSentence = `Respecto al período anterior (${prev.range}), la tasa de fallo <strong>empeora ${d.toLocaleString('de-DE')} pp</strong> (${Math.round(prev.failRate)}% → ${failPctEval}%). `;
+    const worsened = deviceStats.filter(x => x.evalChecks && prev.devRate[x.dev] !== undefined && prev.devRate[x.dev] !== null)
+      .map(x => ({ dev: x.dev, d: x.failCount/x.evalChecks*100 - prev.devRate[x.dev] }))
+      .filter(x => x.d >= 2).sort((a,b) => b.d - a.d).slice(0, 2);
+    if (worsened.length) trendSentence += `${worsened.length > 1 ? 'Los dispositivos con mayor deterioro son' : 'El dispositivo con mayor deterioro es'} ${worsened.map(x => `<strong>${escHtml(x.dev)}</strong> (+${(Math.round(x.d*10)/10).toLocaleString('de-DE')} pp)`).join(' y ')}. `;
+  }
   const worstDev = deviceStats[0];
-  let conclusion = '';
+  let conclusion = trendSentence;
   if (criticos.length)
     conclusion += `Los ítems <strong>${criticos.map(i => escHtml(i.name)).join('</strong>, <strong>')}</strong> concentran la mayor parte de los FAILs del período. `;
   if (worstDev)
@@ -1726,6 +1796,12 @@ function generateReport() {
   .kpi-label{font-size:7pt;font-weight:700;color:${C.limeText};text-transform:uppercase;letter-spacing:.1em}
   .kpi-val{font-size:28pt;font-weight:900;letter-spacing:-.6px;margin-top:2px;line-height:1.1;color:${C.ink}}
   .kpi-sub{font-size:8pt;color:rgba(26,26,26,.55);margin-top:3px}
+  .kpi-delta{display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap}
+  .kpi-prev{font-size:7.5pt;color:rgba(26,26,26,.5)}
+  .delta{display:inline-block;font-family:'Encode Sans Expanded',sans-serif;font-size:7.5pt;font-weight:700;white-space:nowrap}
+  .d-good{color:${C.limeText}}.d-bad{color:#D42020}.d-eq{color:rgba(26,26,26,.5);font-weight:600}.d-na{color:rgba(26,26,26,.45);font-weight:600}
+  .status-delta{margin-top:6px;font-size:7.5pt;color:rgba(26,26,26,.55)}
+  .status-delta span{font-weight:400}
 
   /* Tablas de datos: header ink, filas alternas cloud */
   table.data{width:100%;border-collapse:collapse}
@@ -1795,22 +1871,23 @@ function generateReport() {
       <div class="hero-client">${clienteLogo ? `<span class="client-logo"><img src="${escHtml(clienteLogo)}" alt="${escHtml(clienteNombre)}" onerror="this.parentNode.remove()"></span>` : ''}${escHtml(clienteNombre)}</div>
       <div class="hero-meta">
         Período: <b>${escHtml(lbl)}</b><br>
-        Runs analizados: <b>${totalRuns.toLocaleString('de-DE')}</b> · Checks evaluados: <b>${totalChecks.toLocaleString('de-DE')}</b>
+        Runs analizados: <b>${totalRuns.toLocaleString('de-DE')}</b> · Checks evaluados: <b>${totalChecks.toLocaleString('de-DE')}</b>${prev ? `<br>Comparado con el período anterior: <b>${prev.range}</b>` : ''}
       </div>
     </div>
     <div class="hero-status">
       <div class="status-lbl"><span class="dot dot-${semKey}"></span>${semLabel}</div>
       <div class="status-val">${failPctEval}%</div>
       <div class="status-sub">tasa de fallo evaluable</div>
+      ${prev && prev.failRate !== null ? `<div class="status-delta">${deltaPP(curFailRateExact, prev.failRate)} <span>vs ${Math.round(prev.failRate)}% anterior</span></div>` : ''}
     </div>
   </div>
 
   <div class="sec">
   <h2>Métricas clave</h2>
   <div class="kpi-grid">
-    <div class="kpi"><div class="kpi-label">FAILs registrados</div><div class="kpi-val">${failCount.toLocaleString('de-DE')}</div><div class="kpi-sub">${failPctEval}% de los checks evaluables</div></div>
-    <div class="kpi"><div class="kpi-label">Tasa de PASS</div><div class="kpi-val">${passPctEval}%</div><div class="kpi-sub">${passCount.toLocaleString('de-DE')} checks PASS</div></div>
-    <div class="kpi"><div class="kpi-label">Runs completados</div><div class="kpi-val">${totalRuns.toLocaleString('de-DE')}</div><div class="kpi-sub">en el período</div></div>
+    <div class="kpi"><div class="kpi-label">FAILs registrados</div><div class="kpi-val">${failCount.toLocaleString('de-DE')}</div>${prev ? `<div class="kpi-delta">${deltaCount(failCount, prev.fail)}<span class="kpi-prev">antes ${prev.fail.toLocaleString('de-DE')}</span></div>` : ''}<div class="kpi-sub">${failPctEval}% de los checks evaluables</div></div>
+    <div class="kpi"><div class="kpi-label">Tasa de PASS</div><div class="kpi-val">${passPctEval}%</div>${prev && prev.passRate !== null ? `<div class="kpi-delta">${deltaPP(curPassRateExact, prev.passRate, false)}<span class="kpi-prev">antes ${Math.round(prev.passRate)}%</span></div>` : ''}<div class="kpi-sub">${passCount.toLocaleString('de-DE')} checks PASS</div></div>
+    <div class="kpi"><div class="kpi-label">Runs completados</div><div class="kpi-val">${totalRuns.toLocaleString('de-DE')}</div>${prev ? `<div class="kpi-delta">${deltaNeutral(totalRuns, prev.runs)}<span class="kpi-prev">antes ${prev.runs.toLocaleString('de-DE')}</span></div>` : ''}<div class="kpi-sub">en el período</div></div>
     <div class="kpi"><div class="kpi-label">N/A + UTT</div><div class="kpi-val">${(naCount+uttCount).toLocaleString('de-DE')}</div><div class="kpi-sub">excluidos del denominador</div></div>
   </div>
   </div>
@@ -1832,7 +1909,7 @@ function generateReport() {
   <div class="card flush">
     <table class="data">
       <thead><tr>
-        <th>Dispositivo</th><th>Tasa de fallo</th><th class="num"></th><th class="num">FAILs</th><th class="num">% del total</th><th class="num">Checks eval.</th>
+        <th>Dispositivo</th><th>Tasa de fallo</th><th class="num"></th><th class="num">FAILs</th><th class="num">% del total</th><th class="num">Checks eval.</th>${prev ? '<th class="num">vs anterior</th>' : ''}
       </tr></thead>
       <tbody>${deviceRows}</tbody>
     </table>
