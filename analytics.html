@@ -1665,7 +1665,7 @@ function generateReport() {
 <html lang="es">
 <head>
 <meta charset="UTF-8"/>
-<title>Reporte QA — ${escHtml(clienteNombre)} — ${lbl}</title>
+<title>Informe de Monitoreo — ${escHtml(clienteNombre)} — ${lbl}</title>
 <link href="https://fonts.googleapis.com/css2?family=Encode+Sans+Expanded:wght@600;700;800;900&family=Geist:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
@@ -1775,7 +1775,7 @@ function generateReport() {
   <thead><tr><td></td></tr></thead>
   <tfoot><tr><td>
     <div class="pfoot">
-      <span>${ISO_SVG} Reporte de Calidad QA — ${escHtml(clienteNombre)} · ${escHtml(lbl)} — Confidencial</span>
+      <span>${ISO_SVG} Informe de Monitoreo — ${escHtml(clienteNombre)} · ${escHtml(lbl)} — Confidencial</span>
       <span>Generado el ${today} · mediastream.co</span>
     </div>
   </td></tr></tfoot>
@@ -1784,14 +1784,14 @@ function generateReport() {
   <div class="brand">
     ${LOGO_SVG}
     <div>
-      <div class="tag">Reporte de Calidad QA · Monitoreo</div>
+      <div class="tag">Monitoreo de Calidad · Aplicaciones OTT</div>
       <div class="tag-date">${today}</div>
     </div>
   </div>
 
   <div class="hero">
     <div>
-      <div class="hero-title">Reporte de <b>Calidad QA</b></div>
+      <div class="hero-title">Informe de <b>Monitoreo</b></div>
       <div class="hero-client">${clienteLogo ? `<span class="client-logo"><img src="${escHtml(clienteLogo)}" alt="${escHtml(clienteNombre)}" onerror="this.parentNode.remove()"></span>` : ''}${escHtml(clienteNombre)}</div>
       <div class="hero-meta">
         Período: <b>${escHtml(lbl)}</b><br>
