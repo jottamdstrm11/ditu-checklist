@@ -1453,6 +1453,7 @@ function generateReport() {
 
   // ── Período anterior (misma duración y filtros) para comparativa ──
   let prev = null;
+  let prevEmptyRange = null; // período anterior sin datos → se avisa en la portada
   if (activeDays) {
     const tipoSel   = document.getElementById('an-tipo')?.value || '';
     const franjaSel = document.getElementById('an-franja')?.value || '';
@@ -1466,6 +1467,9 @@ function generateReport() {
       if (franjaSel && r.hora_franja !== franjaSel) return false;
       return true;
     });
+    const fmtD0 = d => d.slice(8) + '/' + d.slice(5,7);
+    const lastPrev0 = new Date(cut); lastPrev0.setDate(lastPrev0.getDate() - 1);
+    if (!prevRuns.length) prevEmptyRange = `${fmtD0(prevStr)} – ${fmtD0(lastPrev0.toISOString().slice(0,10))}`;
     if (prevRuns.length) {
       const pSet = new Set(prevRuns.map(r => r.id));
       const pRes = dedup(allResults.filter(r => pSet.has(r.run_id)));
@@ -1871,7 +1875,7 @@ function generateReport() {
       <div class="hero-client">${clienteLogo ? `<span class="client-logo"><img src="${escHtml(clienteLogo)}" alt="${escHtml(clienteNombre)}" onerror="this.parentNode.remove()"></span>` : ''}${escHtml(clienteNombre)}</div>
       <div class="hero-meta">
         Período: <b>${escHtml(lbl)}</b><br>
-        Runs analizados: <b>${totalRuns.toLocaleString('de-DE')}</b> · Checks evaluados: <b>${totalChecks.toLocaleString('de-DE')}</b>${prev ? `<br>Comparado con el período anterior: <b>${prev.range}</b>` : ''}
+        Runs analizados: <b>${totalRuns.toLocaleString('de-DE')}</b> · Checks evaluados: <b>${totalChecks.toLocaleString('de-DE')}</b>${prev ? `<br>Comparado con el período anterior: <b>${prev.range}</b>` : prevEmptyRange ? `<br>Período anterior (${prevEmptyRange}): <b>sin datos para comparar</b>` : ''}
       </div>
     </div>
     <div class="hero-status">
