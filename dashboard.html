@@ -1679,69 +1679,134 @@ async function fetchBatch(batch) {
   return { batch, batchResults };
 }
 
-// ── Carga estadísticas en paralelo ────────────────────────────
-async function loadStatsInBackground(runs) {
-  const badge = document.getElementById('dataSourceBadge');
-  const BATCH = 40;
-  let totalLoaded = 0;
-  allRows = [];
+// ── Carga estadísticas: primero lo reciente, luego el historial ─
+// Fase A: últimos 30 días → se muestran apenas llegan (lote a lote).
+// Fase B: historial anterior en segundo plano, con concurrencia limitada.
+// Cada lote actualiza el historial al llegar; los cálculos pesados
+// (resumen, gráficos, tabla) se recalculan solo al cerrar cada fase.
+let statsLoadToken = 0;
+const STATS_RECENT_DAYS = 30;
+const STATS_BATCH = 15;       // = HIST_PAGE_SIZE: el primer lote llena la primera página del historial
+const STATS_CONCURRENCY = 8;
 
-  // Dividir en lotes
-  const batches = [];
-  for (let i = 0; i < runs.length; i += BATCH) {
-    batches.push(runs.slice(i, i + BATCH));
+function _refreshAllPreservingPages() {
+  // applyFilters() vuelve a la página 1; se conserva la página que el usuario estaba viendo
+  const keepPage = page, keepHist = histPage;
+  const op = document.getElementById('f-operador')?.value || '';
+  const tp = document.getElementById('f-tipo')?.value || '';
+  populateFilterDropdowns();
+  const opEl = document.getElementById('f-operador'); if (opEl && op) opEl.value = op;
+  const tpEl = document.getElementById('f-tipo');     if (tpEl && tp) tpEl.value = tp;
+  applyFilters();
+  page = keepPage; histPage = keepHist;
+  renderTable();
+  renderHistorial();
+}
+
+async function loadStatsInBackground(runs) {
+  const token = ++statsLoadToken;
+  const badge = document.getElementById('dataSourceBadge');
+  const priority = { 'FAIL':3, 'UNABLE TO TEST':2, 'N/A':1, 'PASS':0 };
+  allRows = [];
+  let totalLoaded = 0, runsDone = 0, failedBatches = 0;
+
+  const cut = new Date(); cut.setDate(cut.getDate() - STATS_RECENT_DAYS);
+  const cutStr = cut.toISOString().slice(0, 10);
+  const recent = runs.filter(r => (r.fecha || '') >= cutStr);
+  const older  = runs.filter(r => (r.fecha || '') <  cutStr);
+  const toBatches = list => {
+    const out = [];
+    for (let i = 0; i < list.length; i += STATS_BATCH) out.push(list.slice(i, i + STATS_BATCH));
+    return out;
+  };
+
+  // Re-render del historial como máximo cada 250 ms mientras llegan lotes
+  let histTimer = null;
+  const scheduleHist = () => {
+    if (histTimer) return;
+    histTimer = setTimeout(() => { histTimer = null; if (token === statsLoadToken) renderHistorial(); }, 250);
+  };
+  const setBadge = phase => {
+    badge.textContent = `${phase} · ${runsDone}/${runs.length} runs`;
+    badge.className   = 'data-source-badge demo';
+  };
+
+  function processBatch(batch, batchResults) {
+    const cellMap = new Map();
+    for (const row of batchResults) {
+      const key = `${row.run_id}|${row.numero_item ?? ''}|${row.dispositivo || ''}`;
+      const prev = cellMap.get(key);
+      if (!prev || (priority[row.estado]??-1) > (priority[prev.estado]??-1)) cellMap.set(key, row);
+    }
+    const deduped = Array.from(cellMap.values());
+    totalLoaded += deduped.length;
+
+    const runById = new Map(batch.map(b => [b.id, b]));
+    const batchStats = {};
+    batch.forEach(r => { batchStats[r.id] = { total:0, PASS:0, FAIL:0, 'N/A':0, 'UNABLE TO TEST':0 }; });
+    for (const r of deduped) {
+      const run = runById.get(r.run_id) || {};
+      allRows.push({
+        run_id: r.run_id ?? '', estado: r.estado ?? '',
+        dispositivo: r.dispositivo ?? '', created_at: run.fecha ?? '',
+        operador: run.operador ?? '', tipo: run.tipo ?? '',
+        hora_franja: run.hora_franja ?? '',
+        numero_item: r.numero_item ?? '', nombre_item: r.nombre_item ?? '',
+      });
+      const st = batchStats[r.run_id]; if (!st) continue;
+      st.total++;
+      if (st[r.estado] !== undefined) st[r.estado]++;
+    }
+    runsStats = runsStats.map(st =>
+      batchStats[st.id] ? { ...st, ...batchStats[st.id], _statsLoaded: true } : st
+    );
+    runsDone += batch.length;
   }
 
-  badge.textContent = `Cargando estadísticas…`;
+  // Ejecuta los lotes con un máximo de STATS_CONCURRENCY en paralelo;
+  // cada lote se procesa apenas llega (no espera a los demás)
+  async function runPool(batches, phaseLabel) {
+    let next = 0;
+    async function worker() {
+      while (next < batches.length) {
+        const batch = batches[next++];
+        let res = null;
+        for (let attempt = 0; attempt < 2 && !res; attempt++) {
+          try { res = await fetchBatch(batch); } catch (e) { console.warn('Lote falló, intento', attempt + 1, e); }
+        }
+        if (token !== statsLoadToken) return; // se pidió una recarga: abandonar
+        if (!res) { failedBatches++; continue; }
+        processBatch(res.batch, res.batchResults);
+        setBadge(phaseLabel);
+        scheduleHist();
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(STATS_CONCURRENCY, batches.length) }, worker));
+  }
 
   try {
-    // Lanzar todos los lotes en paralelo
-    const results = await Promise.all(batches.map(b => fetchBatch(b)));
-
-    const priority = { 'FAIL':3, 'UNABLE TO TEST':2, 'N/A':1, 'PASS':0 };
-
-    for (const { batch, batchResults } of results) {
-      // Deduplicar
-      const cellMap = new Map();
-      for (const row of batchResults) {
-        const key = `${row.run_id}|${row.numero_item ?? ''}|${row.dispositivo || ''}`;
-        const prev = cellMap.get(key);
-        if (!prev || (priority[row.estado]??-1) > (priority[prev.estado]??-1)) cellMap.set(key, row);
-      }
-      const deduped = Array.from(cellMap.values());
-      totalLoaded += deduped.length;
-
-      // Acumular en allRows
-      deduped.forEach(r => {
-        const run = batch.find(b => b.id === r.run_id) || {};
-        allRows.push({
-          run_id: r.run_id ?? '', estado: r.estado ?? '',
-          dispositivo: r.dispositivo ?? '', created_at: run.fecha ?? '',
-          operador: run.operador ?? '', tipo: run.tipo ?? '',
-          hora_franja: run.hora_franja ?? '',
-          numero_item: r.numero_item ?? '', nombre_item: r.nombre_item ?? '',
-        });
-      });
-
-      // Calcular stats del lote
-      const batchStats = {};
-      batch.forEach(r => { batchStats[r.id] = { total:0, PASS:0, FAIL:0, 'N/A':0, 'UNABLE TO TEST':0 }; });
-      deduped.forEach(r => {
-        const s = batchStats[r.run_id]; if (!s) return;
-        s.total++;
-        if (s[r.estado] !== undefined) s[r.estado]++;
-      });
-      runsStats = runsStats.map(s =>
-        batchStats[s.id] ? { ...s, ...batchStats[s.id], _statsLoaded: true } : s
-      );
+    // Fase A: reciente
+    if (recent.length) {
+      setBadge('Cargando últimos 30 días');
+      await runPool(toBatches(recent), 'Cargando últimos 30 días');
+      if (token !== statsLoadToken) return;
+      _refreshAllPreservingPages();
+    }
+    // Fase B: historial anterior
+    if (older.length) {
+      setBadge(recent.length ? 'Recientes listos · cargando historial' : 'Cargando historial');
+      await runPool(toBatches(older), recent.length ? 'Recientes listos · cargando historial' : 'Cargando historial');
+      if (token !== statsLoadToken) return;
+      _refreshAllPreservingPages();
     }
 
-    badge.textContent = `EN VIVO · ${totalLoaded.toLocaleString('es-CL')} registros`;
-    badge.className   = 'data-source-badge live';
-    populateFilterDropdowns();
-    renderHistorial();
-    applyFilters();
-
+    if (failedBatches) {
+      badge.textContent = `EN VIVO · ${totalLoaded.toLocaleString('es-CL')} registros · ${failedBatches} lote(s) con error — pulsa Actualizar`;
+      badge.className   = 'data-source-badge demo';
+    } else {
+      badge.textContent = `EN VIVO · ${totalLoaded.toLocaleString('es-CL')} registros`;
+      badge.className   = 'data-source-badge live';
+    }
   } catch (e) {
     console.error('Error cargando estadísticas:', e);
     badge.textContent = 'Error al cargar estadísticas';
