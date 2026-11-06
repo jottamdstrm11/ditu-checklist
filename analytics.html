@@ -1488,14 +1488,27 @@ function generateReport() {
   const hasVersionData = versionDevices.length > 0;
 
   // Per-run trend
-  const runTrend = runs.map(run => {
-    const rr = results.filter(r => r.run_id === run.id);
-    const f  = rr.filter(r => r.estado === 'FAIL').length;
-    const p  = rr.filter(r => r.estado === 'PASS').length;
-    const ev = p + f;
-    return { label: (run.fecha||'').slice(5) + ' ' + (run.hora_franja||'').slice(0,5),
-             failRate: ev ? Math.round(f/ev*100) : 0, failCount: f };
-  }).slice(-30);
+  // Tendencia agregada según el período: semana (≥60 días), día (≥14 días) o run
+  const trendGran = (!activeDays || activeDays >= 60) ? 'week' : activeDays >= 14 ? 'day' : 'run';
+  const resByRun = {};
+  for (const r of results) {
+    if (r.estado !== 'FAIL' && r.estado !== 'PASS') continue;
+    if (!resByRun[r.run_id]) resByRun[r.run_id] = { f:0, p:0 };
+    if (r.estado === 'FAIL') resByRun[r.run_id].f++; else resByRun[r.run_id].p++;
+  }
+  const trendBuckets = new Map();
+  for (const run of runs) {
+    const c = resByRun[run.id]; if (!c) continue;
+    const fecha = run.fecha || ''; let key, label;
+    if (trendGran === 'run')      { key = fecha + ' ' + (run.hora_franja||''); label = fecha.slice(5) + ' ' + (run.hora_franja||'').slice(0,5); }
+    else if (trendGran === 'day') { key = fecha; label = fecha.slice(8) + '/' + fecha.slice(5,7); }
+    else { const d = new Date(fecha + 'T00:00:00'); d.setDate(d.getDate() - (d.getDay() + 6) % 7);
+           key = d.toISOString().slice(0,10); label = key.slice(8) + '/' + key.slice(5,7); }
+    if (!trendBuckets.has(key)) trendBuckets.set(key, { key, label, f:0, p:0, runs:0 });
+    const b = trendBuckets.get(key); b.f += c.f; b.p += c.p; b.runs++;
+  }
+  const runTrend = [...trendBuckets.values()].sort((a,b) => a.key.localeCompare(b.key))
+    .map(b => ({ label: b.label, failRate: (b.f+b.p) ? Math.round(b.f/(b.f+b.p)*100) : 0, failCount: b.f, runs: b.runs }));
 
   const top5 = itemStats.slice(0, 5);
 
@@ -1551,13 +1564,14 @@ function generateReport() {
       <td class="dev-name">${escHtml(d.dev)}</td>
       <td class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:${Math.max(2, d.failPctEval/devMaxRate*100).toFixed(1)}%"></div></div></td>
       <td class="num">${pill(d.failPctEval)}</td>
-      <td class="num strong">${d.failCount.toLocaleString()}</td>
+      <td class="num strong">${d.failCount.toLocaleString('de-DE')}</td>
       <td class="num muted">${d.pctOfFails}%</td>
-      <td class="num muted">${d.evalChecks.toLocaleString()}</td>
+      <td class="num muted">${d.evalChecks.toLocaleString('de-DE')}</td>
     </tr>`).join('');
 
   // Gráfico de evolución (SVG responsive, escala fija)
-  const trendSamples = runTrend.slice(-24);
+  const trendSamples = runTrend.slice(-26);
+  const trendTitle = trendGran === 'week' ? `Por semana (${trendSamples.length} semanas, inicio lunes)` : trendGran === 'day' ? `Por día (${trendSamples.length} días)` : `Últimos ${trendSamples.length} runs`;
   const tRaw = Math.max(...trendSamples.map(r => r.failRate), 1);
   const yMax = Math.max(Math.ceil(tRaw / 10) * 10, 20);
   const svgW = 640, svgH = 150, mL = 36, mB = 22, mT = 8;
@@ -1576,7 +1590,7 @@ function generateReport() {
     const x = mL + i*slot + (slot-bw)/2;
     const y = mT + plotH - h;
     const col = { good: C.lime, warn: C.violet, bad: C.red }[statusOf(r.failRate)];
-    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${col}"><title>${escHtml(r.label)} · ${r.failRate}% (${r.failCount} FAILs)</title></rect>`;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${col}"><title>${escHtml(r.label)} · ${r.failRate}% (${r.failCount} FAILs · ${r.runs} runs)</title></rect>`;
   }).join('');
   const xLabels = trendSamples.length ? [0, Math.floor((trendSamples.length-1)/2), trendSamples.length-1]
     .filter((v,i,a) => a.indexOf(v) === i)
@@ -1606,10 +1620,10 @@ function generateReport() {
       return `<tr>
         ${devCell}
         <td class="mono">${escHtml(r.version)}</td>
-        <td class="num">${r.pass.toLocaleString()}</td>
-        <td class="num ${r.fail ? 'strong' : 'muted'}">${r.fail.toLocaleString()}</td>
-        <td class="num muted">${r.na.toLocaleString()}</td>
-        <td class="num muted">${r.utt.toLocaleString()}</td>
+        <td class="num">${r.pass.toLocaleString('de-DE')}</td>
+        <td class="num ${r.fail ? 'strong' : 'muted'}">${r.fail.toLocaleString('de-DE')}</td>
+        <td class="num muted">${r.na.toLocaleString('de-DE')}</td>
+        <td class="num muted">${r.utt.toLocaleString('de-DE')}</td>
         <td class="num">${pillPass(pct)}</td>
       </tr>`;
     }).join('');
@@ -1622,7 +1636,7 @@ function generateReport() {
   if (criticos.length)
     conclusion += `Los ítems <strong>${criticos.map(i => escHtml(i.name)).join('</strong>, <strong>')}</strong> concentran la mayor parte de los FAILs del período. `;
   if (worstDev)
-    conclusion += `El dispositivo con mayor concentración de FAILs registrados es <strong>${escHtml(worstDev.dev)}</strong>, con ${worstDev.failCount.toLocaleString()} FAILs equivalentes al ${worstDev.pctOfFails}% del total del período. Su tasa de fallo evaluable es del ${worstDev.failPctEval}%. `;
+    conclusion += `El dispositivo con mayor concentración de FAILs registrados es <strong>${escHtml(worstDev.dev)}</strong>, con ${worstDev.failCount.toLocaleString('de-DE')} FAILs equivalentes al ${worstDev.pctOfFails}% del total del período. Su tasa de fallo evaluable es del ${worstDev.failPctEval}%. `;
   if      (failPctEval > 20) conclusion += `La tasa global de fallo supera el umbral crítico del 20% — se recomienda revisión prioritaria del proceso de QA y escalamiento al equipo técnico.`;
   else if (failPctEval > 10) conclusion += `La tasa global de fallo está en zona de atención. Se recomienda priorizar los ítems listados y monitorear su evolución en las próximas semanas.`;
   else                        conclusion += `La tasa global de fallo evaluable se mantiene en ${failPctEval}%; sin embargo, se identifican focos de concentración en los ítems anteriores. Se recomienda priorizar su análisis, especialmente en los dispositivos donde presentan mayores tasas de fallo.`;
@@ -1636,7 +1650,7 @@ function generateReport() {
     <tr>
       <td class="rank">${idx+1}</td>
       <td class="item-name">${escHtml(it.name)}</td>
-      <td class="num strong">${it.fail.toLocaleString()}</td>
+      <td class="num strong">${it.fail.toLocaleString('de-DE')}</td>
       <td class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:${Math.max(2, it.pctOfFails/Math.max(top5[0].pctOfFails,1)*100).toFixed(1)}%"></div></div><span class="bar-lbl">${it.pctOfFails}%</span></td>
       <td class="num">${pill(it.failRate)}</td>
       <td class="muted">${it.topDevice ? escHtml(it.topDevice[0]) : '—'}</td>
@@ -1665,10 +1679,9 @@ function generateReport() {
   table.layout>thead>tr>td{height:16mm}
   table.layout>tfoot>tr>td{height:14mm}
   table.layout>tbody>tr>td{padding:0 16mm 0 18mm}
-  .pfoot{position:fixed;left:0;right:0;bottom:0;height:14mm;padding:0 16mm 0 18mm;display:flex;align-items:center;justify-content:space-between;font-size:7pt;color:rgba(26,26,26,.45);background:#fff}
-  .pfoot::before{content:'';position:absolute;left:18mm;right:16mm;top:0;height:.5pt;background:rgba(26,26,26,.12)}
+  table.layout>tfoot>tr>td{vertical-align:top;padding:0 16mm 0 18mm}
+  .pfoot{height:14mm;display:flex;align-items:center;justify-content:space-between;font-size:7pt;color:rgba(26,26,26,.45);border-top:.5pt solid rgba(26,26,26,.12)}
   .pfoot span{display:inline-flex;align-items:center;gap:6px}
-  @media screen{.pfoot{display:none}}
 
   /* Header de informe */
   .brand{display:flex;align-items:center;justify-content:space-between;padding-bottom:8px;border-bottom:.75pt solid ${C.lime};margin-bottom:16px}
@@ -1697,7 +1710,8 @@ function generateReport() {
   .sec.flow{break-inside:auto}
   .sec.flow h2{break-after:avoid}
   .card{border:1pt solid #e0e0e0;border-radius:6pt;padding:12px 14px;break-inside:avoid;background:#fff}
-  .sec.flow .card{break-inside:auto}
+  .sec.flow .card{break-inside:auto;border:none;border-radius:0}
+  .sec.flow table.data{border:1pt solid #e0e0e0}
   .card.flush{padding:0;overflow:hidden}
   .muted{color:rgba(26,26,26,.55)}.strong{font-weight:700}.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:8.5pt;color:rgba(26,26,26,.75)}
   .num{text-align:right;white-space:nowrap}
@@ -1755,7 +1769,12 @@ function generateReport() {
 <div class="sheet">
 <table class="layout">
   <thead><tr><td></td></tr></thead>
-  <tfoot><tr><td></td></tr></tfoot>
+  <tfoot><tr><td>
+    <div class="pfoot">
+      <span>${ISO_SVG} Reporte de Calidad QA — ${escHtml(clienteNombre)} · ${escHtml(lbl)} — Confidencial</span>
+      <span>Generado el ${today} · mediastream.co</span>
+    </div>
+  </td></tr></tfoot>
   <tbody><tr><td>
 
   <div class="brand">
@@ -1772,7 +1791,7 @@ function generateReport() {
       <div class="hero-client">${escHtml(clienteNombre)}</div>
       <div class="hero-meta">
         Período: <b>${escHtml(lbl)}</b><br>
-        Runs analizados: <b>${totalRuns.toLocaleString()}</b> · Checks evaluados: <b>${totalChecks.toLocaleString()}</b>
+        Runs analizados: <b>${totalRuns.toLocaleString('de-DE')}</b> · Checks evaluados: <b>${totalChecks.toLocaleString('de-DE')}</b>
       </div>
     </div>
     <div class="hero-status">
@@ -1785,10 +1804,10 @@ function generateReport() {
   <div class="sec">
   <h2>Métricas clave</h2>
   <div class="kpi-grid">
-    <div class="kpi"><div class="kpi-label">FAILs registrados</div><div class="kpi-val">${failCount.toLocaleString()}</div><div class="kpi-sub">${failPctEval}% de los checks evaluables</div></div>
-    <div class="kpi"><div class="kpi-label">Tasa de PASS</div><div class="kpi-val">${passPctEval}%</div><div class="kpi-sub">${passCount.toLocaleString()} checks PASS</div></div>
-    <div class="kpi"><div class="kpi-label">Runs completados</div><div class="kpi-val">${totalRuns.toLocaleString()}</div><div class="kpi-sub">en el período</div></div>
-    <div class="kpi"><div class="kpi-label">N/A + UTT</div><div class="kpi-val">${(naCount+uttCount).toLocaleString()}</div><div class="kpi-sub">excluidos del denominador</div></div>
+    <div class="kpi"><div class="kpi-label">FAILs registrados</div><div class="kpi-val">${failCount.toLocaleString('de-DE')}</div><div class="kpi-sub">${failPctEval}% de los checks evaluables</div></div>
+    <div class="kpi"><div class="kpi-label">Tasa de PASS</div><div class="kpi-val">${passPctEval}%</div><div class="kpi-sub">${passCount.toLocaleString('de-DE')} checks PASS</div></div>
+    <div class="kpi"><div class="kpi-label">Runs completados</div><div class="kpi-val">${totalRuns.toLocaleString('de-DE')}</div><div class="kpi-sub">en el período</div></div>
+    <div class="kpi"><div class="kpi-label">N/A + UTT</div><div class="kpi-val">${(naCount+uttCount).toLocaleString('de-DE')}</div><div class="kpi-sub">excluidos del denominador</div></div>
   </div>
   </div>
 
@@ -1804,7 +1823,7 @@ function generateReport() {
   </div>
   </div>
 
-  <div class="sec">
+  <div class="sec flow">
   <h2>Resumen por dispositivo</h2>
   <div class="card flush">
     <table class="data">
@@ -1842,7 +1861,7 @@ function generateReport() {
   <h2>Evolución de la tasa de fallo</h2>
   <div class="card">
     <div class="legend" style="margin:0 0 8px">
-      <span>Últimos ${trendSamples.length} runs</span>
+      <span>${trendTitle}</span>
       <span><i class="sw" style="background:${C.lime}"></i>≤10%</span>
       <span><i class="sw" style="background:${C.violet}"></i>10–20%</span>
       <span><i class="sw" style="background:${C.red}"></i>&gt;20%</span>
@@ -1873,11 +1892,6 @@ function generateReport() {
 
   </td></tr></tbody>
 </table>
-</div>
-
-<div class="pfoot">
-  <span>${ISO_SVG} Reporte de Calidad QA — ${escHtml(clienteNombre)} · ${escHtml(lbl)} — Confidencial</span>
-  <span>Generado el ${today} · mediastream.co</span>
 </div>
 
 <div class="print-tip no-print">Tip: en el diálogo de impresión, elige "Guardar como PDF" y desactiva márgenes/encabezados si aparecen.</div>
