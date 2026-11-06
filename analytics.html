@@ -1510,7 +1510,10 @@ function generateReport() {
     const pct = Math.round((cur - before) / before * 100);
     return pct === 0 ? '<span class="delta d-eq">= igual</span>' : `<span class="delta d-eq">${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}%</span>`;
   }
+  const pct1 = v => (Math.round(v * 10) / 10).toLocaleString('de-DE') + '%';
   const curFailRateExact = evalCount ? failCount / evalCount * 100 : 0;
+  // Muestra pequeña: menos de 5 runs en alguno de los dos períodos
+  const smallSample = prev && (prev.runs < 5 || totalRuns < 5);
   const curPassRateExact = evalCount ? passCount / evalCount * 100 : 0;
 
   // Version stats for report
@@ -1697,12 +1700,13 @@ function generateReport() {
   let trendSentence = '';
   if (prev && prev.failRate !== null) {
     const d = Math.round((curFailRateExact - prev.failRate) * 10) / 10;
-    if (Math.abs(d) < 0.5) trendSentence = `Respecto al período anterior (${prev.range}), la tasa de fallo se mantiene estable (${Math.round(prev.failRate)}% → ${failPctEval}%). `;
-    else if (d < 0) trendSentence = `Respecto al período anterior (${prev.range}), la tasa de fallo <strong>mejora ${Math.abs(d).toLocaleString('de-DE')} pp</strong> (${Math.round(prev.failRate)}% → ${failPctEval}%). `;
-    else trendSentence = `Respecto al período anterior (${prev.range}), la tasa de fallo <strong>empeora ${d.toLocaleString('de-DE')} pp</strong> (${Math.round(prev.failRate)}% → ${failPctEval}%). `;
+    if (Math.abs(d) < 0.5) trendSentence = `Respecto al período anterior (${prev.range}), la tasa de fallo se mantiene estable (${pct1(prev.failRate)} → ${pct1(curFailRateExact)}). `;
+    else if (d < 0) trendSentence = `Respecto al período anterior (${prev.range}), la tasa de fallo <strong>mejora ${Math.abs(d).toLocaleString('de-DE')} pp</strong> (${pct1(prev.failRate)} → ${pct1(curFailRateExact)}). `;
+    else trendSentence = `Respecto al período anterior (${prev.range}), la tasa de fallo <strong>empeora ${d.toLocaleString('de-DE')} pp</strong> (${pct1(prev.failRate)} → ${pct1(curFailRateExact)}). `;
     const worsened = deviceStats.filter(x => x.evalChecks && prev.devRate[x.dev] !== undefined && prev.devRate[x.dev] !== null)
       .map(x => ({ dev: x.dev, d: x.failCount/x.evalChecks*100 - prev.devRate[x.dev] }))
       .filter(x => x.d >= 2).sort((a,b) => b.d - a.d).slice(0, 2);
+    if (smallSample) trendSentence += `Con ${totalRuns} runs en este período y ${prev.runs} en el anterior, la muestra es pequeña y las variaciones deben leerse con cautela. `;
     if (worsened.length) trendSentence += `${worsened.length > 1 ? 'Los dispositivos con mayor deterioro son' : 'El dispositivo con mayor deterioro es'} ${worsened.map(x => `<strong>${escHtml(x.dev)}</strong> (+${(Math.round(x.d*10)/10).toLocaleString('de-DE')} pp)`).join(' y ')}. `;
   }
   const worstDev = deviceStats[0];
@@ -1713,7 +1717,7 @@ function generateReport() {
     conclusion += `El dispositivo con mayor concentración de FAILs registrados es <strong>${escHtml(worstDev.dev)}</strong>, con ${worstDev.failCount.toLocaleString('de-DE')} FAILs equivalentes al ${worstDev.pctOfFails}% del total del período. Su tasa de fallo evaluable es del ${worstDev.failPctEval}%. `;
   if      (failPctEval > 20) conclusion += `La tasa global de fallo supera el umbral crítico del 20% — se recomienda revisión prioritaria del proceso de QA y escalamiento al equipo técnico.`;
   else if (failPctEval > 10) conclusion += `La tasa global de fallo está en zona de atención. Se recomienda priorizar los ítems listados y monitorear su evolución en las próximas semanas.`;
-  else                        conclusion += `La tasa global de fallo evaluable se mantiene en ${failPctEval}%; sin embargo, se identifican focos de concentración en los ítems anteriores. Se recomienda priorizar su análisis, especialmente en los dispositivos donde presentan mayores tasas de fallo.`;
+  else                        conclusion += `La tasa global de fallo evaluable es de ${failPctEval}%; sin embargo, se identifican focos de concentración en los ítems anteriores. Se recomienda priorizar su análisis, especialmente en los dispositivos donde presentan mayores tasas de fallo.`;
 
   const clienteNombre = document.getElementById('clienteNombre')?.textContent || 'Cliente';
   let clienteLogo = null;
@@ -1806,6 +1810,7 @@ function generateReport() {
   .d-good{color:${C.limeText}}.d-bad{color:#D42020}.d-eq{color:rgba(26,26,26,.5);font-weight:600}.d-na{color:rgba(26,26,26,.45);font-weight:600}
   .status-delta{margin-top:6px;font-size:7.5pt;color:rgba(26,26,26,.55)}
   .status-delta span{font-weight:400}
+  .status-warn{margin-top:4px;display:inline-block;font-size:7pt;font-weight:700;color:#8a5a00;background:#FFF4D6;border-radius:100pt;padding:1pt 7pt;font-family:'Encode Sans Expanded',sans-serif}
 
   /* Tablas de datos: header ink, filas alternas cloud */
   table.data{width:100%;border-collapse:collapse}
@@ -1882,15 +1887,15 @@ function generateReport() {
       <div class="status-lbl"><span class="dot dot-${semKey}"></span>${semLabel}</div>
       <div class="status-val">${failPctEval}%</div>
       <div class="status-sub">tasa de fallo evaluable</div>
-      ${prev && prev.failRate !== null ? `<div class="status-delta">${deltaPP(curFailRateExact, prev.failRate)} <span>vs ${Math.round(prev.failRate)}% anterior</span></div>` : ''}
+      ${prev && prev.failRate !== null ? `<div class="status-delta">${deltaPP(curFailRateExact, prev.failRate)} <span>vs ${pct1(prev.failRate)} anterior</span></div>${smallSample ? '<div class="status-warn">Muestra pequeña</div>' : ''}` : ''}
     </div>
   </div>
 
   <div class="sec">
   <h2>Métricas clave</h2>
   <div class="kpi-grid">
-    <div class="kpi"><div class="kpi-label">FAILs registrados</div><div class="kpi-val">${failCount.toLocaleString('de-DE')}</div>${prev ? `<div class="kpi-delta">${deltaCount(failCount, prev.fail)}<span class="kpi-prev">antes ${prev.fail.toLocaleString('de-DE')}</span></div>` : ''}<div class="kpi-sub">${failPctEval}% de los checks evaluables</div></div>
-    <div class="kpi"><div class="kpi-label">Tasa de PASS</div><div class="kpi-val">${passPctEval}%</div>${prev && prev.passRate !== null ? `<div class="kpi-delta">${deltaPP(curPassRateExact, prev.passRate, false)}<span class="kpi-prev">antes ${Math.round(prev.passRate)}%</span></div>` : ''}<div class="kpi-sub">${passCount.toLocaleString('de-DE')} checks PASS</div></div>
+    <div class="kpi"><div class="kpi-label">FAILs registrados</div><div class="kpi-val">${failCount.toLocaleString('de-DE')}</div>${prev ? `<div class="kpi-delta">${deltaNeutral(failCount, prev.fail)}<span class="kpi-prev">antes ${prev.fail.toLocaleString('de-DE')}</span></div>` : ''}<div class="kpi-sub">${failPctEval}% de los checks evaluables</div></div>
+    <div class="kpi"><div class="kpi-label">Tasa de PASS</div><div class="kpi-val">${passPctEval}%</div>${prev && prev.passRate !== null ? `<div class="kpi-delta">${deltaPP(curPassRateExact, prev.passRate, false)}<span class="kpi-prev">antes ${pct1(prev.passRate)}</span></div>` : ''}<div class="kpi-sub">${passCount.toLocaleString('de-DE')} checks PASS</div></div>
     <div class="kpi"><div class="kpi-label">Runs completados</div><div class="kpi-val">${totalRuns.toLocaleString('de-DE')}</div>${prev ? `<div class="kpi-delta">${deltaNeutral(totalRuns, prev.runs)}<span class="kpi-prev">antes ${prev.runs.toLocaleString('de-DE')}</span></div>` : ''}<div class="kpi-sub">en el período</div></div>
     <div class="kpi"><div class="kpi-label">N/A + UTT</div><div class="kpi-val">${(naCount+uttCount).toLocaleString('de-DE')}</div><div class="kpi-sub">excluidos del denominador</div></div>
   </div>
