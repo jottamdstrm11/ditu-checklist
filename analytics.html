@@ -1642,6 +1642,8 @@ function generateReport() {
   else                        conclusion += `La tasa global de fallo evaluable se mantiene en ${failPctEval}%; sin embargo, se identifican focos de concentración en los ítems anteriores. Se recomienda priorizar su análisis, especialmente en los dispositivos donde presentan mayores tasas de fallo.`;
 
   const clienteNombre = document.getElementById('clienteNombre')?.textContent || 'Cliente';
+  let clienteLogo = null;
+  try { clienteLogo = (JSON.parse(sessionStorage.getItem('ditu_cliente')||'{}').logo_url) || null; } catch(_) {}
   const today = new Date().toLocaleDateString('es', { year:'numeric', month:'long', day:'numeric' });
   const semKey = statusOf(failPctEval);
   const semLabel = semKey === 'bad' ? 'Crítico' : semKey === 'warn' ? 'Atención' : 'Aceptable';
@@ -1693,7 +1695,9 @@ function generateReport() {
   .hero{background-color:${C.ink};background-image:radial-gradient(circle,rgba(151,215,0,.08) 2px,transparent 2px);background-size:32px 32px;color:#fff;border-radius:6pt;padding:22px 26px;display:flex;justify-content:space-between;align-items:stretch;gap:20px;break-inside:avoid}
   .hero-title{font-size:22pt;font-weight:800;letter-spacing:-.4px;line-height:1.15;color:#fff}
   .hero-title b{color:${C.lime};font-weight:800}
-  .hero-client{font-size:12pt;font-weight:700;margin-top:4px;color:${C.lime}}
+  .hero-client{font-size:12pt;font-weight:700;margin-top:6px;color:${C.lime};display:flex;align-items:center;gap:10px}
+  .client-logo{display:inline-flex;align-items:center;background:#fff;border-radius:6pt;padding:4px 8px}
+  .client-logo img{height:20px;max-width:110px;object-fit:contain;display:block}
   .hero-meta{margin-top:14px;font-size:8.5pt;line-height:1.75;color:rgba(255,255,255,.75)}
   .hero-meta b{font-weight:700;color:#fff}
   .hero-status{background:#fff;color:${C.ink};border-radius:6pt;padding:14px 18px;min-width:168px;text-align:center;display:flex;flex-direction:column;justify-content:center}
@@ -1788,7 +1792,7 @@ function generateReport() {
   <div class="hero">
     <div>
       <div class="hero-title">Reporte de <b>Calidad QA</b></div>
-      <div class="hero-client">${escHtml(clienteNombre)}</div>
+      <div class="hero-client">${clienteLogo ? `<span class="client-logo"><img src="${escHtml(clienteLogo)}" alt="${escHtml(clienteNombre)}" onerror="this.parentNode.remove()"></span>` : ''}${escHtml(clienteNombre)}</div>
       <div class="hero-meta">
         Período: <b>${escHtml(lbl)}</b><br>
         Runs analizados: <b>${totalRuns.toLocaleString('de-DE')}</b> · Checks evaluados: <b>${totalChecks.toLocaleString('de-DE')}</b>
