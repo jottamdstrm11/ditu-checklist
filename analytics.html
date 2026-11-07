@@ -159,6 +159,11 @@ body{font-family:'Encode Sans Expanded','Helvetica Neue',Arial,sans-serif;font-s
 
 /* ── Loading/empty ── */
 .loading-overlay{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;gap:14px;color:var(--muted);font-size:13px}
+.load-progress{display:flex;align-items:center;gap:12px;font-size:12px;color:var(--muted);background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:8px 14px;margin-bottom:14px}
+.load-progress.lp-partial{color:#eda100;border-color:rgba(237,161,0,.35);background:rgba(237,161,0,.07)}
+.load-progress.lp-error{color:#e34948;border-color:rgba(227,73,72,.35);background:rgba(227,73,72,.07)}
+.lp-track{flex:1;height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;max-width:220px;margin-left:auto}
+.lp-fill{height:100%;width:0;background:var(--green);transition:width .3s}
 .spinner{width:28px;height:28px;border:3px solid rgba(255,255,255,.1);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .empty-msg{text-align:center;color:var(--muted);padding:40px;font-size:12px}
@@ -336,10 +341,13 @@ function inferPlataforma(dispositivo) {
   if (nom) nom.textContent = c.nombre;
   document.getElementById('clienteSubtitle').textContent = `Análisis de calidad · ${c.nombre}`;
 
-  await loadAll();
-  renderPage();
-  const rBtn = document.getElementById('reportBtn');
-  if (rBtn) rBtn.style.display = 'flex';
+  try {
+    await loadAll();
+    if (!allRuns.length) renderPage();
+  } catch (e) {
+    console.error('Error cargando datos:', e);
+    document.getElementById('mainContent').innerHTML = '<div class="empty-msg">No se pudieron cargar los datos. Recarga la página.</div>';
+  }
 })();
 
 function applyNavRole(rol) {
@@ -371,6 +379,62 @@ async function supaFetch(path) {
   return r.json();
 }
 
+// ── Carga de datos ──
+// 1) Runs paginados (Supabase devuelve máx. 1000 filas por consulta).
+// 2) Resultados por tramos, de lo más reciente a lo más antiguo:
+//    7 días → 30 días → período seleccionado (+ anterior, para la comparativa) → resto.
+//    La página se pinta al terminar el primer tramo y se repinta al cerrar cada uno;
+//    mientras falten runs del período visible se muestra un aviso de datos parciales.
+const LOAD_BATCH = 15;
+const LOAD_CONCURRENCY = 8;
+const loadedRunIds = new Set();
+let dataLoading = false;
+let loadFailedBatches = 0;
+
+async function fetchAllRuns(clienteFilter) {
+  const PAGE = 1000; let out = [], offset = 0;
+  while (true) {
+    const page = await supaFetch(`/rest/v1/checklist_runs?select=*&order=fecha.asc,hora_franja.asc${clienteFilter}&limit=${PAGE}&offset=${offset}`);
+    out = out.concat(page || []);
+    if (!page || page.length < PAGE) break;
+    offset += PAGE;
+  }
+  return out;
+}
+
+async function fetchResultsBatch(ids) {
+  const PAGE = 1000; const rows = []; let offset = 0;
+  while (true) {
+    const chunk = await supaFetch(
+      `/rest/v1/checklist_results?select=run_id,dispositivo,numero_item,nombre_item,seccion,estado&run_id=in.(${ids.join(',')})&order=id&limit=${PAGE}&offset=${offset}`
+    );
+    rows.push(...(chunk || []));
+    if (!chunk || chunk.length < PAGE) break;
+    offset += PAGE;
+  }
+  return rows;
+}
+
+function loadBannerHTML() {
+  const missing = runsMissingIn(filteredRuns());
+  if (!dataLoading && !loadFailedBatches) return '';
+  if (!dataLoading && loadFailedBatches) return `<div class="load-progress lp-error">Algunos datos no se pudieron cargar (${loadFailedBatches} lote(s)). Los números pueden estar incompletos — recarga la página.</div>`;
+  return `<div class="load-progress${missing ? ' lp-partial' : ''}" id="loadProgress"><span class="lp-text"></span><div class="lp-track"><div class="lp-fill"></div></div></div>`;
+}
+
+function runsMissingIn(runs) { return runs.filter(r => !loadedRunIds.has(r.id)).length; }
+
+function updateLoadProgress() {
+  const el = document.getElementById('loadProgress');
+  if (!el) return;
+  const total = allRuns.length, done = loadedRunIds.size;
+  const missing = runsMissingIn(filteredRuns());
+  el.querySelector('.lp-text').textContent = missing
+    ? `Datos parciales: faltan ${missing} runs de este período · cargando ${done}/${total}`
+    : `Cargando historial anterior en segundo plano · ${done}/${total} runs`;
+  el.querySelector('.lp-fill').style.width = (total ? done / total * 100 : 100).toFixed(1) + '%';
+}
+
 async function loadAll() {
   const clienteFilter = currentClienteId ? `&cliente_id=eq.${currentClienteId}` : '';
 
@@ -381,33 +445,64 @@ async function loadAll() {
     (devs || []).forEach((d, i) => { deviceOrderMap[d.nombre] = d.orden ?? i; });
   } catch(_) {}
 
-  allRuns = await supaFetch(`/rest/v1/checklist_runs?select=*&order=fecha.asc,hora_franja.asc${clienteFilter}`);
-  if (!allRuns.length) { allResults = []; return; }
+  allRuns = await fetchAllRuns(clienteFilter);
+  allResults = [];
+  loadedRunIds.clear();
+  if (!allRuns.length) return;
 
-  const runIds = allRuns.map(r => r.id);
-  const PAGE = 1000;
-  const BATCH = 50;
+  // Tramos por antigüedad
+  const dayStr = n => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0,10); };
+  const periodDays = activeDays ? activeDays * 2 : 0; // período + anterior (comparativa del informe)
+  const limits = [7, 30, periodDays].filter((v, i, a) => v && a.indexOf(v) === i).sort((a,b) => a - b);
+  const newestFirst = allRuns.slice().sort((a,b) => (b.fecha||'').localeCompare(a.fecha||'') || (b.hora_franja||'').localeCompare(a.hora_franja||''));
+  const tiers = []; let taken = new Set();
+  for (const n of limits) {
+    const cut = dayStr(n);
+    const t = newestFirst.filter(r => !taken.has(r.id) && (r.fecha||'') >= cut);
+    t.forEach(r => taken.add(r.id));
+    if (t.length) tiers.push(t);
+  }
+  const rest = newestFirst.filter(r => !taken.has(r.id));
+  if (rest.length) tiers.push(rest);
 
-  async function fetchBatch(ids) {
-    const rows = [];
-    let offset = 0;
-    while (true) {
-      const chunk = await supaFetch(
-        `/rest/v1/checklist_results?select=run_id,dispositivo,numero_item,nombre_item,seccion,estado&run_id=in.(${ids})&order=id&limit=${PAGE}&offset=${offset}`
-      );
-      rows.push(...(chunk || []));
-      if (!chunk || chunk.length < PAGE) break;
-      offset += PAGE;
+  dataLoading = true;
+  loadFailedBatches = 0;
+  let firstPaint = true;
+
+  for (const tier of tiers) {
+    const batches = [];
+    for (let i = 0; i < tier.length; i += LOAD_BATCH) batches.push(tier.slice(i, i + LOAD_BATCH).map(r => r.id));
+    let next = 0;
+    const worker = async () => {
+      while (next < batches.length) {
+        const ids = batches[next++];
+        let rows = null;
+        for (let attempt = 0; attempt < 2 && !rows; attempt++) {
+          try { rows = await fetchResultsBatch(ids); } catch (e) { console.warn('Lote falló, intento', attempt + 1, e); }
+        }
+        if (!rows) { loadFailedBatches++; continue; }
+        for (const r of rows) allResults.push(r);
+        ids.forEach(id => loadedRunIds.add(id));
+        updateLoadProgress();
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(LOAD_CONCURRENCY, batches.length) }, worker));
+
+    // Repintar al cerrar el tramo (la primera vez, también al terminar el primero)
+    const isLast = tier === tiers[tiers.length - 1];
+    if (isLast) dataLoading = false;
+    if (firstPaint) {
+      firstPaint = false;
+      renderPage();
+      const rBtn = document.getElementById('reportBtn');
+      if (rBtn) rBtn.style.display = 'flex';
+    } else {
+      // Repintar solo si el tramo aportó runs al período que se está viendo
+      const visible = new Set(filteredRuns().map(r => r.id));
+      if (isLast || tier.some(r => visible.has(r.id))) renderPage();
     }
-    return rows;
   }
-
-  const batches = [];
-  for (let i = 0; i < runIds.length; i += BATCH) {
-    batches.push(runIds.slice(i, i + BATCH).join(','));
-  }
-  const batchResults = await Promise.all(batches.map(ids => fetchBatch(ids)));
-  allResults = batchResults.flat();
+  dataLoading = false;
 }
 
 // ── Dedup ──
@@ -629,7 +724,8 @@ function renderPage() {
     html = buildVersiones(runs, results);
   }
 
-  document.getElementById('mainContent').innerHTML = html;
+  document.getElementById('mainContent').innerHTML = loadBannerHTML() + html;
+  updateLoadProgress();
   requestAnimationFrame(() => mountCharts(activeTab, { results, runs, runSet, runStats, deviceStats, itemStats, platformStats, opStats, passCount, failCount, naCount, uttCount }));
 }
 
@@ -1405,6 +1501,12 @@ function generateReport() {
   const runs  = filteredRuns();
   const lbl   = periodLabel();
   if (!runs.length) { alert('No hay datos en el período seleccionado.'); return; }
+  if (dataLoading) {
+    const cutPrev = new Date(); cutPrev.setDate(cutPrev.getDate() - (activeDays ? activeDays * 2 : 36500));
+    const needed = allRuns.filter(r => (r.fecha||'') >= cutPrev.toISOString().slice(0,10));
+    const missing = runsMissingIn(needed);
+    if (missing) { alert(`Todavía se están cargando datos (faltan ${missing} runs del período y del período anterior). Espera unos segundos y vuelve a exportar.`); return; }
+  }
 
   const runSet     = new Set(runs.map(r => r.id));
   const results    = dedup(allResults.filter(r => runSet.has(r.run_id)));
