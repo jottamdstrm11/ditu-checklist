@@ -441,6 +441,54 @@ function showLoadingScreen() {
   box.querySelector('.lp-fill').style.width = pct + '%';
 }
 
+// ── Opción C: resultados compactos vía RPC qa_results_compact ─────────
+// Si la función existe en Supabase, los resultados llegan ya deduplicados
+// en pocas respuestas (por ventanas de fechas). Si no existe o falla,
+// la página vuelve sola a la carga por lotes de siempre.
+let rpcCompactOk = null; // null = aún no probado
+async function rpcCompact(desde, hasta) {
+  const r = await fetch(SUPA_URL + '/rest/v1/rpc/qa_results_compact', {
+    method: 'POST',
+    headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_cliente: currentClienteId || null, p_desde: desde, p_hasta: hasta })
+  });
+  if (!r.ok) throw new Error('RPC HTTP ' + r.status);
+  const j = await r.json();
+  const runs = j.runs || [], devs = j.devs || [], items = j.items || [], ests = j.estados || [];
+  const rows = j.rows || [];
+  const out = new Array(rows.length);
+  for (let k = 0; k < rows.length; k++) {
+    const x = rows[k], it = items[x[2]] || [];
+    out[k] = { run_id: runs[x[0]], dispositivo: devs[x[1]], numero_item: it[0], nombre_item: it[1], seccion: it[2], estado: ests[x[3]] };
+  }
+  return out;
+}
+async function rpcCompactAvailable() {
+  if (rpcCompactOk !== null) return rpcCompactOk;
+  try { await rpcCompact('9999-12-31', '9999-12-31'); rpcCompactOk = true; }
+  catch (e) { rpcCompactOk = false; console.info('qa_results_compact no disponible; se usa la carga por lotes.', e.message); }
+  return rpcCompactOk;
+}
+// Agrupa runs en ventanas de fechas contiguas (más reciente primero) de ~maxRuns,
+// sin partir nunca un mismo día entre dos ventanas
+function buildDateWindows(runs, maxRuns) {
+  const byDate = new Map();
+  for (const r of runs) {
+    const f = (r.fecha || '').slice(0, 10);
+    if (!byDate.has(f)) byDate.set(f, []);
+    byDate.get(f).push(r);
+  }
+  const wins = []; let cur = null;
+  for (const f of [...byDate.keys()].sort().reverse()) {
+    if (!cur || cur.runs.length >= maxRuns) { cur = { desde: f, hasta: f, runs: [] }; wins.push(cur); }
+    cur.desde = f;
+    cur.runs.push(...byDate.get(f));
+  }
+  return wins;
+}
+const RPC_WINDOW_RUNS = 120;   // ~36k resultados por respuesta: holgado bajo el timeout de Supabase
+const RPC_CONCURRENCY = 4;
+
 function runsMissingIn(runs) { return runs.filter(r => !loadedRunIds.has(r.id)).length; }
 
 function updateLoadProgress() {
@@ -483,24 +531,49 @@ async function loadAll() {
   loadFailedBatches = 0;
   renderPage(); // pantalla de carga con progreso hasta completar el período visible
 
+  const useRpc = await rpcCompactAvailable();
+  const batchJobs = list => {
+    const jobs = [];
+    for (let i = 0; i < list.length; i += LOAD_BATCH) {
+      const ids = list.slice(i, i + LOAD_BATCH).map(r => r.id);
+      jobs.push({ ids, run: () => fetchResultsBatch(ids) });
+    }
+    return jobs;
+  };
+  const makeJobs = tier => {
+    if (!useRpc) return batchJobs(tier);
+    const dated = tier.filter(r => (r.fecha || '').length >= 10);
+    const jobs = buildDateWindows(dated, RPC_WINDOW_RUNS).map(w => {
+      const ids = w.runs.map(r => r.id);
+      return { ids, run: async () => {
+        try { return await rpcCompact(w.desde, w.hasta); }
+        catch (e) { // si la ventana falla, se cargan esos runs por lotes
+          console.warn('RPC falló en', w.desde, '→', w.hasta, '; carga por lotes', e.message);
+          const out = [];
+          for (let i = 0; i < ids.length; i += LOAD_BATCH) out.push(...await fetchResultsBatch(ids.slice(i, i + LOAD_BATCH)));
+          return out;
+        } } };
+    });
+    return jobs.concat(batchJobs(tier.filter(r => (r.fecha || '').length < 10)));
+  };
+
   for (const tier of tiers) {
-    const batches = [];
-    for (let i = 0; i < tier.length; i += LOAD_BATCH) batches.push(tier.slice(i, i + LOAD_BATCH).map(r => r.id));
+    const jobs = makeJobs(tier);
     let next = 0;
     const worker = async () => {
-      while (next < batches.length) {
-        const ids = batches[next++];
+      while (next < jobs.length) {
+        const job = jobs[next++];
         let rows = null;
         for (let attempt = 0; attempt < 2 && !rows; attempt++) {
-          try { rows = await fetchResultsBatch(ids); } catch (e) { console.warn('Lote falló, intento', attempt + 1, e); }
+          try { rows = await job.run(); } catch (e) { console.warn('Lote falló, intento', attempt + 1, e); }
         }
         if (!rows) { loadFailedBatches++; continue; }
         for (const r of rows) allResults.push(r);
-        ids.forEach(id => loadedRunIds.add(id));
+        job.ids.forEach(id => loadedRunIds.add(id));
         updateLoadProgress();
       }
     };
-    await Promise.all(Array.from({ length: Math.min(LOAD_CONCURRENCY, batches.length) }, worker));
+    await Promise.all(Array.from({ length: Math.min(useRpc ? RPC_CONCURRENCY : LOAD_CONCURRENCY, jobs.length) }, worker));
 
     if (tier === tiers[tiers.length - 1]) dataLoading = false;
   }

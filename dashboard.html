@@ -1679,6 +1679,54 @@ async function fetchBatch(batch) {
   return { batch, batchResults };
 }
 
+// ── Opción C: resultados compactos vía RPC qa_results_compact ─────────
+// Si la función existe en Supabase, los resultados llegan ya deduplicados
+// en pocas respuestas (por ventanas de fechas). Si no existe o falla,
+// la página vuelve sola a la carga por lotes de siempre.
+let rpcCompactOk = null; // null = aún no probado
+async function rpcCompact(desde, hasta) {
+  const r = await fetch(SUPA_URL + '/rest/v1/rpc/qa_results_compact', {
+    method: 'POST',
+    headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_cliente: currentClienteId || null, p_desde: desde, p_hasta: hasta })
+  });
+  if (!r.ok) throw new Error('RPC HTTP ' + r.status);
+  const j = await r.json();
+  const runs = j.runs || [], devs = j.devs || [], items = j.items || [], ests = j.estados || [];
+  const rows = j.rows || [];
+  const out = new Array(rows.length);
+  for (let k = 0; k < rows.length; k++) {
+    const x = rows[k], it = items[x[2]] || [];
+    out[k] = { run_id: runs[x[0]], dispositivo: devs[x[1]], numero_item: it[0], nombre_item: it[1], seccion: it[2], estado: ests[x[3]] };
+  }
+  return out;
+}
+async function rpcCompactAvailable() {
+  if (rpcCompactOk !== null) return rpcCompactOk;
+  try { await rpcCompact('9999-12-31', '9999-12-31'); rpcCompactOk = true; }
+  catch (e) { rpcCompactOk = false; console.info('qa_results_compact no disponible; se usa la carga por lotes.', e.message); }
+  return rpcCompactOk;
+}
+// Agrupa runs en ventanas de fechas contiguas (más reciente primero) de ~maxRuns,
+// sin partir nunca un mismo día entre dos ventanas
+function buildDateWindows(runs, maxRuns) {
+  const byDate = new Map();
+  for (const r of runs) {
+    const f = (r.fecha || '').slice(0, 10);
+    if (!byDate.has(f)) byDate.set(f, []);
+    byDate.get(f).push(r);
+  }
+  const wins = []; let cur = null;
+  for (const f of [...byDate.keys()].sort().reverse()) {
+    if (!cur || cur.runs.length >= maxRuns) { cur = { desde: f, hasta: f, runs: [] }; wins.push(cur); }
+    cur.desde = f;
+    cur.runs.push(...byDate.get(f));
+  }
+  return wins;
+}
+const RPC_WINDOW_RUNS = 120;   // ~36k resultados por respuesta: holgado bajo el timeout de Supabase
+const RPC_CONCURRENCY = 4;
+
 // ── Carga estadísticas: primero lo reciente, luego el historial ─
 // Fase A: últimos 30 días → se muestran apenas llegan (lote a lote).
 // Fase B: historial anterior en segundo plano, con concurrencia limitada.
@@ -1765,37 +1813,55 @@ async function loadStatsInBackground(runs) {
 
   // Ejecuta los lotes con un máximo de STATS_CONCURRENCY en paralelo;
   // cada lote se procesa apenas llega (no espera a los demás)
-  async function runPool(batches, phaseLabel) {
+  // Trabajos: con la función RPC, una ventana de fechas por trabajo;
+  // sin ella (o si una ventana falla), lotes de STATS_BATCH runs como siempre
+  const useRpc = await rpcCompactAvailable();
+  function makeJobs(list) {
+    const batchJobs = l => toBatches(l).map(b => ({ batch: b, run: async () => (await fetchBatch(b)).batchResults }));
+    if (!useRpc) return batchJobs(list);
+    const dated = list.filter(r => (r.fecha || '').length >= 10);
+    return buildDateWindows(dated, RPC_WINDOW_RUNS).map(w => ({ batch: w.runs, run: async () => {
+      try { return await rpcCompact(w.desde, w.hasta); }
+      catch (e) {
+        console.warn('RPC falló en', w.desde, '→', w.hasta, '; carga por lotes', e.message);
+        const out = [];
+        for (const b of toBatches(w.runs)) out.push(...(await fetchBatch(b)).batchResults);
+        return out;
+      } } })).concat(batchJobs(list.filter(r => (r.fecha || '').length < 10)));
+  }
+
+  async function runPool(list, phaseLabel) {
+    const jobs = makeJobs(list);
     let next = 0;
     async function worker() {
-      while (next < batches.length) {
-        const batch = batches[next++];
-        let res = null;
-        for (let attempt = 0; attempt < 2 && !res; attempt++) {
-          try { res = await fetchBatch(batch); } catch (e) { console.warn('Lote falló, intento', attempt + 1, e); }
+      while (next < jobs.length) {
+        const job = jobs[next++];
+        let rows = null;
+        for (let attempt = 0; attempt < 2 && !rows; attempt++) {
+          try { rows = await job.run(); } catch (e) { console.warn('Lote falló, intento', attempt + 1, e); }
         }
         if (token !== statsLoadToken) return; // se pidió una recarga: abandonar
-        if (!res) { failedBatches++; continue; }
-        processBatch(res.batch, res.batchResults);
+        if (!rows) { failedBatches++; continue; }
+        processBatch(job.batch, rows);
         setBadge(phaseLabel);
         scheduleHist();
       }
     }
-    await Promise.all(Array.from({ length: Math.min(STATS_CONCURRENCY, batches.length) }, worker));
+    await Promise.all(Array.from({ length: Math.min(useRpc ? RPC_CONCURRENCY : STATS_CONCURRENCY, jobs.length) }, worker));
   }
 
   try {
     // Fase A: reciente
     if (recent.length) {
       setBadge('Cargando últimos 30 días');
-      await runPool(toBatches(recent), 'Cargando últimos 30 días');
+      await runPool(recent, 'Cargando últimos 30 días');
       if (token !== statsLoadToken) return;
       _refreshAllPreservingPages();
     }
     // Fase B: historial anterior
     if (older.length) {
       setBadge(recent.length ? 'Recientes listos · cargando historial' : 'Cargando historial');
-      await runPool(toBatches(older), recent.length ? 'Recientes listos · cargando historial' : 'Cargando historial');
+      await runPool(older, recent.length ? 'Recientes listos · cargando historial' : 'Cargando historial');
       if (token !== statsLoadToken) return;
       _refreshAllPreservingPages();
     }
