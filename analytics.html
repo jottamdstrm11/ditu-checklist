@@ -386,7 +386,7 @@ async function supaFetch(path) {
 //    La página se pinta al terminar el primer tramo y se repinta al cerrar cada uno;
 //    mientras falten runs del período visible se muestra un aviso de datos parciales.
 const LOAD_BATCH = 15;
-const LOAD_CONCURRENCY = 8;
+const LOAD_CONCURRENCY = 10;
 const loadedRunIds = new Set();
 let dataLoading = false;
 let loadFailedBatches = 0;
@@ -416,23 +416,37 @@ async function fetchResultsBatch(ids) {
 }
 
 function loadBannerHTML() {
-  const missing = runsMissingIn(filteredRuns());
-  if (!dataLoading && !loadFailedBatches) return '';
   if (!dataLoading && loadFailedBatches) return `<div class="load-progress lp-error">Algunos datos no se pudieron cargar (${loadFailedBatches} lote(s)). Los números pueden estar incompletos — recarga la página.</div>`;
-  return `<div class="load-progress${missing ? ' lp-partial' : ''}" id="loadProgress"><span class="lp-text"></span><div class="lp-track"><div class="lp-fill"></div></div></div>`;
+  return '';
+}
+
+// Pantalla de carga con progreso: se muestra en lugar de números parciales
+let pendingRender = false;
+function showLoadingScreen() {
+  pendingRender = true;
+  const total = filteredRuns().length;
+  const done = total - runsMissingIn(filteredRuns());
+  const pct = total ? Math.round(done / total * 100) : 0;
+  const mc = document.getElementById('mainContent');
+  let box = document.getElementById('loadScreen');
+  if (!box) {
+    mc.innerHTML = `<div class="loading-overlay" id="loadScreen">
+      <div class="spinner"></div>
+      <span class="ls-text"></span>
+      <div class="lp-track" style="width:260px;max-width:70%;margin:0"><div class="lp-fill"></div></div>
+    </div>`;
+    box = document.getElementById('loadScreen');
+  }
+  box.querySelector('.ls-text').textContent = `Cargando datos del período · ${done}/${total} runs (${pct}%)`;
+  box.querySelector('.lp-fill').style.width = pct + '%';
 }
 
 function runsMissingIn(runs) { return runs.filter(r => !loadedRunIds.has(r.id)).length; }
 
 function updateLoadProgress() {
-  const el = document.getElementById('loadProgress');
-  if (!el) return;
-  const total = allRuns.length, done = loadedRunIds.size;
-  const missing = runsMissingIn(filteredRuns());
-  el.querySelector('.lp-text').textContent = missing
-    ? `Datos parciales: faltan ${missing} runs de este período · cargando ${done}/${total}`
-    : `Cargando historial anterior en segundo plano · ${done}/${total} runs`;
-  el.querySelector('.lp-fill').style.width = (total ? done / total * 100 : 100).toFixed(1) + '%';
+  if (!pendingRender) return;
+  if (runsMissingIn(filteredRuns()) === 0) { pendingRender = false; renderPage(); }
+  else showLoadingScreen();
 }
 
 async function loadAll() {
@@ -467,7 +481,7 @@ async function loadAll() {
 
   dataLoading = true;
   loadFailedBatches = 0;
-  let firstPaint = true;
+  renderPage(); // pantalla de carga con progreso hasta completar el período visible
 
   for (const tier of tiers) {
     const batches = [];
@@ -488,21 +502,10 @@ async function loadAll() {
     };
     await Promise.all(Array.from({ length: Math.min(LOAD_CONCURRENCY, batches.length) }, worker));
 
-    // Repintar al cerrar el tramo (la primera vez, también al terminar el primero)
-    const isLast = tier === tiers[tiers.length - 1];
-    if (isLast) dataLoading = false;
-    if (firstPaint) {
-      firstPaint = false;
-      renderPage();
-      const rBtn = document.getElementById('reportBtn');
-      if (rBtn) rBtn.style.display = 'flex';
-    } else {
-      // Repintar solo si el tramo aportó runs al período que se está viendo
-      const visible = new Set(filteredRuns().map(r => r.id));
-      if (isLast || tier.some(r => visible.has(r.id))) renderPage();
-    }
+    if (tier === tiers[tiers.length - 1]) dataLoading = false;
   }
   dataLoading = false;
+  if (pendingRender || loadFailedBatches) renderPage();
 }
 
 // ── Dedup ──
@@ -588,6 +591,12 @@ function renderPage() {
   const lbl = periodLabel();
   const lblEl = document.getElementById('periodLabel');
   if (lblEl) lblEl.textContent = lbl;
+
+  // Mientras falten datos del período visible: pantalla de carga, nunca números parciales
+  if (dataLoading && runsMissingIn(runs) > 0) { showLoadingScreen(); return; }
+  pendingRender = false;
+  const rBtn0 = document.getElementById('reportBtn');
+  if (rBtn0) rBtn0.style.display = 'flex';
 
   if (!runs.length) {
     document.getElementById('mainContent').innerHTML =
