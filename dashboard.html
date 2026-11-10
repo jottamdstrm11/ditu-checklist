@@ -1547,6 +1547,19 @@ async function fetchRunDetails(runId) {
   return runDetailsCache[runId];
 }
 
+// Runs paginados: Supabase devuelve máx. 1.000 filas por consulta;
+// sin paginar, al superar 1.000 runs se perdería lo más antiguo del historial
+async function fetchAllRunsDash(clienteFilter) {
+  const PAGE = 1000; let out = [], offset = 0;
+  while (true) {
+    const page = await supaFetch(`/rest/v1/checklist_runs?select=*&order=created_at.desc,id${clienteFilter}&limit=${PAGE}&offset=${offset}`);
+    out = out.concat(page || []);
+    if (!page || page.length < PAGE) break;
+    offset += PAGE;
+  }
+  return out;
+}
+
 async function loadData() {
   const badge = document.getElementById('dataSourceBadge');
   badge.textContent = 'CARGANDO…';
@@ -1572,7 +1585,7 @@ async function loadData() {
     // Muestra el historial inmediatamente sin esperar las estadísticas
     const clienteFilter = currentClienteId ? `&cliente_id=eq.${currentClienteId}` : '';
     const [runs, devices] = await Promise.all([
-      supaFetch(`/rest/v1/checklist_runs?select=*&order=created_at.desc${clienteFilter}`),
+      fetchAllRunsDash(clienteFilter),
       supaFetch(`/rest/v1/checklist_devices?select=nombre&activo=eq.true&order=orden${clienteFilter}`)
     ]);
 

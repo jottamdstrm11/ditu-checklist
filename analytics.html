@@ -394,7 +394,7 @@ let loadFailedBatches = 0;
 async function fetchAllRuns(clienteFilter) {
   const PAGE = 1000; let out = [], offset = 0;
   while (true) {
-    const page = await supaFetch(`/rest/v1/checklist_runs?select=*&order=fecha.asc,hora_franja.asc${clienteFilter}&limit=${PAGE}&offset=${offset}`);
+    const page = await supaFetch(`/rest/v1/checklist_runs?select=*&order=fecha.asc,hora_franja.asc,id${clienteFilter}&limit=${PAGE}&offset=${offset}`);
     out = out.concat(page || []);
     if (!page || page.length < PAGE) break;
     offset += PAGE;
