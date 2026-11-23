@@ -1782,10 +1782,12 @@ function _refreshAllPreservingPages() {
 // ── Aviso de franjas sin checklist (superadmin · últimos 7 días) ──
 const FRANJAS_DIA = ['01:00','04:00','07:00','10:00','13:00','16:00','19:00','22:00'];
 const FRANJA_MARGEN_MIN = 120;   // una franja de hoy cuenta como faltante 2 h después de su hora
+// Clientes con turno completo de 8 franjas diarias (hoy solo Ditu). TV Azteca hace checklists puntuales: no aplica.
+const CLIENTES_CON_FRANJAS = ['82b4222f-ab06-4cab-a73d-b6041c56bb43'];
 function renderFranjasAlert() {
   const box = document.getElementById('franjasAlert');
   if (!box) return;
-  if (currentRol !== 'superadmin' || !Array.isArray(allRuns) || !allRuns.length) { box.style.display = 'none'; return; }
+  if (currentRol !== 'superadmin' || !CLIENTES_CON_FRANJAS.includes(currentClienteId) || !Array.isArray(allRuns) || !allRuns.length) { box.style.display = 'none'; return; }
   const p2 = n => String(n).padStart(2, '0');
   const ymd = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
   const now = new Date(), hoy = ymd(now), minsHoy = now.getHours() * 60 + now.getMinutes();
