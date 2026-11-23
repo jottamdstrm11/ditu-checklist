@@ -408,6 +408,12 @@ let currentRol='operador';
   if(currentRol==='viewer'){window.location.href='./dashboard.html';return;}
 })();
 async function _sbLogout(){await _sbc.auth.signOut();window.location.href='./login.html';}
+// Fecha que llega por ?fecha= (aviso del Dashboard): solo se aplica a admin/superadmin, una vez conocido el rol
+let _qFecha=null,_rolKnown=false;
+function _applyQueryFecha(){
+  if(!_qFecha||!_rolKnown||!(currentRol==='superadmin'||currentRol==='admin'))return;
+  selectedFecha=_qFecha;const fi=document.getElementById('inputFecha');if(fi)fi.value=_qFecha;
+}
 function applyNavRole(rol){
   const isAdmin=rol==='superadmin'||rol==='admin';
   const isOperadorOrAbove=isAdmin||rol==='operador';
@@ -425,6 +431,7 @@ function applyNavRole(rol){
   const navC=document.getElementById('navClientes');if(navC)navC.style.display=isSuperAdmin?'':'none';
   // Mostrar selector de fecha histórica solo a admin y superadmin
   const cardF=document.getElementById('cardFecha');if(cardF)cardF.style.display=isAdmin?'':'none';
+  _rolKnown=true;_applyQueryFecha();
   const b=document.getElementById('roleBadge');
   if(b){b.textContent=rol;b.className='nav-role-badge '+rol;b.style.display='';}
 }
@@ -583,6 +590,12 @@ function initFranjas(){
   if(mins<180)auto='01:00';else if(mins<360)auto='04:00';else if(mins<540)auto='07:00';
   else if(mins<720)auto='10:00';else if(mins<900)auto='13:00';else if(mins<1080)auto='16:00';
   else if(mins<1260)auto='19:00';else auto='22:00';
+  // Desde el aviso del Dashboard: ?fecha=AAAA-MM-DD&franja=HH:MM (fecha solo hasta hoy)
+  const _q=new URLSearchParams(location.search);
+  const _qf=_q.get('fecha'),_qh=_q.get('franja');
+  if(_qf&&/^\d{4}-\d{2}-\d{2}$/.test(_qf)&&_qf<=selectedFecha)_qFecha=_qf;
+  _applyQueryFecha();
+  if(_qh&&FRANJAS.includes(_qh))auto=_qh;
   selectedFranja=auto;
   document.getElementById('franjaGrid').innerHTML=FRANJAS.map(f=>
     `<div class="franja-btn${f===auto?' active':''}" onclick="selectFranja('${f}')">${f}</div>`

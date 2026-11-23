@@ -955,6 +955,15 @@
   .user-chip{font-size:11px;color:#7c82a0}
   .logout-btn{background:none;border:1px solid rgba(180,140,255,0.2);color:#7c82a0;border-radius:7px;padding:4px 10px;font-size:11px;cursor:pointer;transition:.15s}
   .logout-btn:hover{color:#f87171;border-color:#f87171}
+  .franjas-alert{border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;border:1px solid}
+  .franjas-alert.warn{background:#2B2416;border-color:#E3B159;color:#F3D9A4}
+  .franjas-alert.ok{background:#14261C;border-color:#2F6B45;color:#8EE0AE}
+  .franjas-alert .fa-head{display:flex;align-items:center;gap:8px;font-weight:700}
+  .franjas-alert .fa-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .franjas-alert .fa-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:7px;background:rgba(0,0,0,.25);border:1px solid rgba(227,177,89,.35);color:#F3D9A4;font-size:12px;text-decoration:none;font-variant-numeric:tabular-nums}
+  .franjas-alert a.fa-chip:hover{border-color:#E3B159;background:rgba(227,177,89,.12)}
+  .franjas-alert .fa-chip.dup{border-color:rgba(160,170,220,.35);color:#C9CEEA}
+  .franjas-alert .fa-note{font-size:11px;opacity:.75;margin-top:8px}
   .nav-role-badge{font-size:10px;padding:3px 9px;border-radius:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;display:none}
   .nav-role-badge.superadmin{background:#4f46e5;color:#fff}
   .nav-role-badge.admin{background:#1e2035;color:#c3a0ff;border:1px solid #6366f1}
@@ -1065,6 +1074,9 @@
     <span style="font-size:18px;flex:none">⚠️</span>
     <span>Sin conexión a Supabase — los datos que ves son de <strong>ejemplo</strong> y no son reales. Recarga la página para reintentar.</span>
   </div>
+
+  <!-- Aviso de franjas sin checklist (solo superadmin, últimos 7 días) -->
+  <div id="franjasAlert" class="franjas-alert" style="display:none"></div>
 
   <!-- Historial de Checklists -->
   <p class="section-label">Historial de checklists</p>
@@ -1485,6 +1497,7 @@ function applyNavRole(rol){
   const navC=document.getElementById('navClientes');if(navC)navC.style.display=isSuperAdmin?'':'none';
   const b=document.getElementById('roleBadge');
   if(b){b.textContent=rol;b.className='nav-role-badge '+rol;b.style.display='';}
+  if(typeof renderFranjasAlert==='function')renderFranjasAlert();
 }
 (async()=>{
   const{data:{session}}=await _sbc.auth.getSession();
@@ -1617,6 +1630,7 @@ async function loadData() {
 
     histPage = 1;
     renderHistorial();
+    renderFranjasAlert();
     // Guardar filtros activos antes de repoblar los selects
     const savedOperador = document.getElementById('f-operador')?.value || '';
     const savedTipo = document.getElementById('f-tipo')?.value || '';
@@ -1662,6 +1676,7 @@ async function loadData() {
 
     histPage = 1;
     renderHistorial();
+    renderFranjasAlert();
     // Guardar filtros activos antes de repoblar los selects
     const savedOperador2 = document.getElementById('f-operador')?.value || '';
     const savedTipo2 = document.getElementById('f-tipo')?.value || '';
@@ -1762,6 +1777,57 @@ function _refreshAllPreservingPages() {
   page = keepPage; histPage = keepHist;
   renderTable();
   renderHistorial();
+}
+
+// ── Aviso de franjas sin checklist (superadmin · últimos 7 días) ──
+const FRANJAS_DIA = ['01:00','04:00','07:00','10:00','13:00','16:00','19:00','22:00'];
+const FRANJA_MARGEN_MIN = 120;   // una franja de hoy cuenta como faltante 2 h después de su hora
+function renderFranjasAlert() {
+  const box = document.getElementById('franjasAlert');
+  if (!box) return;
+  if (currentRol !== 'superadmin' || !Array.isArray(allRuns) || !allRuns.length) { box.style.display = 'none'; return; }
+  const p2 = n => String(n).padStart(2, '0');
+  const ymd = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+  const now = new Date(), hoy = ymd(now), minsHoy = now.getHours() * 60 + now.getMinutes();
+  const dias = [];
+  for (let i = 6; i >= 0; i--) { const d = new Date(now); d.setDate(d.getDate() - i); dias.push(ymd(d)); }
+  const desde = dias[0];
+  const porDia = {};
+  allRuns.forEach(r => {
+    const f = String(r.fecha || '').slice(0, 10);
+    if (f < desde || f > hoy) return;
+    (porDia[f] = porDia[f] || []).push(r);
+  });
+  const faltan = [], dups = [];
+  dias.forEach(d => {
+    const runs = porDia[d] || [];
+    FRANJAS_DIA.forEach(h => {
+      if (d === hoy) { const [hh, mm] = h.split(':').map(Number); if (minsHoy < hh * 60 + mm + FRANJA_MARGEN_MIN) return; }
+      const enFranja = runs.filter(r => r.hora_franja === h);
+      if (!enFranja.length) faltan.push({ d, h });
+      const porTipo = {};
+      enFranja.forEach(r => { porTipo[r.tipo] = (porTipo[r.tipo] || 0) + 1; });
+      Object.entries(porTipo).forEach(([t, n]) => { if (n > 1) dups.push({ d, h, t, n }); });
+    });
+  });
+  const fmt = d => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+  const turno = h => (h === '01:00' || h === '04:00') ? 'madrugada' : (h <= '13:00' ? 'mañana' : 'tarde');
+  if (!faltan.length && !dups.length) {
+    box.className = 'franjas-alert ok';
+    box.innerHTML = '<div class="fa-head">✓ Todas las franjas tienen checklist en los últimos 7 días</div>';
+    box.style.display = '';
+    return;
+  }
+  const chips = faltan.slice().reverse().map(x =>
+    `<a class="fa-chip" href="./checklist.html?fecha=${x.d}&franja=${encodeURIComponent(x.h)}" title="Registrar el checklist de esta franja">${fmt(x.d)} · ${x.h} <span style="opacity:.7">(${turno(x.h)})</span></a>`).join('');
+  const dupChips = dups.slice().reverse().map(x =>
+    `<span class="fa-chip dup" title="Hay ${x.n} checklists de ${x.t} en la misma franja">${fmt(x.d)} · ${x.h} · ${x.n}× ${x.t}</span>`).join('');
+  box.className = 'franjas-alert warn';
+  box.innerHTML =
+    (faltan.length ? `<div class="fa-head">⚠️ ${faltan.length} franja${faltan.length > 1 ? 's' : ''} sin checklist en los últimos 7 días</div><div class="fa-list">${chips}</div>` : '') +
+    (dups.length ? `<div class="fa-head" style="margin-top:${faltan.length ? 12 : 0}px">⧉ ${dups.length} franja${dups.length > 1 ? 's' : ''} con checklist repetido</div><div class="fa-list">${dupChips}</div>` : '') +
+    (faltan.length ? '<div class="fa-note">Toca una franja para registrarla con esa fecha y hora. Solo visible para superadmin.</div>' : '<div class="fa-note">Solo visible para superadmin.</div>');
+  box.style.display = '';
 }
 
 async function loadStatsInBackground(runs) {
