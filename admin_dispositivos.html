@@ -19,6 +19,7 @@ td{padding:10px 16px;border-bottom:1px solid #1e2235;vertical-align:middle}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:#1e2235}
 input[type=text]{background:#0f1117;border:1px solid #2e3350;border-radius:7px;color:#e8eaf0;padding:7px 10px;font-size:13px;width:100%;font-family:inherit;transition:border .15s}
+input[type=text].ver-bad{border-color:#e05a5a;background:#2a1517}
 input[type=text]:focus{outline:none;border-color:var(--cliente-color)}
 .toggle{position:relative;display:inline-flex;align-items:center;cursor:pointer;gap:8px;font-size:13px;color:#7c82a0}
 .toggle input{opacity:0;width:0;height:0;position:absolute}
@@ -198,7 +199,7 @@ function render(){
     tb.innerHTML=devices.map((d,i)=>d.activo?`
       <tr>
         <td style="font-weight:600;color:#e8eaf0">${esc(d.nombre)}</td>
-        <td><input type="text" value="${esc(d.version??'')}" placeholder="Versión (ej: Android 15)" oninput="devices[${i}].version=this.value" style="max-width:260px"></td>
+        <td><input type="text" class="${versionProblem(d.version)?'ver-bad':''}" title="${versionProblem(d.version)?'⚠ '+versionProblem(d.version):''}" value="${esc(d.version??'')}" placeholder="Versión (ej: 2.7.0)" oninput="onVersionInput(${i},this)" style="max-width:260px"></td>
       </tr>
     `:'').join('');
     document.getElementById('mainCard').style.opacity='1';
@@ -207,9 +208,9 @@ function render(){
   }
   tb.innerHTML=devices.map((d,i)=>`
     <tr data-idx="${i}">
-      <td style="color:#7c82a0;font-size:12px;font-weight:600">${d.orden??i+1}</td>
+      <td style="color:#7c82a0;font-size:12px;font-weight:600">${i+1}</td>
       <td><input type="text" value="${esc(d.nombre)}" placeholder="Nombre" oninput="devices[${i}].nombre=this.value"></td>
-      <td><input type="text" value="${esc(d.version??'')}" placeholder="Versión" oninput="devices[${i}].version=this.value"></td>
+      <td><input type="text" class="${versionProblem(d.version)?'ver-bad':''}" title="${versionProblem(d.version)?'⚠ '+versionProblem(d.version):''}" value="${esc(d.version??'')}" placeholder="Versión (ej: 2.7.0)" oninput="onVersionInput(${i},this)"></td>
       <td>
         <label class="toggle">
           <input type="checkbox" ${d.activo?'checked':''} onchange="devices[${i}].activo=this.checked">
@@ -229,6 +230,25 @@ function render(){
 }
 
 function esc(s){return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+
+// ── Validación de versiones: evita errores como "2..7.0", "2.9.0(5d502c8" o espacios al inicio ──
+function versionProblem(v){
+  v=String(v||'');
+  if(!v.trim())return '';
+  if(v!==v.trim())return 'Tiene espacios al inicio o al final';
+  if(/\.\./.test(v))return 'Tiene dos puntos seguidos (..)';
+  if(/^\.|\.$/.test(v.replace(/\s*\(.*\)\s*$/,'')))return 'Empieza o termina con punto';
+  const ab=(v.match(/\(/g)||[]).length, ce=(v.match(/\)/g)||[]).length;
+  if(ab!==ce)return 'Paréntesis sin cerrar';
+  if(!/\d/.test(v))return 'No contiene ningún número de versión';
+  return '';
+}
+function onVersionInput(i,el){
+  devices[i].version=el.value;
+  const p=versionProblem(el.value);
+  el.classList.toggle('ver-bad',!!p);
+  el.title=p?('⚠ '+p):'';
+}
 
 function moveUp(i){
   if(i===0)return;
@@ -251,6 +271,10 @@ function addRow(){
 
 async function saveAll(){
   const btn=document.getElementById('saveBtn');
+  const malas=devices.filter(d=>(isOperadorMode?d.activo:d.nombre&&d.nombre.trim())&&versionProblem(d.version))
+    .map(d=>`${d.nombre}: "${d.version}" (${versionProblem(d.version)})`);
+  if(malas.length){render();showToast('❌ Revisa la versión antes de guardar — '+malas.join(' · '),true);return;}
+  if(!isOperadorMode)reorder();   // el orden queda 1, 2, 3… sin huecos
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Guardando...';
   try{
     if(isOperadorMode){
@@ -291,7 +315,7 @@ function showToast(msg,isError=false){
   const t=document.getElementById('toast');
   t.textContent=msg;
   t.className='toast'+(isError?' error':'')+' show';
-  setTimeout(()=>t.classList.remove('show'),3000);
+  setTimeout(()=>t.classList.remove('show'),isError?8000:3000);
 }
 </script>
 </body>
